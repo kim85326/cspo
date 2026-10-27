@@ -56,7 +56,7 @@ export function createMonthlyCandleSource(
       body = await response.json();
     } catch (error) {
       if (error instanceof PriceLoadError) throw error;
-      throw new PriceLoadError("K 線載入失敗", { cause: error });
+      throw new PriceLoadError(`${config.sourceName}載入失敗`, { cause: error });
     }
     const candles = config.parse(body);
     cache.set(key, { candles, fetchedAt: now() });

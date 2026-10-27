@@ -37,6 +37,22 @@ export const pnlColors: Record<PnlDirection, string> = {
   flat: colors.mutedForeground,
 };
 
+/**
+ * 走勢圖（Story 016）專用色。
+ * 均線避開紅、綠、金（成本）、深藍（買入點），另用實線／虛線區分，不靠顏色單獨傳達。
+ * 賺賠區直接用 pnlColors 加低透明度（zoneOpacity），不另訂色碼。
+ */
+export const chartColors = {
+  /** 收盤價折線 */
+  line: colors.primary,
+  ma5: "#7C3AED",
+  ma20: "#0E7490",
+  buy: colors.secondary,
+  cost: colors.accent,
+  crosshair: colors.mutedForeground,
+  zoneOpacity: 0.07,
+};
+
 /** 間距：4/8 節奏（MASTER.md density 5/10） */
 export const space = {
   xs: 4,

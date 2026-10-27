@@ -4,7 +4,8 @@ import { PriceLoadError } from "./PriceSource";
 
 /**
  * 依序試，第一個成功的就用（FinMind 為主、官方為備援）。
- * 只吞 PriceLoadError（那個來源拿不到）；其他錯誤是程式錯，照樣往外丟。全部失敗才丟 PriceLoadError。
+ * 只吞 PriceLoadError（那個來源拿不到）；其他錯誤是程式錯，照樣往外丟。全部失敗才丟 PriceLoadError，
+ * 訊息列出每個來源失敗的原因（畫面的「技術細節」會顯示，方便同學回報時知道是哪一段壞了）。
  * 注意：回空陣列算成功（這檔真的沒資料），不會再問下一個。
  */
 async function firstAvailable<T>(attempts: (() => Promise<T>)[]): Promise<T> {
@@ -17,7 +18,15 @@ async function firstAvailable<T>(attempts: (() => Promise<T>)[]): Promise<T> {
       failures.push(error);
     }
   }
-  throw new PriceLoadError("歷史資料載入失敗", { cause: failures[0] });
+  throw new PriceLoadError(`歷史資料載入失敗（${failures.map(reasonOf).join("；")}）`, {
+    cause: failures[0],
+  });
+}
+
+/** 「FinMind 回應 HTTP 402：…」或「FinMind 載入失敗：Network request failed」 */
+function reasonOf(error: PriceLoadError): string {
+  const cause = error.cause instanceof Error ? error.cause.message : null;
+  return cause && !error.message.includes(cause) ? `${error.message}：${cause}` : error.message;
 }
 
 export function createFallbackCandleSource(sources: readonly CandleSource[]): CandleSource {
