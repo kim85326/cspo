@@ -182,6 +182,7 @@
         <p class="meta" id="build-meta"></p>
         <div class="qr" id="qr" aria-label="下載連結 QR code"></div>
         <p class="meta">手機掃這個 QR code 也可以直接下載</p>
+        <p class="meta"><a href="https://github.com/kim85326/cspo/releases">所有版本</a></p>
       </section>
 
       <section class="card">
@@ -227,8 +228,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
       // 換新版 APK 時只改這兩行，然後 commit。
-      var APK_URL = "https://expo.dev/artifacts/eas/qZch4JIcbD3pzOMCOFpkzdI9rUqM9b78lYz3n5I4ZZg.apk";
-      var BUILD_INFO = "版本 1.0.0 ・ 2026/10/27 打包 ・ 含多檔比較（新版打包中，含證交所行情與記住持股）";
+      // 檔案放在 GitHub Releases：https://github.com/kim85326/cspo/releases
+      var APK_URL = "https://github.com/kim85326/cspo/releases/download/v1.0.0-build1/zhuanlema-1.0.0-build1.apk";
+      var BUILD_INFO = "版本 1.0.0 build 1 ・ 2026/10/27 ・ 約 88 MB ・ 含多檔比較";
 
       document.getElementById("download").href = APK_URL;
       document.getElementById("build-meta").textContent = BUILD_INFO;
