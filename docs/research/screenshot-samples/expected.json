@@ -1,0 +1,48 @@
+{
+  "_說明": "每張模擬截圖「理想上」/recognize 應回的內容（ExtractionResult 的 holdings），以及套進表單後的預期。全部是合成資料，帳號、姓名皆為虛構。",
+  "01-lots-cost.png": {
+    "考點": "張 vs 股（表頭寫「庫存(張)」）、欄名「成本價」、帳戶總覽列不能當持股",
+    "holdings": [
+      { "symbol": "2330", "name": "台積電", "buyPrice": 512.5, "quantity": 2, "quantityUnit": "lots", "confidence": "high" },
+      { "symbol": "2317", "name": "鴻海", "buyPrice": 186.2, "quantity": 3, "quantityUnit": "lots", "confidence": "high" },
+      { "symbol": "0050", "name": "元大台灣50", "buyPrice": 171.35, "quantity": 1, "quantityUnit": "lots", "confidence": "high" }
+    ],
+    "表單預期": "台積電 512.5 × 2000、鴻海 186.2 × 3000、元大台灣50 171.35 × 1000"
+  },
+  "02-shares-avg.png": {
+    "考點": "欄名「股數」「均價」、卡片版面（不是表格）、零股 150 股、合計列與總成本不能當持股",
+    "holdings": [
+      { "symbol": "2454", "name": "聯發科", "buyPrice": 1180.4, "quantity": 150, "quantityUnit": "shares", "confidence": "high" },
+      { "symbol": "00878", "name": "國泰永續高股息", "buyPrice": 22.7, "quantity": 5000, "quantityUnit": "shares", "confidence": "high" },
+      { "symbol": "0050", "name": "元大台灣50", "buyPrice": 171.4, "quantity": 2000, "quantityUnit": "shares", "confidence": "high" }
+    ],
+    "表單預期": "三檔照填，沒有提示"
+  },
+  "03-mixed-en-six.png": {
+    "考點": "中英混排（TSMC 台積電、Qty、Avg Cost）、代號帶 .TW、同一檔出現兩次（一般 + 零股）、去重後 6 檔超過 5 檔上限、深色主題",
+    "holdings": [
+      { "symbol": "2330", "name": "TSMC 台積電", "buyPrice": 500, "quantity": 1000, "quantityUnit": "shares", "confidence": "high" },
+      { "symbol": "2330", "name": "台積電", "buyPrice": 620, "quantity": 200, "quantityUnit": "shares", "confidence": "high" },
+      { "symbol": "2317", "name": "Hon Hai 鴻海", "buyPrice": 165.5, "quantity": 2000, "quantityUnit": "shares", "confidence": "high" },
+      { "symbol": "2454", "name": "MediaTek 聯發科", "buyPrice": 1250, "quantity": 50, "quantityUnit": "shares", "confidence": "high" },
+      { "symbol": "0050", "name": "元大台灣50", "buyPrice": 168, "quantity": 3000, "quantityUnit": "shares", "confidence": "high" },
+      { "symbol": "00878", "name": "Cathay ESG 國泰永續高股息", "buyPrice": 21.3, "quantity": 10000, "quantityUnit": "shares", "confidence": "high" },
+      { "symbol": "2884", "name": "玉山金", "buyPrice": 28.15, "quantity": 4000, "quantityUnit": "shares", "confidence": "high" }
+    ],
+    "表單預期": "台積電合併成 1200 股、均價 520（(500×1000+620×200)/1200）並提示已合併；去重後 6 檔，只匯入前 5 檔（玉山金被捨棄）並提示「截圖有 6 檔，只匯入前 5 檔」"
+  },
+  "04-cropped-unknown.png": {
+    "考點": "成本價被模糊（要回 null + low）、清單裡沒有的股票（9999 不存在公司）、最後一列被裁掉一半（聯發科）、欄名「買進均價」「持有股數」",
+    "holdings": [
+      { "symbol": "2330", "name": "台積電", "buyPrice": null, "quantity": 1000, "quantityUnit": "shares", "confidence": "low" },
+      { "symbol": "9999", "name": "不存在公司", "buyPrice": 35.6, "quantity": 1000, "quantityUnit": "shares", "confidence": "high" },
+      { "symbol": "2317", "name": "鴻海", "buyPrice": 200, "quantity": 1000, "quantityUnit": "shares", "confidence": "high" }
+    ],
+    "可接受的變化": "被裁掉的聯發科列可以省略，或以全部 null / low 回傳；warnings 應提到台積電成本價看不清楚、最後一列被裁掉",
+    "表單預期": "台積電買入價空白並標「請確認」；不存在公司的股票欄顯示原文並標「請確認」"
+  },
+  "01-lots-cost.q60.jpg": {
+    "考點": "重現 Android／iOS 實機上傳的樣子：expo-image-picker 在 quality 0.6 時 base64 一律是 JPEG，但 mimeType 仍回原檔的 image/png。用 recognize-samples.mjs --mislabel 送出。",
+    "預期": "若 Claude API 拒收 media type 不符的圖片，會回 400，server 轉成 HTTP 502，手機顯示「辨識服務錯誤（400）：400 {…英文 JSON…}」；這正是報告第 1 節的 bug，需要實測確認"
+  }
+}
