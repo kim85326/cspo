@@ -150,7 +150,7 @@ cspo/
   - ~~上櫃股票與個股／ETF 標籤~~（Story 007 已完成：櫃買中心 `tpex_mainboard_quotes`，欄位 `Date`、`SecuritiesCompanyCode`、`CompanyName`、`Close`（無成交是 `----`），約 1,000 列；代號 00 開頭 = ETF）
   - ~~多檔一起比~~（Story 003 已完成：最多 5 檔、依報酬率排名、合計）
   - ~~持股存手機~~（Story 004 已完成：AsyncStorage，存幾檔帶回幾檔，一鍵清除）
-  - ~~新儲存層與舊資料搬移~~（Story 008 已完成：記帳本存 `cspo.ledger.v1`，舊版持股第一次開 App 自動轉成買入交易；首頁經過渡轉接照常使用。買入日期處理待 PO 確認，見 story 決策 1）
+  - ~~新儲存層與舊資料搬移~~（Story 008 已完成：記帳本存 `cspo.ledger.v1`，舊版持股第一次開 App 自動轉成買入交易；首頁經過渡轉接照常使用。舊資料有買入日期就用那天，沒有才用搬移當天，PO 已確認）
   - ~~從券商截圖匯入持股~~（Story 005：expo-image-picker + Expo Router API route `/recognize` + Claude vision；API key 放 `.env`，見 architecture.md 第 7 節）
   - ~~K 線圖與買入點~~（Story 016：證交所 STOCK_DAY 日 K，近 3～6 個月；`react-native-svg` 自繪；選填「買入日期」標 ▲；網頁版走 `/twse-day` 代理）
   - 免責聲明（Story 013：首次開啟要按同意，設定頁常駐；首頁右上新增「設定」入口）
