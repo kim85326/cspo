@@ -1,0 +1,54 @@
+{
+  "msg": "success",
+  "status": 200,
+  "data": [
+    {
+      "date": "2026-09-29",
+      "stock_id": "2330",
+      "Trading_Volume": 26893348,
+      "Trading_money": 66658833984,
+      "open": 2475.0,
+      "max": 2495.0,
+      "min": 2475.0,
+      "close": 2475.0,
+      "spread": 0.0,
+      "Trading_turnover": 62248
+    },
+    {
+      "date": "2026-09-30",
+      "stock_id": "2330",
+      "Trading_Volume": 34282491,
+      "Trading_money": 85388527300,
+      "open": 2495.0,
+      "max": 2510.0,
+      "min": 2480.0,
+      "close": 2480.0,
+      "spread": 5.0,
+      "Trading_turnover": 83797
+    },
+    {
+      "date": "2026-10-01",
+      "stock_id": "2330",
+      "Trading_Volume": 20666092,
+      "Trading_money": 51702445610,
+      "open": 2490.0,
+      "max": 2510.0,
+      "min": 2485.0,
+      "close": 2510.0,
+      "spread": 30.0,
+      "Trading_turnover": 57634
+    },
+    {
+      "date": "2026-10-02",
+      "stock_id": "2330",
+      "Trading_Volume": 15792206,
+      "Trading_money": 39508159297,
+      "open": 2505.0,
+      "max": 2515.0,
+      "min": 2495.0,
+      "close": 2500.0,
+      "spread": -10.0,
+      "Trading_turnover": 65783
+    }
+  ]
+}

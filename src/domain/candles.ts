@@ -25,6 +25,15 @@ export function chartMonths(todayIso: string, buyDate?: string): string[] {
   return months;
 }
 
+/** from 到 to（ISO 日期，含頭尾）跨過的月份（"2026-08"，由舊到新）。from 晚於 to 回空陣列 */
+export function monthsBetween(fromIso: string, toIso: string): string[] {
+  const months: string[] = [];
+  for (let i = monthIndex(fromIso); i <= monthIndex(toIso); i++) {
+    months.push(`${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`);
+  }
+  return months;
+}
+
 export type BuyDateLocation =
   /** 買入日（或它之後的第一個交易日，例如週末買不到就落在週一）在圖上第 index 根 */
   | { kind: "in"; index: number }

@@ -34,3 +34,21 @@ export function twseDayRequestUrl(symbol: string, month: string): string {
   const base = Platform.OS === "web" ? TWSE_DAY_WEB_PROXY_PATH : TWSE_STOCK_DAY_URL;
   return `${base}?${query}`;
 }
+
+/**
+ * 證交所「除權除息計算結果表」TWT49U：日期區間內全市場的除權息（含前收、參考價、權值+息值）。
+ * 一年約 1,500 筆、260 KB。沒有發放日；現金與配股合在「權值+息值」，要拆開得查 TWT49UDetail。
+ * 這兩支（www.twse.com.tw/rwd/...）實測有 Access-Control-Allow-Origin: *，網頁版直接打，不另做代理。
+ */
+export const TWSE_EX_RIGHT_URL = "https://www.twse.com.tw/rwd/zh/exRight/TWT49U";
+export const TWSE_EX_RIGHT_DETAIL_URL = "https://www.twse.com.tw/rwd/zh/exRight/TWT49UDetail";
+
+/** start、end 是 ISO 日期 */
+export function twseExRightRequestUrl(start: string, end: string): string {
+  return `${TWSE_EX_RIGHT_URL}?startDate=${start.replace(/-/g, "")}&endDate=${end.replace(/-/g, "")}&response=json`;
+}
+
+/** 某檔某次除權息的明細（現金每股幾元、每千股配幾股）；exDate 是 ISO */
+export function twseExRightDetailRequestUrl(symbol: string, exDate: string): string {
+  return `${TWSE_EX_RIGHT_DETAIL_URL}?STK_NO=${encodeURIComponent(symbol)}&T1=${exDate.replace(/-/g, "")}&response=json`;
+}

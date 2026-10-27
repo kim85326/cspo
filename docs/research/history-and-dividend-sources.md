@@ -171,6 +171,8 @@ GET https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=23
 
 ## 3. 建議組合，以及怎麼接進 `src/data`
 
+> **已實作：** 見 [Story 019](../stories/019-history-and-dividend-sources.md)。實作時改成沿用 Story 016 的 `CandleSource`（FinMind 本來就有開高低收），沒有另開 `HistorySource`；其餘大致照本節。
+
 ### 3.1 現況
 
 `src/data/index.ts` 把 `twseSource`（`STOCK_DAY_ALL`）和 `tpexSource`（`tpex_mainboard_quotes`）用 `createMarketSource` 合成一個 `PriceSource & StockDirectory`。兩個都是 `createDailyQuoteSource`：一次拿全市場「最近一天」收盤價，5 分鐘記憶體快取，失敗丟 `PriceLoadError`。網址由 `twseEndpoint.ts`／`tpexEndpoint.ts` 依 `Platform.OS` 決定（網頁走 `/twse`、`/tpex` 同源代理）。

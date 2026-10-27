@@ -1,4 +1,4 @@
-import { candleDirection, chartMonths, layoutCandleChart, locateBuyDate } from "./candles";
+import { candleDirection, chartMonths, layoutCandleChart, locateBuyDate, monthsBetween } from "./candles";
 import type { Candle } from "./types";
 
 function candle(date: string, open: number, high: number, low: number, close: number): Candle {
@@ -142,5 +142,16 @@ describe("layoutCandleChart", () => {
     const layout = layoutCandleChart([CANDLES[0]], options);
     expect(layout.shapes).toHaveLength(1);
     expect(layout.dateLabels).toHaveLength(1);
+  });
+});
+
+describe("monthsBetween", () => {
+  test("跨年、含頭尾", () => {
+    expect(monthsBetween("2025-11-15", "2026-02-01")).toEqual(["2025-11", "2025-12", "2026-01", "2026-02"]);
+  });
+
+  test("同一個月；from 晚於 to 回空陣列", () => {
+    expect(monthsBetween("2026-10-01", "2026-10-27")).toEqual(["2026-10"]);
+    expect(monthsBetween("2026-11-01", "2026-10-27")).toEqual([]);
   });
 });

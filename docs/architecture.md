@@ -168,7 +168,7 @@ appId: host.exp.Exponent
 - assertVisible: "+20,000"
 ```
 
-自動化跑的是 `fakePriceSource`（固定現價），所以結果可重現：`src/data/index.ts` 看到 Jest 的 `JEST_WORKER_ID` 就自動用假來源。真實行情（證交所）只有在手機或網頁上跑 app 時才接。
+自動化跑的是 `fakePriceSource`（固定現價），所以結果可重現：`src/data/index.ts` 看到 Jest 的 `JEST_WORKER_ID` 就自動用假來源。真實行情（證交所）只有在手機或網頁上跑 app 時才接。歷史日 K 與除權息（`candleSource`、`corporateActionSource`，Story 019）也一樣：Jest 裡是 `fakeCandleSource`、`fakeCorporateActionSource`，不打網路。
 
 手動測試同學專注在自動化不好做的事：不同手機尺寸、輸入法、斷網、中文顯示、操作順不順手。
 
