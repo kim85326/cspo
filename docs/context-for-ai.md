@@ -80,7 +80,7 @@ cspo/
 │   │   ├── portfolio.ts    summarize（整體、核心、衛星三組加總）、bucketOf、defaultBucket
 │   │   ├── holdings.ts     buildHoldingViews、activeHoldings／closedHoldings、sortHoldings、symbolHistory、unrealizedRate、顯示格式（Story 010）
 │   │   ├── xirr.ts         xirr（牛頓法，不收斂改二分法）、positionCashFlows、positionAnnualizedReturn、portfolioAnnualizedReturns（P2-04，Story 025）
-│   │   ├── overview.ts     buildOverview（記帳本 + 現價 → 每檔持股與三組加總、持有中依市值排序）、ledgerSymbols、oldestPriceDate（Story 011）
+│   │   ├── overview.ts     buildOverview（記帳本 + 現價 → 用 holdings.ts 的 buildHoldingViews 算每檔、三組加總、持有中依市值排序）、oldestPriceDate（Story 011）
 │   │   ├── allocation.ts   computeAllocation（核心／衛星、個股／ETF、每檔市值占比）、toDisplayPercents（P2-07 配置圖，Story 025）
 │   │   ├── migrateSavedHoldings.ts 舊版持股 → 買入交易（migrateSavedHoldings）、emptyLedger、快速試算初始值用的 savedHoldingsFromLedger；replaceSavedHoldings 已沒有人用，快速試算拿掉時一起刪（Story 008、011）
 │   │   ├── ledgerValidation.ts validateLedgerChange（新增／修改／刪除後重播，賣超就拒絕並說是哪一筆）、validateLedger、欄位檢查
@@ -172,7 +172,7 @@ cspo/
   - 免責聲明（Story 013：首次開啟要按同意，設定頁常駐；首頁右上新增「設定」入口）
   - Free／Pro 鎖定畫面（Story 020：只做畫面，不串金流；`features.proPlan` 預設關閉；Demo 開關在設定頁底部）
   - 手續費 0.1425%（最低 20 元）與交易稅 0.3%
-  - 持股明細、單一持股頁、核心／衛星切換（Story 010：`/holdings`、`/holdings/[symbol]`；首頁入口等 T6。未實現 % 的分母待 PO 確認，見 story 決策 2）
+  - 持股明細、單一持股頁、核心／衛星切換（Story 010：`/holdings`、`/holdings/[symbol]`；首頁的持股列與「看全部持股」也連到這裡。未實現 % 的分母待 PO 確認，見 story 決策 2）
   - 年化報酬率（XIRR）與資產配置的計算（Story 025，`src/domain/xirr.ts`、`allocation.ts`）已完成，畫面（首頁年化報酬率、配置圓餅圖）還沒接
   - 年化報酬率（XIRR）與資產配置的計算（Story 025，`src/domain/xirr.ts`、`allocation.ts`）已完成，畫面（首頁年化報酬率、配置圓餅圖）還沒接；首頁已留位置
   - 首頁總覽（Story 011）：首頁改成整體／核心／衛星總覽，沒有交易時引導「新增第一筆交易」；舊的試算畫面搬到 `/calculate`（「快速試算」），不再寫進記帳本。要不要拿掉快速試算、要不要改分頁導覽，待 PO 決定

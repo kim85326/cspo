@@ -1,7 +1,8 @@
 import { DEFAULT_USER_SETTINGS } from "./fees";
 import { makeDividend, makeTx, spec37, spec37Ledger } from "./ledgerTestData";
 import type { Ledger } from "./ledgerTypes";
-import { buildOverview, ledgerSymbols, oldestPriceDate } from "./overview";
+import type { QuoteLookup } from "./holdings";
+import { buildOverview, oldestPriceDate } from "./overview";
 import type { GroupSummary } from "./portfolio";
 
 const TODAY = "2026-10-27";
@@ -32,6 +33,11 @@ function mixedLedger(): Ledger {
 
 const PRICES = { "2330": spec37.price, "0050": 190 };
 
+/** 代號 → 價格；名稱用代號 */
+function quotes(prices: Record<string, number>): QuoteLookup {
+  return (symbol) => (prices[symbol] === undefined ? undefined : { price: prices[symbol], name: symbol });
+}
+
 const MONEY_FIELDS = ["invested", "marketValue", "realizedPnl", "unrealizedPnl", "cashDividends"] as const;
 
 function expectCoreAndSatelliteAddUp(core: GroupSummary, satellite: GroupSummary, overall: GroupSummary) {
@@ -44,7 +50,7 @@ function expectCoreAndSatelliteAddUp(core: GroupSummary, satellite: GroupSummary
 
 describe("buildOverview（M-05）", () => {
   test("3.7 範例：整體數字和規格一致", () => {
-    const { summary } = buildOverview(spec37Ledger(), PRICES, TODAY);
+    const { summary } = buildOverview(spec37Ledger(), quotes(PRICES), TODAY);
     expect(summary.overall.marketValue).toBe(930_000);
     expect(summary.overall.realizedPnl).toBeCloseTo(48_170.25, 2);
     expect(summary.overall.unrealizedPnl).toBeCloseTo(99_709.75, 2);
@@ -54,16 +60,16 @@ describe("buildOverview（M-05）", () => {
   });
 
   test("核心 + 衛星的各項金額加總等於整體", () => {
-    const { summary } = buildOverview(mixedLedger(), PRICES, TODAY);
+    const { summary } = buildOverview(mixedLedger(), quotes(PRICES), TODAY);
     expect(summary.core.holdingCount).toBe(1);
     expect(summary.satellite.holdingCount).toBe(1);
     expectCoreAndSatelliteAddUp(summary.core, summary.satellite, summary.overall);
   });
 
   test("把 2330 改成核心：2330 的數字從衛星移到核心，加總仍等於整體", () => {
-    const before = buildOverview(mixedLedger(), PRICES, TODAY).summary;
+    const before = buildOverview(mixedLedger(), quotes(PRICES), TODAY).summary;
     const ledger = { ...mixedLedger(), holdingSettings: [{ symbol: "2330", bucket: "core" as const }] };
-    const { summary } = buildOverview(ledger, PRICES, TODAY);
+    const { summary } = buildOverview(ledger, quotes(PRICES), TODAY);
     expect(summary.core.holdingCount).toBe(2);
     expect(summary.satellite.holdingCount).toBe(0);
     // 衛星只剩已出清的 2317
@@ -74,17 +80,17 @@ describe("buildOverview（M-05）", () => {
   });
 
   test("持股列表只有持有中的，市值大的在前；已出清的不在列表但算進已實現", () => {
-    const { holdings, positions, summary } = buildOverview(mixedLedger(), PRICES, TODAY);
-    expect(holdings.map((p) => p.symbol)).toEqual(["2330", "0050"]);
-    expect(positions.map((p) => p.symbol)).toEqual(["0050", "2317", "2330"]);
-    const honhai = positions.find((p) => p.symbol === "2317");
+    const { holdings, views, summary } = buildOverview(mixedLedger(), quotes(PRICES), TODAY);
+    expect(holdings.map((h) => h.symbol)).toEqual(["2330", "0050"]);
+    expect(views.map((h) => h.symbol)).toEqual(["0050", "2317", "2330"]);
+    const honhai = views.find((h) => h.symbol === "2317")?.position;
     expect(summary.satellite.realizedPnl).toBeCloseTo(spec37Realized() + (honhai?.realizedPnl ?? NaN), 6);
   });
 
   test("缺少價格：那一檔排最後，總報酬是 null，不當成 0", () => {
-    const { holdings, summary } = buildOverview(mixedLedger(), { "0050": 190 }, TODAY);
-    expect(holdings.map((p) => p.symbol)).toEqual(["0050", "2330"]);
-    expect(holdings[1].marketValue).toBeNull();
+    const { holdings, summary } = buildOverview(mixedLedger(), quotes({ "0050": 190 }), TODAY);
+    expect(holdings.map((h) => h.symbol)).toEqual(["0050", "2330"]);
+    expect(holdings[1].position.marketValue).toBeNull();
     expect(summary.overall.totalReturn).toBeNull();
     expect(summary.overall.missingPriceCount).toBe(1);
     expect(summary.core.totalReturn).not.toBeNull();
@@ -98,7 +104,7 @@ describe("buildOverview（M-05）", () => {
       holdingSettings: [],
       settings: DEFAULT_USER_SETTINGS,
     };
-    const { holdings, summary } = buildOverview(empty, {}, TODAY);
+    const { holdings, summary } = buildOverview(empty, quotes({}), TODAY);
     expect(holdings).toEqual([]);
     expect(summary.overall.invested).toBe(0);
     expect(summary.overall.returnRate).toBeNull();
@@ -106,12 +112,8 @@ describe("buildOverview（M-05）", () => {
 });
 
 function spec37Realized(): number {
-  return buildOverview(spec37Ledger(), PRICES, TODAY).summary.overall.realizedPnl;
+  return buildOverview(spec37Ledger(), quotes(PRICES), TODAY).summary.overall.realizedPnl;
 }
-
-test("ledgerSymbols：交易與股利裡的代號，不重複", () => {
-  expect(ledgerSymbols(mixedLedger())).toEqual(["0050", "2317", "2330"]);
-});
 
 describe("oldestPriceDate", () => {
   test("取最舊的日期", () => {

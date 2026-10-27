@@ -32,7 +32,7 @@ test("舊版存了 2 檔：升級後第一次開 app，首頁總覽就看得到�
     </SafeAreaProvider>,
   );
 
-  expect(await screen.findByTestId("home-holding-2330")).toBeTruthy();
-  expect(screen.getByTestId("home-holding-2317")).toBeTruthy();
+  expect(await screen.findByTestId("holding-row-2330")).toBeTruthy();
+  expect(screen.getByTestId("holding-row-2317")).toBeTruthy();
   expect(screen.queryByText("還沒有任何交易")).toBeNull();
 });

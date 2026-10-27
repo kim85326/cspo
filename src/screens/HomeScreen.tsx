@@ -1,4 +1,4 @@
-import { router, Stack, type Href } from "expo-router";
+import { router, Stack } from "expo-router";
 import { useMemo } from "react";
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -6,32 +6,28 @@ import { ledgerRepository as defaultRepository, priceSource as defaultPriceSourc
 import type { LedgerRepository } from "@/data/ledgerRepository";
 import type { PriceSource } from "@/data/PriceSource";
 import { localIsoDate } from "@/domain/buyDate";
-import type { Bucket, HoldingSetting } from "@/domain/ledgerTypes";
-import { buildOverview, ledgerSymbols, oldestPriceDate } from "@/domain/overview";
+import { ledgerSymbols, type HoldingView } from "@/domain/holdings";
+import type { Bucket } from "@/domain/ledgerTypes";
+import { buildOverview, oldestPriceDate } from "@/domain/overview";
 import { formatReturnRate, formatSignedAmount, pnlDirection } from "@/domain/pnl";
-import { bucketOf, type GroupSummary } from "@/domain/portfolio";
-import type { Position } from "@/domain/position";
+import type { GroupSummary } from "@/domain/portfolio";
 import type { PnlDirection, Quote } from "@/domain/types";
 import { useLedger } from "@/hooks/useLedger";
 import { useQuotes } from "@/hooks/useQuotes";
+import { HoldingRow } from "@/ui/HoldingRow";
 import { colors, fonts, fontSize, pnlColors, radius, space, touchTarget } from "@/ui/theme";
 import { VersionBadge } from "@/ui/VersionBadge";
 
-/**
- * 交易與持股的路由由 Story 009（T4）、010（T5）做，三條線同時開發，路由先講好。
- * 在那兩張合併之前 typed routes 還不認得這些路徑，所以先轉成 Href；合併後可以拿掉 as。
- */
+/** 交易畫面是 Story 009，持股明細與單一持股頁是 Story 010 */
 const ROUTES = {
-  newTransaction: "/transaction/new" as Href,
-  holdings: "/holdings" as Href,
-  holding: (symbol: string) => `/holdings/${symbol}` as Href,
-  calculate: "/calculate" as Href,
-};
+  newTransaction: "/transaction/new",
+  holdings: "/holdings",
+  holding: (symbol: string) => ({ pathname: "/holdings/[symbol]", params: { symbol } }) as const,
+  calculate: "/calculate",
+} as const;
 
 /** 首頁最多列幾檔，其他的到「看全部持股」 */
 const MAX_HOME_HOLDINGS = 5;
-
-const BUCKET_LABEL: Record<Bucket, string> = { core: "核心", satellite: "衛星" };
 
 const VERDICT: Record<PnlDirection, string> = { up: "賺了", down: "虧了", flat: "不賺不賠" };
 
@@ -60,9 +56,7 @@ export default function HomeScreen({ repository = defaultRepository, priceSource
 
   const overview = useMemo(() => {
     if (!ledger) return null;
-    const prices: Record<string, number> = {};
-    for (const [symbol, quote] of Object.entries(quotes)) prices[symbol] = quote.price;
-    return buildOverview(ledger, prices, localIsoDate(new Date()));
+    return buildOverview(ledger, (symbol) => quotes[symbol], localIsoDate(new Date()));
   }, [ledger, quotes]);
 
   const isEmpty = !!ledger && ledger.transactions.length === 0 && ledger.dividends.length === 0;
@@ -102,12 +96,7 @@ export default function HomeScreen({ repository = defaultRepository, priceSource
 
           <PrimaryButton label="新增交易" testID="button-add-transaction" onPress={() => router.push(ROUTES.newTransaction)} />
 
-          <HoldingsSection
-            holdings={overview.holdings}
-            quotes={quotes}
-            holdingSettings={ledger.holdingSettings}
-            pricesLoading={quotesLoading}
-          />
+          <HoldingsSection holdings={overview.holdings} pricesLoading={quotesLoading} />
         </>
       )}
 
@@ -279,17 +268,7 @@ function SummaryRows({
   );
 }
 
-function HoldingsSection({
-  holdings,
-  quotes,
-  holdingSettings,
-  pricesLoading,
-}: {
-  holdings: Position[];
-  quotes: Readonly<Record<string, Quote>>;
-  holdingSettings: readonly HoldingSetting[];
-  pricesLoading: boolean;
-}) {
+function HoldingsSection({ holdings, pricesLoading }: { holdings: HoldingView[]; pricesLoading: boolean }) {
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
@@ -311,76 +290,20 @@ function HoldingsSection({
         <View style={styles.card}>
           <Text style={styles.hint}>目前沒有持有中的股票，已出清的在「看全部持股」</Text>
         </View>
-      ) : (
-        <View style={styles.listCard}>
-          {holdings.slice(0, MAX_HOME_HOLDINGS).map((position, index) => (
-            <HomeHoldingRow
-              key={position.symbol}
-              position={position}
-              name={quotes[position.symbol]?.name}
-              bucket={bucketOf(position, holdingSettings)}
-              pricesLoading={pricesLoading}
-              first={index === 0}
-            />
-          ))}
+      ) : pricesLoading ? (
+        // 價格還沒回來時 HoldingRow 會寫「缺少價格」，先不列，免得閃一下
+        <View style={styles.card}>
+          <ActivityIndicator color={colors.primary} accessibilityLabel="價格更新中" />
         </View>
+      ) : (
+        // 持股列和持股明細共用（Story 010），首頁用精簡版
+        holdings
+          .slice(0, MAX_HOME_HOLDINGS)
+          .map((h) => (
+            <HoldingRow key={h.symbol} holding={h} onPress={() => router.push(ROUTES.holding(h.symbol))} />
+          ))
       )}
     </View>
-  );
-}
-
-/**
- * 首頁的持股列。Story 010（T5）會在 src/ui/ 做一個可重用的持股列，合併時換成那個。
- */
-function HomeHoldingRow({
-  position,
-  name,
-  bucket,
-  pricesLoading,
-  first,
-}: {
-  position: Position;
-  name: string | undefined;
-  bucket: Bucket;
-  pricesLoading: boolean;
-  first: boolean;
-}) {
-  const total = pricesLoading ? null : position.totalReturn;
-  const direction = total === null ? null : pnlDirection(total);
-  const color = direction ? pnlColors[direction] : colors.mutedForeground;
-  const title = name ? `${name} ${position.symbol}` : position.symbol;
-  const totalText = total === null ? "—" : formatSignedAmount(total);
-  const rateText = formatRate(pricesLoading ? null : position.returnRate);
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${title}，${BUCKET_LABEL[bucket]}，總報酬 ${totalText}，報酬率 ${rateText}`}
-      testID={`home-holding-${position.symbol}`}
-      onPress={() => router.push(ROUTES.holding(position.symbol))}
-      style={({ pressed }) => [styles.holdingRow, !first && styles.holdingRowBorder, pressed && styles.pressed]}
-    >
-      <View style={styles.holdingMain}>
-        <View style={styles.holdingTitleRow}>
-          <Text style={styles.holdingName} numberOfLines={1}>
-            {title}
-          </Text>
-          <Text style={[styles.tag, bucket === "core" ? styles.tagCore : styles.tagSatellite]}>
-            {BUCKET_LABEL[bucket]}
-          </Text>
-        </View>
-        <Text style={styles.holdingSub}>
-          {position.shares.toLocaleString("en-US")} 股 · 市值{" "}
-          {position.marketValue === null || pricesLoading ? "—" : formatAmount(position.marketValue)}
-        </Text>
-      </View>
-      <View style={styles.holdingRight}>
-        <Text style={[styles.holdingReturn, { color }]}>
-          {direction && ARROW[direction] ? `${ARROW[direction]} ` : ""}
-          {totalText}
-        </Text>
-        <Text style={[styles.holdingRate, { color }]}>{rateText}</Text>
-      </View>
-    </Pressable>
   );
 }
 
@@ -482,43 +405,6 @@ const styles = StyleSheet.create({
   sectionTitle: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.mutedForeground },
   linkButton: { minHeight: touchTarget, justifyContent: "center" },
   linkText: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.primary },
-  listCard: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: space.md,
-  },
-  holdingRow: {
-    minHeight: touchTarget + space.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.sm,
-    paddingVertical: space.sm,
-  },
-  holdingRowBorder: { borderTopWidth: 1, borderTopColor: colors.border },
-  holdingMain: { flex: 1, minWidth: 0, gap: 2 },
-  holdingTitleRow: { flexDirection: "row", alignItems: "center", gap: space.xs },
-  holdingName: { flexShrink: 1, fontFamily: fonts.semibold, fontSize: fontSize.md, color: colors.foreground },
-  holdingSub: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.xs,
-    color: colors.mutedForeground,
-    fontVariant: ["tabular-nums"],
-  },
-  holdingRight: { alignItems: "flex-end", gap: 2 },
-  holdingReturn: { fontFamily: fonts.semibold, fontSize: fontSize.md, fontVariant: ["tabular-nums"] },
-  holdingRate: { fontFamily: fonts.medium, fontSize: fontSize.xs, fontVariant: ["tabular-nums"] },
-  tag: {
-    fontFamily: fonts.medium,
-    fontSize: fontSize.xs,
-    paddingHorizontal: space.xs + 2,
-    paddingVertical: 1,
-    borderRadius: radius.sm,
-    overflow: "hidden",
-  },
-  tagCore: { backgroundColor: colors.secondarySurface, color: colors.secondary },
-  tagSatellite: { backgroundColor: colors.muted, color: colors.mutedForeground },
   primaryButton: {
     minHeight: touchTarget,
     borderRadius: radius.md,

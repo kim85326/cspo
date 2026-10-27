@@ -133,12 +133,14 @@ describe("首頁總覽（對應 docs/stories/011）", () => {
   test("持股列：市值大的在前；點一檔、看全部持股、新增交易、快速試算各自連到對的路由", async () => {
     await renderHome(createMemoryLedgerRepository(mixedLedger()), fakePrices({ "2330": 620, "0050": 190 }));
     await screen.findByText(/^價格更新於/);
-    const rows = screen.getAllByTestId(/^home-holding-/);
-    expect(rows.map((r) => r.props.testID)).toEqual(["home-holding-2330", "home-holding-0050"]);
-    expect(screen.getByLabelText("元大台灣50 0050，核心，總報酬 +9,284，報酬率 +5.15%")).toBeTruthy();
+    const rows = screen.getAllByTestId(/^holding-row-/);
+    expect(rows.map((r) => r.props.testID)).toEqual(["holding-row-2330", "holding-row-0050"]);
+    expect(
+      screen.getByLabelText("元大台灣50 0050，核心，市值 190,000 元，總報酬 賺了 +9,284 元，報酬率 +5.15%"),
+    ).toBeTruthy();
 
-    await fireEvent.press(screen.getByTestId("home-holding-0050"));
-    expect(router.push).toHaveBeenLastCalledWith("/holdings/0050");
+    await fireEvent.press(screen.getByTestId("holding-row-0050"));
+    expect(router.push).toHaveBeenLastCalledWith({ pathname: "/holdings/[symbol]", params: { symbol: "0050" } });
     await fireEvent.press(screen.getByLabelText("看全部持股"));
     expect(router.push).toHaveBeenLastCalledWith("/holdings");
     await fireEvent.press(screen.getByLabelText("新增交易"));
