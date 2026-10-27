@@ -193,6 +193,7 @@ appId: host.exp.Exponent
 
   或在專案根目錄建 `.env.local`（已被 git 忽略）寫一行 `EXPO_PUBLIC_USE_FAKE_PRICES=1`。改了變數之後要在手機上整個 reload app（不用重開 CLI）。Jest 永遠用假價，不用設。
 - **網頁版的行情**：證交所與櫃買中心都沒開 CORS，瀏覽器不能直接打，所以網頁版改打同源的 `/twse`、`/tpex`（`src/app/twse+api.ts`、`src/app/tpex+api.ts`，expo-router API route，`app.json` 的 `web.output` 已設為 `server`）。`npx expo start` 的 dev server 會直接提供這條路；若要把網頁版部署出去，需要能跑 server 的主機（例如 EAS Hosting），純靜態主機上行情會載入失敗。
+- **上架 App Store／Google Play**：帳號、打包、送審、隱私表單與時程見 [store-release.md](store-release.md)。
 - **打包加速與 OTA 更新**：APK 打包時間分析、EAS Update 導入步驟與「何時要重打 APK」見 [build-speed.md](build-speed.md)。
 
 ### APK 大小
