@@ -52,7 +52,10 @@ cspo/
 │   │   ├── StockDirectory.ts 介面：有哪些股票可以選
 │   │   ├── stocks.ts         第一迭代固定 40 檔（代號、名稱、假價）
 │   │   ├── fakePriceSource.ts / fakeStockDirectory.ts  用 stocks.ts 實作的假來源
+│   │   ├── HoldingStore.ts   介面：把輸入過的持股存在手機本機
+│   │   ├── asyncStorageHoldingStore.ts / memoryHoldingStore.ts  AsyncStorage 實作 ／ 測試用記憶體版
 │   │   └── index.ts          全 app 用哪個來源，只改這裡
+│   ├── hooks/                畫面共用的 React hook（usePersistedHoldings：啟動時讀回、計算後存）
 │   └── ui/                   可重用元件與設計 token（StockPicker、LabeledInput、PnlCard、theme）
 ├── design-system/stock-pnl/  ui-ux-pro-max 產生的設計系統（MASTER.md 是色彩、字型、間距的來源）
 ├── e2e/                      Maestro 流程（YAML）

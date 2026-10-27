@@ -1,5 +1,5 @@
 import { Stack } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -12,10 +12,11 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { priceSource, stockDirectory } from "@/data";
+import { holdingStore, priceSource, stockDirectory } from "@/data";
 import { calculatePnl, validateHoldingInput, type HoldingInput } from "@/domain/pnl";
 import { resolveStock, searchStocks } from "@/domain/stockSearch";
-import type { PnlResult, Quote, StockInfo } from "@/domain/types";
+import type { PnlResult, Quote, SavedHolding, StockInfo } from "@/domain/types";
+import { usePersistedHoldings } from "@/hooks/usePersistedHoldings";
 import { LabeledInput } from "@/ui/LabeledInput";
 import { PnlCard } from "@/ui/PnlCard";
 import { StockPicker } from "@/ui/StockPicker";
@@ -25,7 +26,7 @@ type Errors = Partial<Record<keyof HoldingInput, string>>;
 
 /**
  * 第一迭代：輸入一筆持股 → 看到盈虧。
- * 對應 docs/stories/001-single-holding-pnl.md 與 002-stock-picker.md
+ * 對應 docs/stories/001-single-holding-pnl.md、002-stock-picker.md 與 004-remember-holdings.md
  * 路由入口在 src/app/index.tsx。
  */
 export default function CalculateScreen() {
@@ -40,15 +41,43 @@ export default function CalculateScreen() {
   const [notFound, setNotFound] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<{ quote: Quote; result: PnlResult } | null>(null);
 
+  /**
+   * 啟動時把上次存的第一筆帶回欄位。股票清單與手機資料各自非同步到達，
+   * 誰後到誰呼叫 restoreSaved；兩邊都到齊才填，而且只填一次。
+   */
+  const stocksRef = useRef<StockInfo[]>([]);
+  const firstSavedRef = useRef<SavedHolding | null>(null);
+  const restoredRef = useRef(false);
+  const restoreSaved = useCallback(() => {
+    const first = firstSavedRef.current;
+    if (restoredRef.current || !first || stocksRef.current.length === 0) return;
+    restoredRef.current = true;
+    const stock = stocksRef.current.find((s) => s.symbol === first.symbol) ?? null;
+    setSelected(stock);
+    setQuery(stock ? "" : first.symbol);
+    setBuyPrice(first.buyPrice);
+    setShares(first.shares);
+  }, []);
+
+  const { saved, persist, clearSaved } = usePersistedHoldings(holdingStore, {
+    onLoaded: (items) => {
+      firstSavedRef.current = items[0] ?? null;
+      restoreSaved();
+    },
+  });
+
   useEffect(() => {
     let active = true;
     stockDirectory.getAll().then((list) => {
-      if (active) setStocks(list);
+      if (!active) return;
+      setStocks(list);
+      stocksRef.current = list;
+      restoreSaved();
     });
     return () => {
       active = false;
     };
-  }, []);
+  }, [restoreSaved]);
 
   const clearError = (key: keyof HoldingInput) => {
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
@@ -69,6 +98,18 @@ export default function CalculateScreen() {
   const handleClear = () => {
     setSelected(null);
     setQuery("");
+  };
+
+  /** 清掉手機裡存的資料，欄位與結果一起清空 */
+  const handleClearSaved = async () => {
+    setSelected(null);
+    setQuery("");
+    setBuyPrice("");
+    setShares("");
+    setErrors({});
+    setNotFound(null);
+    setOutcome(null);
+    await clearSaved();
   };
 
   /** 離開欄位就驗那一欄，錯誤緊貼欄位顯示 */
@@ -116,6 +157,7 @@ export default function CalculateScreen() {
         return;
       }
       setOutcome({ quote, result: calculatePnl(validation.holding, quote.price) });
+      await persist([{ symbol: resolved.stock.symbol, buyPrice, shares }]);
     } finally {
       setLoading(false);
     }
@@ -205,6 +247,19 @@ export default function CalculateScreen() {
 
         {outcome ? <PnlCard quote={outcome.quote} result={outcome.result} /> : null}
 
+        {saved.length > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="清除已儲存的資料"
+            testID="button-clear-saved"
+            onPress={handleClearSaved}
+            hitSlop={space.sm}
+            style={({ pressed }) => [styles.clearSaved, pressed && styles.buttonPressed]}
+          >
+            <Text style={styles.clearSavedText}>清除已儲存的資料</Text>
+          </Pressable>
+        ) : null}
+
         <Text style={styles.disclaimer}>資料僅供參考，不構成投資建議。</Text>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -246,6 +301,18 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
   },
   notFoundText: { fontFamily: fonts.regular, color: colors.destructive, fontSize: fontSize.md },
+  clearSaved: {
+    alignSelf: "center",
+    minHeight: touchTarget,
+    justifyContent: "center",
+    paddingHorizontal: space.md,
+  },
+  clearSavedText: {
+    fontFamily: fonts.medium,
+    color: colors.mutedForeground,
+    fontSize: fontSize.sm,
+    textDecorationLine: "underline",
+  },
   disclaimer: {
     marginTop: space.lg,
     fontFamily: fonts.regular,
