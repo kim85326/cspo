@@ -67,8 +67,15 @@ describe("asyncStorageHoldingStore（對應 docs/stories/004）", () => {
 });
 
 describe("parseSavedHoldings", () => {
-  test("只保留三個已知欄位", () => {
+  test("只保留已知欄位", () => {
     expect(parseSavedHoldings([{ ...TSMC, extra: 1 }])).toEqual([TSMC]);
+  });
+
+  test("買入日期是選填：有就帶回、舊資料沒有也讀得回來、不是字串當沒填", () => {
+    const withDate = { ...TSMC, buyDate: "2026/10/05" };
+    expect(parseSavedHoldings([withDate])).toEqual([withDate]);
+    expect(parseSavedHoldings([TSMC])).toEqual([TSMC]);
+    expect(parseSavedHoldings([{ ...TSMC, buyDate: 20261005 }])).toEqual([TSMC]);
   });
 
   test("非陣列一律空陣列", () => {

@@ -17,3 +17,20 @@ export const TWSE_WEB_PROXY_PATH = "/twse";
 export function twseRequestUrl(): string {
   return Platform.OS === "web" ? TWSE_WEB_PROXY_PATH : TWSE_STOCK_DAY_ALL_URL;
 }
+
+/**
+ * 證交所「個股日成交資訊」：一檔股票一個月的日 K（開高低收）。免金鑰。
+ * 參數 date 是那個月任一天（YYYYMMDD），stockNo 是代號。只有上市股票；上櫃要另接櫃買中心。
+ * 證交所會擋太頻繁的請求，所以一次只抓一個月、依序抓，並快取（見 twseCandleSource.ts）。
+ */
+export const TWSE_STOCK_DAY_URL = "https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY";
+
+/** 網頁版走的同源代理（src/app/twse-day+api.ts），理由同上 */
+export const TWSE_DAY_WEB_PROXY_PATH = "/twse-day";
+
+/** 這個平台抓某檔某月日 K 的網址；month 是 "2026-10" */
+export function twseDayRequestUrl(symbol: string, month: string): string {
+  const query = `date=${month.replace("-", "")}01&stockNo=${encodeURIComponent(symbol)}&response=json`;
+  const base = Platform.OS === "web" ? TWSE_DAY_WEB_PROXY_PATH : TWSE_STOCK_DAY_URL;
+  return `${base}?${query}`;
+}

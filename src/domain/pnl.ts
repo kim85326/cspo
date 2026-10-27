@@ -1,3 +1,4 @@
+import { parseBuyDate } from "./buyDate";
 import type { Holding, PnlDirection, PnlResult } from "./types";
 
 /**
@@ -45,14 +46,16 @@ export type HoldingInput = {
   symbol: string;
   buyPrice: string;
   shares: string;
+  /** 選填；空字串或沒給都代表沒填 */
+  buyDate?: string;
 };
 
 export type ValidationResult =
   | { ok: true; holding: Holding }
   | { ok: false; errors: Partial<Record<keyof HoldingInput, string>> };
 
-/** 表單字串 → Holding。錯誤訊息直接給畫面顯示。 */
-export function validateHoldingInput(input: HoldingInput): ValidationResult {
+/** 表單字串 → Holding。錯誤訊息直接給畫面顯示。today 給測試固定「今天」用。 */
+export function validateHoldingInput(input: HoldingInput, today?: Date): ValidationResult {
   const errors: Partial<Record<keyof HoldingInput, string>> = {};
 
   const symbol = input.symbol.trim().toUpperCase();
@@ -70,8 +73,13 @@ export function validateHoldingInput(input: HoldingInput): ValidationResult {
     errors.shares = "數量必須是大於 0 的整數（股）";
   }
 
-  if (Object.keys(errors).length > 0) return { ok: false, errors };
-  return { ok: true, holding: { symbol, buyPrice, shares } };
+  const buyDate = parseBuyDate(input.buyDate ?? "", today);
+  if (!buyDate.ok) errors.buyDate = buyDate.error;
+
+  if (Object.keys(errors).length > 0 || !buyDate.ok) return { ok: false, errors };
+  const holding: Holding = { symbol, buyPrice, shares };
+  if (buyDate.iso) holding.buyDate = buyDate.iso;
+  return { ok: true, holding };
 }
 
 function round2(n: number): number {

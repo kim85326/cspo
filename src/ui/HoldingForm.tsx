@@ -29,17 +29,17 @@ type Props = {
   removable: boolean;
   isLast: boolean;
   onChange: (patch: Partial<HoldingFormState>) => void;
-  onBlurField: (key: "buyPrice" | "shares") => void;
+  onBlurField: (key: "buyPrice" | "shares" | "buyDate") => void;
   onRemove: () => void;
   onSubmit: () => void;
 };
 
 export function emptyHoldingForm(id: number): HoldingFormState {
-  return { id, query: "", selected: null, buyPrice: "", shares: "", errors: {} };
+  return { id, query: "", selected: null, buyPrice: "", shares: "", buyDate: "", errors: {} };
 }
 
 /**
- * 一檔股票的輸入區塊：股票選擇器 + 買入價 + 數量。
+ * 一檔股票的輸入區塊：股票選擇器 + 買入價 + 買入日期（選填）+ 數量。
  * 多檔比較時每檔一個區塊，標題「第 N 檔」，右上角可移除。
  * 欄位 label 與單檔時相同（Maestro 與既有測試依賴中文 label），用 testID 區分第幾檔。
  */
@@ -117,6 +117,21 @@ export function HoldingForm({
         error={form.errors.buyPrice}
         badge={badge("buyPrice")}
         testID={`input-buy-price-${n}`}
+      />
+      <LabeledInput
+        label="買入日期"
+        placeholder="選填，例如 2026/10/05"
+        hint="填了會在 K 線圖標出買入點"
+        keyboardType="numbers-and-punctuation"
+        returnKeyType="next"
+        value={form.buyDate ?? ""}
+        onChangeText={(buyDate) => {
+          onChange({ buyDate });
+          clearError("buyDate");
+        }}
+        onBlur={() => onBlurField("buyDate")}
+        error={form.errors.buyDate}
+        testID={`input-buy-date-${n}`}
       />
       <LabeledInput
         label="數量"

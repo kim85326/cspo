@@ -30,10 +30,11 @@ import {
 } from "@/ui/HoldingForm";
 import { ImportSourceSheet } from "@/ui/ImportSourceSheet";
 import { PnlCard } from "@/ui/PnlCard";
+import { PriceHistoryCard } from "@/ui/PriceHistoryCard";
 import { colors, fonts, fontSize, radius, space, touchTarget } from "@/ui/theme";
 
 type Outcome =
-  | { kind: "single"; quote: Quote; result: PnlResult }
+  | { kind: "single"; holding: Holding; quote: Quote; result: PnlResult }
   | { kind: "comparison"; comparison: ComparisonResult };
 
 /** 斷網或證交所沒回應時的提示；按「計算」會再試一次 */
@@ -43,7 +44,8 @@ const LOAD_ERROR_MESSAGE = "行情載入失敗，請檢查網路後重試";
  * 輸入一檔或多檔持股 → 看盈虧；兩檔以上就排名比較。按「計算」成功後把輸入存在手機，重開帶回。
  * 對應 docs/stories/001-single-holding-pnl.md、002-stock-picker.md、003-compare-stocks.md、004-remember-holdings.md、
  * 005-import-from-screenshot.md（從截圖匯入：按鈕在這裡，選圖與辨識在 hooks/useScreenshotImport，套用在 domain/applyExtraction；
- *   目前由 src/config/features.ts 的 screenshotImport 開關控制，預設關閉）
+ *   目前由 src/config/features.ts 的 screenshotImport 開關控制，預設關閉）、
+ * 016-candle-chart.md（單檔結果下方的日 K 線圖與買入點，見 ui/PriceHistoryCard）
  * 現價來自 src/data 的 priceSource（app 裡是證交所收盤價，測試是假價）；載入失敗顯示「行情載入失敗」。
  * 路由入口在 src/app/index.tsx。
  */
@@ -81,6 +83,7 @@ export default function CalculateScreen() {
         query: stock ? "" : item.symbol,
         buyPrice: item.buyPrice,
         shares: item.shares,
+        buyDate: item.buyDate ?? "",
       };
     });
     setForms(restored);
@@ -182,13 +185,14 @@ export default function CalculateScreen() {
   };
 
   /** 離開欄位就驗那一欄，錯誤緊貼欄位顯示 */
-  const validateOne = (form: HoldingFormState, key: "buyPrice" | "shares") => {
-    const value = form[key];
+  const validateOne = (form: HoldingFormState, key: "buyPrice" | "shares" | "buyDate") => {
+    const value = form[key] ?? "";
     if (value.trim() === "") return;
     const validation = validateHoldingInput({
       symbol: "0000",
       buyPrice: form.buyPrice,
       shares: form.shares,
+      buyDate: form.buyDate,
     });
     updateForm(form.id, {
       errors: { ...form.errors, [key]: validation.ok ? undefined : validation.errors[key] },
@@ -234,13 +238,20 @@ export default function CalculateScreen() {
         symbol,
         buyPrice: form.buyPrice,
         shares: form.shares,
+        buyDate: form.buyDate,
       });
       const errors: HoldingFormErrors = validation.ok ? {} : { ...validation.errors };
       if ("error" in resolved) errors.symbol = resolved.error;
       nextErrors.set(form.id, errors);
       if (validation.ok && "stock" in resolved) {
         holdings.push(validation.holding);
-        toSave.push({ symbol, buyPrice: form.buyPrice, shares: form.shares });
+        const buyDate = form.buyDate?.trim();
+        toSave.push({
+          symbol,
+          buyPrice: form.buyPrice,
+          shares: form.shares,
+          ...(buyDate ? { buyDate } : {}),
+        });
       }
     }
 
@@ -259,7 +270,7 @@ export default function CalculateScreen() {
       const inputs = holdings.map((holding, i) => ({ holding, quote: quotes[i] as Quote }));
       if (inputs.length === 1) {
         const { holding, quote } = inputs[0];
-        setOutcome({ kind: "single", quote, result: calculatePnl(holding, quote.price) });
+        setOutcome({ kind: "single", holding, quote, result: calculatePnl(holding, quote.price) });
       } else {
         setOutcome({ kind: "comparison", comparison: compareHoldings(inputs) });
       }
@@ -429,7 +440,15 @@ export default function CalculateScreen() {
         ) : null}
 
         {outcome?.kind === "single" ? (
-          <PnlCard quote={outcome.quote} result={outcome.result} />
+          <>
+            <PnlCard quote={outcome.quote} result={outcome.result} />
+            <PriceHistoryCard
+              symbol={outcome.quote.symbol}
+              name={outcome.quote.name}
+              costPrice={outcome.holding.buyPrice}
+              buyDate={outcome.holding.buyDate}
+            />
+          </>
         ) : null}
         {outcome?.kind === "comparison" ? (
           <ComparisonCard comparison={outcome.comparison} />

@@ -114,6 +114,30 @@ describe("validateHoldingInput", () => {
     expect(validateHoldingInput({ symbol: "2330", buyPrice: "500", shares: "-1" }).ok).toBe(false);
   });
 
+  test("買入日期選填：沒填就不帶 buyDate", () => {
+    const r = validateHoldingInput({ symbol: "2330", buyPrice: "500", shares: "1000", buyDate: "" });
+    expect(r.ok && "buyDate" in r.holding).toBe(false);
+  });
+
+  test("買入日期有填：轉成 ISO", () => {
+    const r = validateHoldingInput(
+      { symbol: "2330", buyPrice: "500", shares: "1000", buyDate: "2026/10/5" },
+      new Date(2026, 9, 27),
+    );
+    expect(r).toEqual({
+      ok: true,
+      holding: { symbol: "2330", buyPrice: 500, shares: 1000, buyDate: "2026-10-05" },
+    });
+  });
+
+  test("買入日期不對：只有 buyDate 有錯", () => {
+    const r = validateHoldingInput(
+      { symbol: "2330", buyPrice: "500", shares: "1000", buyDate: "2026/10/28" },
+      new Date(2026, 9, 27),
+    );
+    expect(r).toEqual({ ok: false, errors: { buyDate: "買入日期不能晚於今天" } });
+  });
+
   test("多個欄位同時錯誤會全部回報", () => {
     const r = validateHoldingInput({ symbol: "", buyPrice: "", shares: "" });
     expect(r.ok).toBe(false);
