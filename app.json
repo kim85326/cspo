@@ -20,7 +20,8 @@
       "package": "com.elaine0326.cspo"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "output": "server"
     },
     "plugins": [
       "expo-router",

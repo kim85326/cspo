@@ -37,7 +37,8 @@ cspo/
 ├── src/
 │   ├── app/                  路由（expo-router，一檔一頁；只放轉出，不放邏輯與測試）
 │   │   ├── _layout.tsx       導覽外框
-│   │   └── index.tsx         → screens/CalculateScreen
+│   │   ├── index.tsx         → screens/CalculateScreen
+│   │   └── twse+api.ts       API route：網頁版的證交所代理（GET /twse），手機不經過
 │   ├── screens/              畫面本體與畫面測試
 │   │   ├── CalculateScreen.tsx       第一迭代：輸入持股 → 看盈虧
 │   │   └── CalculateScreen.test.tsx  React Native Testing Library
@@ -50,9 +51,12 @@ cspo/
 │   ├── data/                 對外資料來源
 │   │   ├── PriceSource.ts    介面：給代號回現價
 │   │   ├── StockDirectory.ts 介面：有哪些股票可以選
-│   │   ├── stocks.ts         第一迭代固定 40 檔（代號、名稱、假價）
+│   │   ├── stocks.ts         固定 40 檔（代號、名稱、假價）：測試用，也是熱門清單的順序
 │   │   ├── fakePriceSource.ts / fakeStockDirectory.ts  用 stocks.ts 實作的假來源
-│   │   └── index.ts          全 app 用哪個來源，只改這裡
+│   │   ├── twseEndpoint.ts   證交所網址；網頁版改走同源代理 /twse（證交所沒開 CORS）
+│   │   ├── twseParse.ts      證交所回應 → Quote[]（純函式，有單元測試）
+│   │   ├── twseSource.ts     證交所 OpenAPI 來源：抓全市場、5 分鐘快取，同時是 PriceSource 與 StockDirectory
+│   │   └── index.ts          依環境決定用假來源還是證交所（Jest 與 EXPO_PUBLIC_USE_FAKE_PRICES=1 用假的）
 │   └── ui/                   可重用元件與設計 token（StockPicker、LabeledInput、PnlCard、theme）
 ├── design-system/stock-pnl/  ui-ux-pro-max 產生的設計系統（MASTER.md 是色彩、字型、間距的來源）
 ├── e2e/                      Maestro 流程（YAML）
@@ -145,7 +149,7 @@ appId: host.exp.Exponent
 - assertVisible: "+20,000"
 ```
 
-自動化跑的是 `fakePriceSource`（固定現價），所以結果可重現。真實行情只在手動驗收時接。
+自動化跑的是 `fakePriceSource`（固定現價），所以結果可重現：`src/data/index.ts` 看到 Jest 的 `JEST_WORKER_ID` 就自動用假來源。真實行情（證交所）只有在手機或網頁上跑 app 時才接。
 
 手動測試同學專注在自動化不好做的事：不同手機尺寸、輸入法、斷網、中文顯示、操作順不順手。
 
@@ -154,13 +158,21 @@ appId: host.exp.Exponent
 - **每天至少一次**：工程執行 `npx expo start --tunnel`，測試同學用 Expo Go 掃 QR code。tunnel 模式不需要同一個 Wi-Fi（公司網路有裝置隔離，區網模式連不到）。
 - **Android APK**：`npx eas-cli build -p android --profile preview`（設定在 `eas.json`）。在 Expo 雲端打包，完成後給一個下載連結與 QR code，同學直接裝，不需要 Expo Go。免費方案一個月有數次額度，排隊時間從幾分鐘到幾十分鐘不等。第一次執行會在 Expo 帳號建專案並產生 Android 簽章金鑰，之後都沿用。
 - **iOS 真機安裝**：要 Apple 開發者帳號（99 美元／年）走 TestFlight。這次先不需要，Expo Go 就夠。
+- **行情來源**：app 預設接證交所 OpenAPI（`https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`，前一交易日收盤價，免金鑰，手機要能上網）。要切回固定假價（demo 固定數字、Maestro 流程、斷網環境）就設環境變數再開 dev server：
+
+  ```bash
+  EXPO_PUBLIC_USE_FAKE_PRICES=1 npx expo start --tunnel
+  ```
+
+  或在專案根目錄建 `.env.local`（已被 git 忽略）寫一行 `EXPO_PUBLIC_USE_FAKE_PRICES=1`。改了變數之後要在手機上整個 reload app（不用重開 CLI）。Jest 永遠用假價，不用設。
+- **網頁版的行情**：證交所沒開 CORS，瀏覽器不能直接打，所以網頁版改打同源的 `/twse`（`src/app/twse+api.ts`，expo-router API route，`app.json` 的 `web.output` 已設為 `server`）。`npx expo start` 的 dev server 會直接提供這條路；若要把網頁版部署出去，需要能跑 server 的主機（例如 EAS Hosting），純靜態主機上行情會載入失敗。
 
 ## 8. 迭代規劃建議
 
 | 迭代 | 目標 | 可驗收的東西 |
 |---|---|---|
 | 1 | 單筆持股算盈虧 | 輸入三個欄位，用固定假價算出盈虧；單元測試、畫面測試與兩條 Maestro 流程（已完成骨架） |
-| 2 | 接真實行情、多筆持股 | 證交所資料；持股清單與總盈虧；資料存在手機，關掉重開還在 |
+| 2 | 接真實行情、多筆持股 | 證交所資料（已完成：收盤價、全市場清單、資料日期、斷網提示）；持股清單與總盈虧；資料存在手機，關掉重開還在 |
 | 3 | 打磨與上架準備 | 手續費與稅、報酬率、到價提醒；商店截圖與隱私權政策 |
 
 ## 9. 帳號需求

@@ -58,9 +58,12 @@ cspo/
 │   ├── data/           對外資料來源
 │   │   ├── PriceSource.ts      介面：getQuote(symbol) → Quote | null
 │   │   ├── StockDirectory.ts   介面：getAll() → StockInfo[]
-│   │   ├── stocks.ts           第一迭代固定 40 檔台股／ETF 與假現價
+│   │   ├── stocks.ts           固定 40 檔台股／ETF 與假現價（測試用；也是熱門清單順序）
 │   │   ├── fakePriceSource.ts / fakeStockDirectory.ts
-│   │   └── index.ts            全 app 用哪個來源，換資料源只改這裡
+│   │   ├── twseEndpoint.ts     手機直接打證交所；網頁版走 /twse 代理（src/app/twse+api.ts），因為證交所沒開 CORS
+│   │   ├── twseParse.ts        證交所回應 → Quote[]（純函式）
+│   │   ├── twseSource.ts       證交所 OpenAPI 來源（全市場、5 分鐘快取、PriceSource + StockDirectory）
+│   │   └── index.ts            Jest 或 EXPO_PUBLIC_USE_FAKE_PRICES=1 用假來源，否則證交所
 │   └── ui/             可重用元件與設計 token
 │       ├── theme.ts        colors / space / radius / fonts / fontSize / touchTarget / pnlColors
 │       ├── StockPicker.tsx 股票選擇器（打代號、打名稱、從清單選）
@@ -83,7 +86,7 @@ cspo/
 1. **算錢的邏輯全部放在 `src/domain/`**，不依賴 UI 或網路，所有金額情境用單元測試跑完。
 2. **畫面不寫死色碼與間距**，一律從 `src/ui/theme.ts` 拿。
 3. **台股慣例漲紅跌綠**（跟美股相反），且不靠顏色單獨傳達：另有「賺了／虧了」文字與 ▲▼ 符號。
-4. **自動化測試用固定假價**（`src/data/stocks.ts`），結果可重現；真實行情只在手動驗收時接。
+4. **自動化測試用固定假價**（`src/data/stocks.ts`），結果可重現；app 跑起來接證交所收盤價。`src/data/index.ts` 依 `JEST_WORKER_ID` / `EXPO_PUBLIC_USE_FAKE_PRICES` 切換，切法見 `docs/architecture.md` 第 7 節。
 5. **測試檔不能放在 `src/app/`**，expo-router 會把那裡的每個檔案當成一頁打包。
 6. 畫面裡所有可互動元件都有中文 `accessibilityLabel`，Maestro 與螢幕閱讀器都靠它找元件。
 
@@ -100,7 +103,7 @@ cspo/
 ### 進行中 / 待辦
 - **Android APK**：`eas.json` 已備好，`eas build -p android --profile preview` 第一次執行會在 Expo 帳號建專案並產生簽章金鑰（Elaine 正在跑或準備跑）。
 - **第二迭代候選**（由 PO 決定優先順序）：
-  - 接證交所真實資料：`https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`（全市場代號、名稱、收盤價，一次拿齊，可同時實作 PriceSource 與 StockDirectory）
+  - ~~接證交所真實資料~~：已完成（`src/data/twseSource.ts`）。回應欄位 `Date`（民國年 1151022）、`Code`、`Name`、`ClosingPrice`（字串，無成交時是空字串），約 1,380 列；無成交的列會被濾掉。`Quote.asOf` 帶資料日期，結果卡顯示「收盤價 2026/10/22」；斷網顯示「行情載入失敗，請檢查網路後重試」，再按「計算」會重試。
   - 多筆持股清單與總盈虧，資料存手機（Zustand + AsyncStorage）
   - 手續費 0.1425%（最低 20 元）與交易稅 0.3%
 - **第三迭代候選**：報酬率圖、到價提醒、商店截圖與隱私權政策。

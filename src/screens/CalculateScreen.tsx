@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { priceSource, stockDirectory } from "@/data";
+import { PriceLoadError, priceSource, stockDirectory } from "@/data";
 import { calculatePnl, validateHoldingInput, type HoldingInput } from "@/domain/pnl";
 import { resolveStock, searchStocks } from "@/domain/stockSearch";
 import type { PnlResult, Quote, StockInfo } from "@/domain/types";
@@ -22,6 +22,9 @@ import { StockPicker } from "@/ui/StockPicker";
 import { colors, fonts, fontSize, radius, space, touchTarget } from "@/ui/theme";
 
 type Errors = Partial<Record<keyof HoldingInput, string>>;
+
+/** 斷網或證交所沒回應時的提示；按「計算」會再試一次 */
+const LOAD_ERROR_MESSAGE = "行情載入失敗，請檢查網路後重試";
 
 /**
  * 第一迭代：輸入一筆持股 → 看到盈虧。
@@ -37,18 +40,43 @@ export default function CalculateScreen() {
   const [shares, setShares] = useState("");
   const [errors, setErrors] = useState<Errors>({});
   const [loading, setLoading] = useState(false);
+  const [stocksLoading, setStocksLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<{ quote: Quote; result: PnlResult } | null>(null);
 
   useEffect(() => {
     let active = true;
-    stockDirectory.getAll().then((list) => {
-      if (active) setStocks(list);
-    });
+    stockDirectory
+      .getAll()
+      .then((list) => {
+        if (active) setStocks(list);
+      })
+      .catch(() => {
+        if (active) setLoadError(LOAD_ERROR_MESSAGE);
+      })
+      .finally(() => {
+        if (active) setStocksLoading(false);
+      });
     return () => {
       active = false;
     };
   }, []);
+
+  /** 清單上次沒載到（例如一開始斷網）時，按「計算」再載一次；失敗回 null */
+  const ensureStocks = async (): Promise<StockInfo[] | null> => {
+    if (stocks.length > 0) return stocks;
+    setStocksLoading(true);
+    try {
+      const list = await stockDirectory.getAll();
+      setStocks(list);
+      return list;
+    } catch {
+      return null;
+    } finally {
+      setStocksLoading(false);
+    }
+  };
 
   const clearError = (key: keyof HoldingInput) => {
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
@@ -80,12 +108,12 @@ export default function CalculateScreen() {
   };
 
   /** 把選擇器的狀態解析成一檔股票；解析不了就回傳要顯示的錯誤 */
-  const resolveSelectedStock = (): { stock: StockInfo } | { error: string } => {
+  const resolveSelectedStock = (list: StockInfo[]): { stock: StockInfo } | { error: string } => {
     if (selected) return { stock: selected };
     if (query.trim() === "") return { error: "請輸入代號或公司名稱，或從清單選擇" };
-    const stock = resolveStock(query, stocks);
+    const stock = resolveStock(query, list);
     if (stock) return { stock };
-    if (searchStocks(query, stocks, 2).length > 1) return { error: "有多檔符合，請從清單選擇一檔" };
+    if (searchStocks(query, list, 2).length > 1) return { error: "有多檔符合，請從清單選擇一檔" };
     return { error: `找不到這檔股票（${query.trim()}）` };
   };
 
@@ -94,8 +122,14 @@ export default function CalculateScreen() {
     Keyboard.dismiss();
     setOutcome(null);
     setNotFound(null);
+    setLoadError(null);
 
-    const resolved = resolveSelectedStock();
+    const list = await ensureStocks();
+    if (list === null) {
+      setLoadError(LOAD_ERROR_MESSAGE);
+      return;
+    }
+    const resolved = resolveSelectedStock(list);
     const symbol = "stock" in resolved ? resolved.stock.symbol : "";
     const validation = validateHoldingInput({ symbol, buyPrice, shares });
     const nextErrors: Errors = validation.ok ? {} : { ...validation.errors };
@@ -116,6 +150,9 @@ export default function CalculateScreen() {
         return;
       }
       setOutcome({ quote, result: calculatePnl(validation.holding, quote.price) });
+    } catch (error) {
+      if (!(error instanceof PriceLoadError)) throw error;
+      setLoadError(LOAD_ERROR_MESSAGE);
     } finally {
       setLoading(false);
     }
@@ -140,6 +177,7 @@ export default function CalculateScreen() {
           stocks={stocks}
           query={query}
           selected={selected}
+          loading={stocksLoading}
           error={errors.symbol}
           onChangeQuery={handleQuery}
           onSelect={handleSelect}
@@ -196,6 +234,17 @@ export default function CalculateScreen() {
             <Text style={styles.buttonText}>計算</Text>
           )}
         </Pressable>
+
+        {loadError ? (
+          <View
+            style={styles.notFound}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            testID="load-error"
+          >
+            <Text style={styles.notFoundText}>{loadError}</Text>
+          </View>
+        ) : null}
 
         {notFound ? (
           <View style={styles.notFound} accessibilityRole="alert" accessibilityLiveRegion="polite">

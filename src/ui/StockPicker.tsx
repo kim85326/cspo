@@ -8,6 +8,8 @@ type Props = {
   stocks: StockInfo[];
   query: string;
   selected: StockInfo | null;
+  /** 股票清單還在載入（接證交所時第一次會等一下）；清單空白時顯示「載入中」 */
+  loading?: boolean;
   error?: string;
   onChangeQuery: (query: string) => void;
   onSelect: (stock: StockInfo) => void;
@@ -26,6 +28,7 @@ export function StockPicker({
   stocks,
   query,
   selected,
+  loading = false,
   error,
   onChangeQuery,
   onSelect,
@@ -58,7 +61,15 @@ export function StockPicker({
   };
 
   const suggestions = focused && !selected ? searchStocks(query, stocks, MAX_SUGGESTIONS) : [];
-  const showList = focused && !selected && stocks.length > 0;
+  const listLoading = loading && stocks.length === 0;
+  const showList = focused && !selected && (stocks.length > 0 || listLoading);
+  const listHeader = listLoading
+    ? "股票清單載入中…"
+    : query.trim() === ""
+      ? "熱門股票"
+      : suggestions.length > 0
+        ? "符合的股票"
+        : "找不到符合的股票";
 
   return (
     <View style={styles.wrapper}>
@@ -100,9 +111,7 @@ export function StockPicker({
 
       {showList ? (
         <View style={styles.list} testID="stock-suggestions">
-          <Text style={styles.listHeader}>
-            {query.trim() === "" ? "熱門股票" : suggestions.length > 0 ? "符合的股票" : "找不到符合的股票"}
-          </Text>
+          <Text style={styles.listHeader}>{listHeader}</Text>
           {suggestions.map((stock) => (
             <Pressable
               key={stock.symbol}
