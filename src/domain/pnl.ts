@@ -35,6 +35,12 @@ export function formatReturnRate(rate: number): string {
   return `${pct}%`;
 }
 
+/**
+ * 台股代號：4 到 6 位數字，尾端可再帶一個英文字母。
+ * 例：2330、0050、00878；00631L（槓桿 ETF）、00632R（反向 ETF）、01001T（REITs）、2881A（特別股）。
+ */
+export const SYMBOL_PATTERN = /^\d{4,6}[A-Z]?$/;
+
 export type HoldingInput = {
   symbol: string;
   buyPrice: string;
@@ -49,9 +55,9 @@ export type ValidationResult =
 export function validateHoldingInput(input: HoldingInput): ValidationResult {
   const errors: Partial<Record<keyof HoldingInput, string>> = {};
 
-  const symbol = input.symbol.trim();
-  if (!/^\d{4,6}$/.test(symbol)) {
-    errors.symbol = "請輸入 4 到 6 位數字的股票代號";
+  const symbol = input.symbol.trim().toUpperCase();
+  if (!SYMBOL_PATTERN.test(symbol)) {
+    errors.symbol = "請輸入正確的股票代號（例如 2330、00631L）";
   }
 
   const buyPrice = Number(input.buyPrice);

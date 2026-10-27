@@ -51,6 +51,12 @@ describe("searchStocks（對應 docs/stories/002）", () => {
     expect(searchStocks("2", STOCKS, 2)).toHaveLength(2);
   });
 
+  test("代號帶英文字母：00631l 找到 00631L（不分大小寫，照代號比對而不是名稱）", () => {
+    const withLetter = [...STOCKS, { symbol: "00631L", name: "元大台灣50正2" }];
+    expect(searchStocks("00631l", withLetter).map((s) => s.symbol)).toEqual(["00631L"]);
+    expect(searchStocks("00631", withLetter).map((s) => s.symbol)).toEqual(["00631L"]);
+  });
+
   test("找不到回空陣列", () => {
     expect(searchStocks("9999", STOCKS)).toEqual([]);
     expect(searchStocks("不存在", STOCKS)).toEqual([]);
@@ -60,6 +66,12 @@ describe("searchStocks（對應 docs/stories/002）", () => {
 describe("resolveStock", () => {
   test("代號完全相同", () => {
     expect(resolveStock("2330", STOCKS)?.name).toBe("台積電");
+  });
+
+  test("代號帶英文字母，大小寫都能命中", () => {
+    const withLetter = [...STOCKS, { symbol: "00631L", name: "元大台灣50正2" }];
+    expect(resolveStock("00631L", withLetter)?.name).toBe("元大台灣50正2");
+    expect(resolveStock("00631l", withLetter)?.name).toBe("元大台灣50正2");
   });
 
   test("名稱完全相同（含全形空白）", () => {
