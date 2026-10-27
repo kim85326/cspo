@@ -14,10 +14,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { holdingStore, priceSource, stockDirectory } from "@/data";
 import { compareHoldings, MAX_COMPARE_HOLDINGS, type ComparisonResult } from "@/domain/compare";
+import { applyExtraction, type ExtractionResult } from "@/domain/holdingExtract";
 import { calculatePnl, validateHoldingInput } from "@/domain/pnl";
 import { resolveStock, searchStocks } from "@/domain/stockSearch";
 import type { Holding, PnlResult, Quote, SavedHolding, StockInfo } from "@/domain/types";
 import { usePersistedHoldings } from "@/hooks/usePersistedHoldings";
+import { useScreenshotImport } from "@/hooks/useScreenshotImport";
 import { ComparisonCard } from "@/ui/ComparisonCard";
 import {
   emptyHoldingForm,
@@ -25,6 +27,7 @@ import {
   type HoldingFormErrors,
   type HoldingFormState,
 } from "@/ui/HoldingForm";
+import { ImportSourceSheet } from "@/ui/ImportSourceSheet";
 import { PnlCard } from "@/ui/PnlCard";
 import { colors, fonts, fontSize, radius, space, touchTarget } from "@/ui/theme";
 
@@ -34,7 +37,8 @@ type Outcome =
 
 /**
  * 輸入一檔或多檔持股 → 看盈虧；兩檔以上就排名比較。按「計算」成功後把輸入存在手機，重開帶回。
- * 對應 docs/stories/001-single-holding-pnl.md、002-stock-picker.md、003-compare-stocks.md、004-remember-holdings.md
+ * 對應 docs/stories/001-single-holding-pnl.md、002-stock-picker.md、003-compare-stocks.md、004-remember-holdings.md、
+ * 005-import-from-screenshot.md（從截圖匯入：按鈕在這裡，選圖與辨識在 hooks/useScreenshotImport，套用在 domain/applyExtraction）
  * 路由入口在 src/app/index.tsx。
  */
 export default function CalculateScreen() {
@@ -45,6 +49,8 @@ export default function CalculateScreen() {
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [importSheetOpen, setImportSheetOpen] = useState(false);
+  const [importWarnings, setImportWarnings] = useState<string[]>([]);
 
   /**
    * 啟動時把上次存的持股帶回欄位（有幾筆就開幾檔，最多 MAX_COMPARE_HOLDINGS）。
@@ -107,11 +113,38 @@ export default function CalculateScreen() {
     setOutcome(null);
   };
 
+  /** 把截圖辨識結果套進欄位：空白筆被覆蓋、已填的保留、最多 MAX_COMPARE_HOLDINGS 檔 */
+  const applyRecognized = useCallback(
+    (result: ExtractionResult) => {
+      const applied = applyExtraction(
+        forms,
+        result,
+        stocks,
+        () => nextId.current++,
+        (id) => emptyHoldingForm(id),
+      );
+      setForms(applied.forms);
+      setImportWarnings(applied.warnings);
+      setOutcome(null);
+      setNotFound(null);
+    },
+    [forms, stocks],
+  );
+  const screenshotImport = useScreenshotImport(applyRecognized);
+
+  const openImportSheet = () => {
+    Keyboard.dismiss();
+    screenshotImport.dismissError();
+    setImportWarnings([]);
+    setImportSheetOpen(true);
+  };
+
   /** 清掉手機裡存的資料，欄位與結果一起清空，回到只有一檔的初始狀態 */
   const handleClearSaved = async () => {
     setForms([emptyHoldingForm(nextId.current++)]);
     setNotFound(null);
     setOutcome(null);
+    setImportWarnings([]);
     await clearSaved();
   };
 
@@ -226,23 +259,85 @@ export default function CalculateScreen() {
           />
         ))}
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="新增一檔比較"
-          accessibilityState={{ disabled: !canAdd }}
-          testID="button-add-holding"
-          onPress={addForm}
-          disabled={!canAdd}
-          style={({ pressed }) => [
-            styles.addButton,
-            pressed && styles.buttonPressed,
-            !canAdd && styles.buttonDisabled,
-          ]}
-        >
-          <Text style={styles.addButtonText}>
-            {canAdd ? "＋ 新增一檔比較" : `最多比較 ${MAX_COMPARE_HOLDINGS} 檔`}
-          </Text>
-        </Pressable>
+        <View style={styles.secondaryRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="新增一檔比較"
+            accessibilityState={{ disabled: !canAdd }}
+            testID="button-add-holding"
+            onPress={addForm}
+            disabled={!canAdd}
+            style={({ pressed }) => [
+              styles.addButton,
+              pressed && styles.buttonPressed,
+              !canAdd && styles.buttonDisabled,
+            ]}
+          >
+            <Text style={styles.addButtonText}>
+              {canAdd ? "＋ 新增一檔比較" : `最多比較 ${MAX_COMPARE_HOLDINGS} 檔`}
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="從截圖匯入"
+            accessibilityState={{ disabled: screenshotImport.recognizing, busy: screenshotImport.recognizing }}
+            testID="button-import-screenshot"
+            onPress={openImportSheet}
+            disabled={screenshotImport.recognizing}
+            style={({ pressed }) => [
+              styles.addButton,
+              pressed && styles.buttonPressed,
+              screenshotImport.recognizing && styles.buttonDisabled,
+            ]}
+          >
+            <Text style={styles.addButtonText}>從截圖匯入</Text>
+          </Pressable>
+        </View>
+
+        {screenshotImport.recognizing ? (
+          <View style={styles.importStatus} testID="import-loading" accessibilityLiveRegion="polite">
+            <ActivityIndicator color={colors.primary} />
+            <Text style={styles.importStatusText}>辨識中…</Text>
+          </View>
+        ) : null}
+
+        {screenshotImport.error ? (
+          <View style={styles.notFound} testID="import-error" accessibilityRole="alert" accessibilityLiveRegion="polite">
+            <Text style={styles.notFoundText}>{screenshotImport.error}</Text>
+            <View style={styles.importErrorActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="重試辨識"
+                testID="button-import-retry"
+                onPress={screenshotImport.retry}
+                hitSlop={space.sm}
+                style={({ pressed }) => [styles.importAction, pressed && styles.buttonPressed]}
+              >
+                <Text style={styles.importActionText}>重試</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="關閉錯誤訊息"
+                testID="button-import-dismiss"
+                onPress={screenshotImport.dismissError}
+                hitSlop={space.sm}
+                style={({ pressed }) => [styles.importAction, pressed && styles.buttonPressed]}
+              >
+                <Text style={styles.importActionText}>關閉</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
+        {importWarnings.length > 0 ? (
+          <View style={styles.importWarnings} testID="import-warnings" accessibilityLiveRegion="polite">
+            {importWarnings.map((warning) => (
+              <Text key={warning} style={styles.importWarningText}>
+                {warning}
+              </Text>
+            ))}
+          </View>
+        ) : null}
 
         <Pressable
           accessibilityRole="button"
@@ -293,6 +388,15 @@ export default function CalculateScreen() {
 
         <Text style={styles.disclaimer}>資料僅供參考，不構成投資建議。</Text>
       </ScrollView>
+
+      <ImportSourceSheet
+        visible={importSheetOpen}
+        onClose={() => setImportSheetOpen(false)}
+        onPick={(source) => {
+          setImportSheetOpen(false);
+          void screenshotImport.importFrom(source);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -307,7 +411,9 @@ const styles = StyleSheet.create({
     marginBottom: space.lg,
     lineHeight: fontSize.xl * 1.4,
   },
+  secondaryRow: { flexDirection: "row", gap: space.sm, marginBottom: space.md },
   addButton: {
+    flex: 1,
     minHeight: touchTarget,
     borderWidth: 1,
     borderColor: colors.primary,
@@ -315,10 +421,39 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: space.md,
+    paddingHorizontal: space.sm,
     backgroundColor: colors.card,
   },
-  addButtonText: { fontFamily: fonts.medium, color: colors.primary, fontSize: fontSize.md },
+  addButtonText: {
+    fontFamily: fonts.medium,
+    color: colors.primary,
+    fontSize: fontSize.md,
+    textAlign: "center",
+  },
+  importStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    paddingVertical: space.sm,
+    marginBottom: space.sm,
+  },
+  importStatusText: { fontFamily: fonts.medium, color: colors.primary, fontSize: fontSize.md },
+  importErrorActions: { flexDirection: "row", gap: space.md, marginTop: space.sm },
+  importAction: { minHeight: touchTarget - space.md, justifyContent: "center" },
+  importActionText: {
+    fontFamily: fonts.semibold,
+    color: colors.destructive,
+    fontSize: fontSize.md,
+    textDecorationLine: "underline",
+  },
+  importWarnings: {
+    backgroundColor: colors.accentSurface,
+    borderRadius: radius.md,
+    padding: space.md,
+    marginBottom: space.sm,
+    gap: space.xs,
+  },
+  importWarningText: { fontFamily: fonts.regular, color: colors.accent, fontSize: fontSize.sm },
   button: {
     minHeight: touchTarget,
     backgroundColor: colors.accent,

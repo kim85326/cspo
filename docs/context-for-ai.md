@@ -105,7 +105,8 @@ cspo/
 - **第二迭代候選**（由 PO 決定優先順序）：
   - 接證交所真實資料：`https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`（全市場代號、名稱、收盤價，一次拿齊，可同時實作 PriceSource 與 StockDirectory）
   - ~~多檔一起比~~（Story 003 已完成：最多 5 檔、依報酬率排名、合計）
-  - 持股存手機（AsyncStorage，Story 004，另一個 session 在 `persist-holdings` worktree 分支進行中）
+  - ~~持股存手機~~（Story 004 已完成並合併）
+  - ~~從券商截圖匯入持股~~（Story 005：expo-image-picker + Expo Router API route `/recognize` + Claude vision；API key 放 `.env`，見 architecture.md 第 7 節）
   - 手續費 0.1425%（最低 20 元）與交易稅 0.3%
 - **第三迭代候選**：報酬率圖、到價提醒、商店截圖與隱私權政策。
 

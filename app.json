@@ -20,12 +20,20 @@
       "package": "com.elaine0326.cspo"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "output": "server"
     },
     "plugins": [
       "expo-router",
       "expo-status-bar",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "用來選擇券商 app 的持股截圖，辨識後自動填進持股欄位。",
+          "cameraPermission": "用來拍下券商 app 的持股畫面，辨識後自動填進持股欄位。"
+        }
+      ]
     ],
     "scheme": "stockpnl",
     "experiments": {

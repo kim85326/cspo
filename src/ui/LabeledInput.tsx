@@ -5,17 +5,27 @@ type Props = TextInputProps & {
   label: string;
   hint?: string;
   error?: string;
+  /** 顯示在標籤右邊的小提示，例如截圖匯入後的「請確認」 */
+  badge?: string;
 };
 
 /**
  * 有標籤、提示與錯誤訊息的輸入框。
  * - label 同時當 accessibilityLabel，讓 Maestro 與螢幕閱讀器都能用中文找到它。
  * - 錯誤訊息緊貼欄位下方，並以 live region 播報。
+ * - badge 用來標「請確認」之類需要使用者看一眼的提示，accessibilityLabel 為「{label} {badge}」。
  */
-export function LabeledInput({ label, hint, error, ...inputProps }: Props) {
+export function LabeledInput({ label, hint, error, badge, ...inputProps }: Props) {
   return (
     <View style={styles.wrapper}>
-      <Text style={styles.label}>{label}</Text>
+      <View style={styles.labelRow}>
+        <Text style={styles.label}>{label}</Text>
+        {badge ? (
+          <Text style={styles.badge} accessibilityLabel={`${label} ${badge}`}>
+            {badge}
+          </Text>
+        ) : null}
+      </View>
       <TextInput
         accessibilityLabel={label}
         accessibilityHint={hint}
@@ -40,11 +50,21 @@ export function LabeledInput({ label, hint, error, ...inputProps }: Props) {
 
 const styles = StyleSheet.create({
   wrapper: { marginBottom: space.md },
+  labelRow: { flexDirection: "row", alignItems: "center", marginBottom: space.xs + 2 },
   label: {
     fontFamily: fonts.medium,
     fontSize: fontSize.sm,
     color: colors.mutedForeground,
-    marginBottom: space.xs + 2,
+  },
+  badge: {
+    marginLeft: space.sm,
+    paddingHorizontal: space.sm,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    backgroundColor: colors.accentSurface,
+    color: colors.accent,
+    fontFamily: fonts.medium,
+    fontSize: fontSize.xs,
   },
   input: {
     minHeight: touchTarget,
