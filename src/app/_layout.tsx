@@ -45,7 +45,7 @@ export default function RootLayout() {
             contentStyle: { backgroundColor: colors.background },
           }}
         >
-          <Stack.Screen name="index" options={{ headerRight: () => <SettingsHeaderButton /> }} />
+          <Stack.Screen name="index" options={{ title: "賺了嗎", headerRight: () => <SettingsHeaderButton /> }} />
         </Stack>
         <DisclaimerGate />
       </ProStatusProvider>
