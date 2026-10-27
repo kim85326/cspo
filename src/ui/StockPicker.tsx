@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { formatStockLabel, searchStocks } from "@/domain/stockSearch";
+import { SECURITY_TYPE_LABEL } from "@/domain/security";
+import { formatStockLabel, MAX_SEARCH_RESULTS, searchStocks } from "@/domain/stockSearch";
 import type { StockInfo } from "@/domain/types";
 import { colors, fonts, fontSize, radius, shadow, space, touchTarget } from "./theme";
 
@@ -21,11 +22,10 @@ type Props = {
 };
 
 const LABEL = "股票代號或名稱";
-const MAX_SUGGESTIONS = 8;
 
 /**
  * 股票選擇器：打代號、打公司名、或從清單點選。
- * - 空白時列出熱門股票讓人直接選。
+ * - 空白時列出熱門股票讓人直接選；每列顯示代號、名稱與「個股／ETF」標籤，最多 20 筆。
  * - 選定後欄位顯示「台積電（2330）」，右側有清除鈕；再點欄位也會清除重選。
  */
 export function StockPicker({
@@ -66,7 +66,7 @@ export function StockPicker({
     onSelect(stock);
   };
 
-  const suggestions = focused && !selected ? searchStocks(query, stocks, MAX_SUGGESTIONS) : [];
+  const suggestions = focused && !selected ? searchStocks(query, stocks, MAX_SEARCH_RESULTS) : [];
   const listLoading = loading && stocks.length === 0;
   const showList = focused && !selected && (stocks.length > 0 || listLoading);
   const listHeader = listLoading
@@ -129,14 +129,19 @@ export function StockPicker({
             <Pressable
               key={stock.symbol}
               accessibilityRole="button"
-              accessibilityLabel={`選擇 ${stock.name} ${stock.symbol}`}
+              accessibilityLabel={`選擇 ${stock.name} ${stock.symbol} ${SECURITY_TYPE_LABEL[stock.type]}`}
               testID={`${testID}-suggestion-${stock.symbol}`}
               onPress={() => handleSelect(stock)}
               android_ripple={{ color: colors.muted }}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
               <Text style={styles.rowSymbol}>{stock.symbol}</Text>
-              <Text style={styles.rowName}>{stock.name}</Text>
+              <Text style={styles.rowName} numberOfLines={1}>
+                {stock.name}
+              </Text>
+              <Text style={[styles.typeTag, stock.type === "etf" && styles.typeTagEtf]}>
+                {SECURITY_TYPE_LABEL[stock.type]}
+              </Text>
             </Pressable>
           ))}
         </View>
@@ -229,5 +234,18 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
     width: 72,
   },
-  rowName: { fontFamily: fonts.regular, fontSize: fontSize.md, color: colors.foreground },
+  rowName: { flex: 1, fontFamily: fonts.regular, fontSize: fontSize.md, color: colors.foreground },
+  // 類型標籤：個股灰底、ETF 深藍淺底；文字本身就寫明類型，不靠顏色區分
+  typeTag: {
+    marginLeft: space.sm,
+    paddingHorizontal: space.sm,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    overflow: "hidden",
+    backgroundColor: colors.muted,
+    color: colors.mutedForeground,
+    fontFamily: fonts.medium,
+    fontSize: fontSize.xs,
+  },
+  typeTagEtf: { backgroundColor: colors.secondarySurface, color: colors.secondary },
 });

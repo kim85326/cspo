@@ -46,14 +46,18 @@ cspo/
 ├── src/
 │   ├── app/            路由（expo-router）。只放轉出，不放邏輯與測試
 │   │   ├── _layout.tsx 載入 IBM Plex Sans 字型、Stack 導覽
-│   │   └── index.tsx   → screens/CalculateScreen
+│   │   ├── index.tsx   → screens/CalculateScreen
+│   │   ├── twse+api.ts 網頁版同源代理 GET /twse → 證交所（沒開 CORS）
+│   │   ├── tpex+api.ts 網頁版同源代理 GET /tpex → 櫃買中心（沒開 CORS）
+│   │   └── recognize+api.ts 截圖辨識 API route（Story 005）
 │   ├── screens/        畫面本體與畫面測試
 │   │   ├── CalculateScreen.tsx
 │   │   └── CalculateScreen.test.tsx
 │   ├── domain/         純 TypeScript，不碰 UI 與網路，單元測試主戰場
-│   │   ├── types.ts        Holding、Quote、PnlResult、StockInfo
+│   │   ├── types.ts        Holding、Quote、PnlResult、StockInfo（含 type 個股／ETF、market 上市／上櫃）、SecurityType、Market
+│   │   ├── security.ts     securityTypeOf（代號 00 開頭 = ETF）、SECURITY_TYPE_LABEL、toStockInfo
 │   │   ├── pnl.ts          calculatePnl、formatSignedAmount、formatReturnRate、validateHoldingInput
-│   │   ├── stockSearch.ts  searchStocks、resolveStock、normalizeQuery、formatStockLabel
+│   │   ├── stockSearch.ts  searchStocks（最多 MAX_SEARCH_RESULTS = 20 筆）、resolveStock、normalizeQuery、formatStockLabel
 │   │   ├── compare.ts      compareHoldings（多檔依報酬率排名 + 合計）、MAX_COMPARE_HOLDINGS = 5
 │   │   ├── ledgerTypes.ts  記帳本型別：Transaction、Dividend、HoldingSetting、UserSettings、Ledger、SecurityType、Bucket（Story 006）
 │   │   ├── fees.ts         floorMoney、calcFee、calcTax、defaultTaxRate、estimateTrade、DEFAULT_USER_SETTINGS
@@ -65,15 +69,22 @@ cspo/
 │   ├── data/           對外資料來源
 │   │   ├── PriceSource.ts      介面：getQuote(symbol) → Quote | null
 │   │   ├── StockDirectory.ts   介面：getAll() → StockInfo[]
-│   │   ├── stocks.ts           固定 40 檔台股／ETF 與假現價（測試用；也是熱門清單順序）
+│   │   ├── stocks.ts           固定 40 檔上市 + 5 檔上櫃股票／ETF 與假現價（測試用；也是熱門清單順序）
 │   │   ├── fakePriceSource.ts / fakeStockDirectory.ts
 │   │   ├── twseEndpoint.ts     手機直接打證交所；網頁版走 /twse 代理（src/app/twse+api.ts），因為證交所沒開 CORS
 │   │   ├── twseParse.ts        證交所回應 → Quote[]（純函式）
-│   │   ├── twseSource.ts       證交所 OpenAPI 來源（全市場、5 分鐘快取、PriceSource + StockDirectory）
-│   │   └── index.ts            Jest 或 EXPO_PUBLIC_USE_FAKE_PRICES=1 用假來源，否則證交所
+│   │   ├── twseSource.ts       證交所（上市）來源，createDailyQuoteSource 的薄包裝
+│   │   ├── tpexEndpoint.ts     櫃買中心 tpex_mainboard_quotes；網頁版走 /tpex 代理（src/app/tpex+api.ts）
+│   │   ├── tpexParse.ts        櫃買中心回應 → Quote[]（欄位 SecuritiesCompanyCode、CompanyName、Close、Date）
+│   │   ├── tpexSource.ts       櫃買中心（上櫃）來源，createDailyQuoteSource 的薄包裝
+│   │   ├── dailyQuoteSource.ts 上市上櫃共用：一次拿全市場收盤價、5 分鐘快取、失敗沿用舊快取、PriceSource + StockDirectory
+│   │   ├── directoryOrder.ts   orderForDirectory：熱門清單在前、其餘依代號、重複代號留第一筆
+│   │   ├── marketSource.ts     把上市 + 上櫃合成一個來源；一邊失敗另一邊照用，兩邊都失敗才丟 PriceLoadError
+│   │   ├── __fixtures__/       真實 API 回應（裁剪過），測試用：tpexMainboardQuotes.json
+│   │   └── index.ts            Jest 或 EXPO_PUBLIC_USE_FAKE_PRICES=1 用假來源，否則 marketSource（證交所 + 櫃買中心）
 │   └── ui/             可重用元件與設計 token
 │       ├── theme.ts        colors / space / radius / fonts / fontSize / touchTarget / pnlColors
-│       ├── StockPicker.tsx 股票選擇器（打代號、打名稱、從清單選）
+│       ├── StockPicker.tsx 股票選擇器（打代號、打名稱、從清單選；每列有「個股／ETF」標籤，最多 20 筆）
 │       ├── LabeledInput.tsx
 │       ├── HoldingForm.tsx 一檔的輸入區塊（StockPicker + 買入價 + 數量 + 移除鈕）
 │       ├── PnlCard.tsx     單檔結果卡
@@ -82,7 +93,7 @@ cspo/
 ├── docs/
 │   ├── architecture.md 架構、分工、迭代規劃（最完整的設計文件）
 │   ├── glossary.md     共同語言與顯示慣例
-│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較（Gherkin AC + 對應測試表）
+│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、007 證券類型與上櫃（Gherkin AC + 對應測試表 + 決策紀錄）
 │   ├── test-plan.md    手動測試清單、bug 回報格式
 │   └── context-for-ai.md 本檔
 ├── design-system/stock-pnl/MASTER.md
@@ -95,7 +106,7 @@ cspo/
 1. **算錢的邏輯全部放在 `src/domain/`**，不依賴 UI 或網路，所有金額情境用單元測試跑完。
 2. **畫面不寫死色碼與間距**，一律從 `src/ui/theme.ts` 拿。
 3. **台股慣例漲紅跌綠**（跟美股相反），且不靠顏色單獨傳達：另有「賺了／虧了」文字與 ▲▼ 符號。
-4. **自動化測試用固定假價**（`src/data/stocks.ts`），結果可重現；app 跑起來接證交所收盤價。`src/data/index.ts` 依 `JEST_WORKER_ID` / `EXPO_PUBLIC_USE_FAKE_PRICES` 切換，切法見 `docs/architecture.md` 第 7 節。
+4. **自動化測試用固定假價**（`src/data/stocks.ts`），結果可重現；app 跑起來接證交所（上市）+ 櫃買中心（上櫃）收盤價。測試一律不打真的 API，要真實回應就存成 `src/data/__fixtures__/` 的 fixture。`src/data/index.ts` 依 `JEST_WORKER_ID` / `EXPO_PUBLIC_USE_FAKE_PRICES` 切換，切法見 `docs/architecture.md` 第 7 節。
 5. **測試檔不能放在 `src/app/`**，expo-router 會把那裡的每個檔案當成一頁打包。
 6. 畫面裡所有可互動元件都有中文 `accessibilityLabel`，Maestro 與螢幕閱讀器都靠它找元件。
 
@@ -113,6 +124,7 @@ cspo/
 - **Android APK**：`eas.json` 已備好，`eas build -p android --profile preview` 第一次執行會在 Expo 帳號建專案並產生簽章金鑰（Elaine 正在跑或準備跑）。
 - **第二迭代候選**（由 PO 決定優先順序）：
   - ~~接證交所真實資料~~：已完成（`src/data/twseSource.ts`）。回應欄位 `Date`（民國年 1151022）、`Code`、`Name`、`ClosingPrice`（字串，無成交時是空字串），約 1,380 列；無成交的列會被濾掉。`Quote.asOf` 帶資料日期，結果卡顯示「收盤價 2026/10/22」；斷網顯示「行情載入失敗，請檢查網路後重試」，再按「計算」會重試。
+  - ~~上櫃股票與個股／ETF 標籤~~（Story 007 已完成：櫃買中心 `tpex_mainboard_quotes`，欄位 `Date`、`SecuritiesCompanyCode`、`CompanyName`、`Close`（無成交是 `----`），約 1,000 列；代號 00 開頭 = ETF）
   - ~~多檔一起比~~（Story 003 已完成：最多 5 檔、依報酬率排名、合計）
   - ~~持股存手機~~（Story 004 已完成：AsyncStorage，存幾檔帶回幾檔，一鍵清除）
   - ~~從券商截圖匯入持股~~（Story 005：expo-image-picker + Expo Router API route `/recognize` + Claude vision；API key 放 `.env`，見 architecture.md 第 7 節）

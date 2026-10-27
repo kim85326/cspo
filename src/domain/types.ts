@@ -28,10 +28,18 @@ export type PnlResult = {
 
 export type PnlDirection = "up" | "down" | "flat";
 
-/** 股票基本資料：代號 + 名稱（選擇器與搜尋用） */
+/** 證券類型：個股或 ETF。判斷規則見 src/domain/security.ts */
+export type SecurityType = "stock" | "etf";
+
+/** 市場別：TWSE = 證交所（上市）、TPEx = 櫃買中心（上櫃） */
+export type Market = "TWSE" | "TPEx";
+
+/** 證券基本資料：代號、名稱、類型、市場（選擇器與搜尋用；對應 product-spec 第 4 章 Security） */
 export type StockInfo = {
   symbol: string;
   name: string;
+  type: SecurityType;
+  market: Market;
 };
 
 /**

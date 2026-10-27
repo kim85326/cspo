@@ -7,6 +7,7 @@ import {
   type ExtractionResult,
   type HoldingDraft,
 } from "./holdingExtract";
+import { toStockInfo } from "./security";
 import type { StockInfo } from "./types";
 
 const STOCKS: StockInfo[] = [
@@ -16,7 +17,7 @@ const STOCKS: StockInfo[] = [
   { symbol: "2303", name: "聯電" },
   { symbol: "0050", name: "元大台灣50" },
   { symbol: "2603", name: "長榮" },
-];
+].map((s) => toStockInfo(s, "TWSE"));
 
 const high = (h: Omit<ExtractedHolding, "confidence">): ExtractedHolding => ({
   ...h,

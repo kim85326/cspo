@@ -1,5 +1,5 @@
 import { PriceLoadError } from "./PriceSource";
-import { createTwseSource, orderForDirectory } from "./twseSource";
+import { createTwseSource } from "./twseSource";
 
 const ROWS = [
   { Date: "1151022", Code: "0050", Name: "元大台灣50", ClosingPrice: "106.90" },
@@ -29,19 +29,6 @@ function setup(responses: (() => Promise<Response>)[], ttlMs = 5 * 60 * 1000) {
   return { source, fetchFn, advance: (ms: number) => (clock += ms) };
 }
 
-describe("orderForDirectory", () => {
-  test("熱門 40 檔在前（台積電第一），其餘依代號排序", () => {
-    const list = orderForDirectory([
-      { symbol: "1102", name: "亞泥", price: 45 },
-      { symbol: "2317", name: "鴻海", price: 245 },
-      { symbol: "1101", name: "台泥", price: 30 },
-      { symbol: "2330", name: "台積電", price: 2385 },
-      { symbol: "0050", name: "元大台灣50", price: 106.9 },
-    ]);
-    expect(list.map((s) => s.symbol)).toEqual(["2330", "2317", "0050", "1101", "1102"]);
-  });
-});
-
 describe("createTwseSource", () => {
   test("getQuote 回證交所收盤價與資料日期", async () => {
     const { source } = setup([async () => jsonResponse(ROWS)]);
@@ -67,6 +54,8 @@ describe("createTwseSource", () => {
     const [list, quote] = await Promise.all([source.getAll(), source.getQuote("2330")]);
     expect(list.map((s) => s.symbol)).toEqual(["2330", "2317", "0050", "1101", "1102"]);
     expect(quote?.price).toBe(2385);
+    expect(list[0]).toEqual({ symbol: "2330", name: "台積電", type: "stock", market: "TWSE" });
+    expect(list.find((s) => s.symbol === "0050")).toMatchObject({ type: "etf", market: "TWSE" });
     await source.getQuote("2317");
     expect(fetchFn).toHaveBeenCalledTimes(1);
 

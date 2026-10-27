@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react-native";
 import * as ImagePicker from "expo-image-picker";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/data";
 import { features } from "@/config/features";
 import { FAKE_EXTRACTION } from "@/data/fakeHoldingRecognizer";
+import type { StockInfo } from "@/domain/types";
 import CalculateScreen from "./CalculateScreen";
 
 jest.mock("expo-router", () => ({
@@ -122,12 +123,12 @@ describe("StockPicker（對應 docs/stories/002）", () => {
   test("打部分名稱會出現候選，點選後欄位顯示名稱與代號", async () => {
     await renderScreen();
     await typeStock("聯");
-    expect(await screen.findByLabelText("選擇 聯電 2303")).toBeTruthy();
-    expect(screen.getByLabelText("選擇 聯發科 2454")).toBeTruthy();
+    expect(await screen.findByLabelText("選擇 聯電 2303 個股")).toBeTruthy();
+    expect(screen.getByLabelText("選擇 聯發科 2454 個股")).toBeTruthy();
 
-    await fireEvent.press(screen.getByLabelText("選擇 聯發科 2454"));
+    await fireEvent.press(screen.getByLabelText("選擇 聯發科 2454 個股"));
     expect(screen.getByDisplayValue("聯發科（2454）")).toBeTruthy();
-    expect(screen.queryByLabelText("選擇 聯電 2303")).toBeNull();
+    expect(screen.queryByLabelText("選擇 聯電 2303 個股")).toBeNull();
 
     await fillPriceAndShares("1000", "100");
     await pressCalculate();
@@ -146,14 +147,14 @@ describe("StockPicker（對應 docs/stories/002）", () => {
     await renderScreen();
     await fireEvent(screen.getByLabelText("股票代號或名稱"), "focus");
     expect(await screen.findByText("熱門股票")).toBeTruthy();
-    await fireEvent.press(screen.getByLabelText("選擇 鴻海 2317"));
+    await fireEvent.press(screen.getByLabelText("選擇 鴻海 2317 個股"));
     expect(screen.getByDisplayValue("鴻海（2317）")).toBeTruthy();
   });
 
   test("清除鈕會清掉已選股票", async () => {
     await renderScreen();
     await typeStock("2330");
-    await fireEvent.press(await screen.findByLabelText("選擇 台積電 2330"));
+    await fireEvent.press(await screen.findByLabelText("選擇 台積電 2330 個股"));
     expect(screen.getByDisplayValue("台積電（2330）")).toBeTruthy();
     await fireEvent.press(screen.getByLabelText("清除股票"));
     expect(screen.queryByDisplayValue("台積電（2330）")).toBeNull();
@@ -338,8 +339,8 @@ describe("代號帶英文字母（槓桿／反向 ETF 等）", () => {
 
   function stubLetterSymbolStock() {
     jest.spyOn(stockDirectory, "getAll").mockResolvedValue([
-      { symbol: "2330", name: "台積電" },
-      { symbol: "00631L", name: "元大台灣50正2" },
+      { symbol: "2330", name: "台積電", type: "stock", market: "TWSE" },
+      { symbol: "00631L", name: "元大台灣50正2", type: "etf", market: "TWSE" },
     ]);
     jest.spyOn(priceSource, "getQuote").mockImplementation(async (symbol) =>
       symbol === "00631L" ? { symbol, name: "元大台灣50正2", price: 250 } : null,
@@ -419,7 +420,7 @@ describe("真實行情（證交所）：載入失敗與資料日期", () => {
   });
 
   test("清單還在載入時聚焦欄位，顯示載入中", async () => {
-    let resolveList: (list: { symbol: string; name: string }[]) => void = () => {};
+    let resolveList: (list: StockInfo[]) => void = () => {};
     jest.spyOn(stockDirectory, "getAll").mockReturnValueOnce(
       new Promise((resolve) => {
         resolveList = resolve;
@@ -429,7 +430,7 @@ describe("真實行情（證交所）：載入失敗與資料日期", () => {
     await fireEvent(screen.getByLabelText("股票代號或名稱"), "focus");
     expect(await screen.findByText("股票清單載入中…")).toBeTruthy();
     await act(async () => {
-      resolveList([{ symbol: "2330", name: "台積電" }]);
+      resolveList([{ symbol: "2330", name: "台積電", type: "stock", market: "TWSE" }]);
     });
     expect(await screen.findByText("熱門股票")).toBeTruthy();
     expect(screen.queryByText("股票清單載入中…")).toBeNull();
@@ -631,5 +632,45 @@ describe("從截圖匯入（對應 docs/stories/005）", () => {
     await waitFor(() => expect(screen.queryByLabelText("從相簿選")).toBeNull());
     expect(screen.getAllByLabelText("股票代號或名稱")).toHaveLength(1);
     expect(screen.queryByTestId("import-error")).toBeNull();
+  });
+});
+
+describe("證券類型與上櫃股票（對應 docs/stories/007）", () => {
+  test("輸入 0050：第一筆是元大台灣50，標示 ETF", async () => {
+    await renderScreen();
+    await typeStock("0050");
+    const rows = await screen.findAllByLabelText(/^選擇 /);
+    expect(rows[0]).toHaveAccessibleName("選擇 元大台灣50 0050 ETF");
+    expect(within(rows[0]).getByText("ETF")).toBeTruthy();
+  });
+
+  test("輸入台積：台積電標示個股", async () => {
+    await renderScreen();
+    await typeStock("台積");
+    const row = await screen.findByLabelText("選擇 台積電 2330 個股");
+    expect(within(row).getByText("個股")).toBeTruthy();
+  });
+
+  test("搜得到上櫃股票，選了就能用上櫃收盤價算盈虧", async () => {
+    await renderScreen();
+    await typeStock("世界");
+    await fireEvent.press(await screen.findByLabelText("選擇 世界 5347 個股"));
+    expect(screen.getByDisplayValue("世界（5347）")).toBeTruthy();
+    // 假價表：世界 160
+    await fillPriceAndShares("150", "1000");
+    await pressCalculate();
+    expect(await screen.findByText("+10,000")).toBeTruthy();
+  });
+
+  test("上櫃 ETF 006201 標示 ETF", async () => {
+    await renderScreen();
+    await typeStock("006201");
+    expect(await screen.findByLabelText("選擇 元大富櫃50 006201 ETF")).toBeTruthy();
+  });
+
+  test("符合的超過 20 檔時只列 20 筆", async () => {
+    await renderScreen();
+    await typeStock("2");
+    expect(await screen.findAllByLabelText(/^選擇 /)).toHaveLength(20);
   });
 });

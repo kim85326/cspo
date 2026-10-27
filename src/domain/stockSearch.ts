@@ -8,6 +8,9 @@ export function normalizeQuery(raw: string): string {
     .toLowerCase();
 }
 
+/** 搜尋結果最多幾筆（product-spec M-01） */
+export const MAX_SEARCH_RESULTS = 20;
+
 /**
  * 依使用者輸入找候選股票。
  * - 空字串：回前 limit 檔（當作熱門清單讓人直接選）
@@ -15,7 +18,11 @@ export function normalizeQuery(raw: string): string {
  * - 其他：名稱包含
  * 排序：完全相同 > 開頭相同 > 包含。
  */
-export function searchStocks(query: string, stocks: StockInfo[], limit = 8): StockInfo[] {
+export function searchStocks(
+  query: string,
+  stocks: StockInfo[],
+  limit = MAX_SEARCH_RESULTS,
+): StockInfo[] {
   const q = normalizeQuery(query);
   if (q === "") return stocks.slice(0, limit);
 
@@ -60,6 +67,6 @@ export function resolveStock(query: string, stocks: StockInfo[]): StockInfo | nu
 }
 
 /** 顯示用：台積電（2330） */
-export function formatStockLabel(stock: StockInfo): string {
+export function formatStockLabel(stock: Pick<StockInfo, "symbol" | "name">): string {
   return `${stock.name}（${stock.symbol}）`;
 }

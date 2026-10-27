@@ -9,6 +9,8 @@ export const colors = {
   primary: "#0F172A",
   onPrimary: "#FFFFFF",
   secondary: "#1E3A8A",
+  /** 深藍的淺底：ETF 標籤用 */
+  secondarySurface: "#DBEAFE",
   accent: "#A16207",
   onAccent: "#FFFFFF",
   /** 金色的淺底：提示標籤（例如「請確認」）用 */
