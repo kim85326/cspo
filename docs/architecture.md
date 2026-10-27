@@ -189,6 +189,96 @@ appId: host.exp.Exponent
 - **網頁版的行情**：證交所沒開 CORS，瀏覽器不能直接打，所以網頁版改打同源的 `/twse`（`src/app/twse+api.ts`，expo-router API route，`app.json` 的 `web.output` 已設為 `server`）。`npx expo start` 的 dev server 會直接提供這條路；若要把網頁版部署出去，需要能跑 server 的主機（例如 EAS Hosting），純靜態主機上行情會載入失敗。
 - **打包加速與 OTA 更新**：APK 打包時間分析、EAS Update 導入步驟與「何時要重打 APK」見 [build-speed.md](build-speed.md)。
 
+### AI 解讀後端（Story 017）
+
+「AI 解讀」按鈕（[docs/stories/017-ai-insight.md](stories/017-ai-insight.md)）背後是一台跑在**工程同學電腦上**的小後端 `backend/`。Anthropic API key 只放在那台電腦的 `backend/.env`，app 裡沒有、git 裡也沒有。它和 Expo dev server 互相獨立：不開 `npx expo start` 也能單獨跑、單獨對外。
+
+```
+手機 / 網頁版 ──POST /insight（持股數字 + 存取碼）──▶ backend/（你的電腦，port 8787）──▶ Claude API
+```
+
+**啟動**
+
+```bash
+cp backend/.env.example backend/.env    # 第一次：填 ANTHROPIC_API_KEY 與 INSIGHT_ACCESS_TOKEN
+npm run backend                          # 會先 npm install backend 的套件（只有 @anthropic-ai/sdk），再啟動
+curl http://localhost:8787/health        # {"ok":true,"apiKeyConfigured":true,"accessTokenConfigured":true,...}
+npm run backend:test                     # 後端自己的型別檢查 + 測試（node:test，不打真的 Claude）
+```
+
+需要 Node 24 以上（直接執行 `.ts`、用 `--env-file-if-exists` 讀 `.env`，不需要建置步驟）。
+
+**設定**（`backend/.env`，完整說明在 `backend/.env.example`）
+
+| 變數 | 預設 | 說明 |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | （必填） | 沒設時 `/insight` 回 503「AI 解讀後端沒有設定 ANTHROPIC_API_KEY…」，`/health` 照常 200 |
+| `INSIGHT_ACCESS_TOKEN` | （必填） | app 用 `Authorization: Bearer <token>` 帶來。沒設時 `/insight` 一律 503（fail closed）。產生：`openssl rand -hex 16` |
+| `INSIGHT_PORT` / `INSIGHT_HOST` | `8787` / `0.0.0.0` | 聽所有網卡，同一個 Wi-Fi 的手機才連得到 |
+| `INSIGHT_ALLOWED_ORIGINS` | `http://localhost:8081,http://127.0.0.1:8081` | 網頁版的來源（CORS），逗號分隔，`*` 代表全部 |
+| `INSIGHT_RATE_LIMIT_PER_MINUTE` | `5` | 每個來源 IP 每分鐘幾次，超過回 429 + `Retry-After` |
+| `INSIGHT_DAILY_LIMIT` | `100` | 整台後端每天最多呼叫 Claude 幾次（重啟歸零） |
+| `INSIGHT_MAX_BODY_BYTES` | `16384` | 請求內容上限，超過回 413 |
+| `INSIGHT_MAX_TOKENS` | `2048` | 每次呼叫的 `max_tokens`，最多 4096 |
+| `INSIGHT_TRUST_PROXY` | `0` | 走 Cloudflare tunnel 時設 `1`，改用 `CF-Connecting-IP` 當來源 IP |
+
+`/insight` 依序檢查：頻率 → 存取碼 → API key → 大小 → 格式 → 每日上限，全部通過才呼叫 Claude。錯誤一律回 `{ "error": "中文訊息" }`，app 原樣顯示。每次呼叫會在終端機印 token 用量（不印持股內容），可以拿來核對費用。
+
+app 端（根目錄 `.env.local`）：
+
+| 變數 | 說明 |
+|---|---|
+| `EXPO_PUBLIC_FEATURE_AI_INSIGHT=1` | 功能開關，預設關閉 |
+| `EXPO_PUBLIC_INSIGHT_ACCESS_TOKEN` | 和後端的 `INSIGHT_ACCESS_TOKEN` 相同。**會被打包進 app，拆包就看得到，不是秘密**，只擋隨手亂打網址的路人。真正的保護是 key 不離開電腦、後端的次數限制，和下面的 Console 花費上限 |
+| `EXPO_PUBLIC_INSIGHT_API_URL` | 後端網址。沒設時：網頁版用 `http://<網頁的主機名>:8787`、Expo Go 區網模式用 dev server 的 IP 換成 8787；tunnel 與 APK 猜不到，一定要設 |
+| `EXPO_PUBLIC_USE_FAKE_INSIGHT=1` | 不開後端也能看畫面（固定內容的假解讀）；Jest 一律用假的 |
+
+改了 `.env.local` 之後在手機上整個 reload app。
+
+**手機怎麼連到這台電腦的後端**
+
+| 怎麼開 app | 怎麼連 | 要設什麼 |
+|---|---|---|
+| 網頁版，在同一台電腦開（`npx expo start --web`，`http://localhost:8081`） | 直接打 `http://localhost:8787` | 什麼都不用設。dev server 不是 8081 時，把那個來源加進 `INSIGHT_ALLOWED_ORIGINS` |
+| Expo Go，**同一個 Wi-Fi、區網模式**（`npx expo start`，沒加 `--tunnel`） | 打電腦的區網 IP `http://192.168.x.x:8787`（app 從 dev server 位址自動推出來） | 什麼都不用設。macOS 第一次會問是否允許 node 接受連入連線，選允許 |
+| Expo Go，**不同網路**，或公司 Wi-Fi（有裝置隔離，手機連不到電腦的區網 IP，見 context-for-ai.md 第 8 節） | 開 Cloudflare quick tunnel，給後端一個公開的 https 網址 | `EXPO_PUBLIC_INSIGHT_API_URL=https://xxxx.trycloudflare.com`；後端設 `INSIGHT_TRUST_PROXY=1` |
+| 網頁版，透過 Expo tunnel 給別人開（`https://xxxx.exp.direct`，iPhone 非帳號擁有者用這個） | 同上（https 網頁不能打 http 後端，瀏覽器會擋 mixed content） | 同上，再把那個 `https://xxxx.exp.direct` 加進 `INSIGHT_ALLOWED_ORIGINS` |
+| APK | 同上，而且只能用 https：Android 9 以後 release 版預設禁止 http 明文連線 | 目前 APK 一律關閉（EAS 打包沒設開關）。要開得在 EAS 環境設上面四個變數並重打或發 OTA；quick tunnel 每次重開網址都會變，要固定網址得改用 Cloudflare 具名 tunnel（需要 Cloudflare 帳號），這次不做 |
+
+Cloudflare quick tunnel（[官方說明](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/)）：
+
+```bash
+brew install cloudflared                          # 安裝（Cloudflare 下載頁提供的 macOS 方式）
+cloudflared tunnel --url http://localhost:8787    # 終端機會印出 https://xxxx.trycloudflare.com
+```
+
+- 不需要 Cloudflare 帳號或網域；網址**每次重開都不同**，關掉 `cloudflared` 就失效，所以每次都要更新 `EXPO_PUBLIC_INSIGHT_API_URL` 再 reload app。
+- 官方定位是測試用：沒有可用性保證、同時最多 200 個進行中的請求（超過由 Cloudflare 直接回 429，app 會顯示「AI 解讀使用太頻繁…」）。
+- 開了 tunnel 就是公開網址，任何人都打得到。所以後端一定要設存取碼，並設 `INSIGHT_TRUST_PROXY=1`：Cloudflare 會在 `CF-Connecting-IP` header 帶上真正的來源 IP，頻率限制才能分得出不同人；不開的話所有人共用 `127.0.0.1` 一個額度。**沒走 tunnel 時不要開**，否則同網路的人可以偽造這個 header 繞過限制。
+- 本專案的 agent 沒有安裝或執行過 cloudflared，以上依官方文件整理。
+
+**網頁版的 CORS**：手機 app（Expo Go、APK）的請求不受 CORS 限制，只有瀏覽器會先送 `OPTIONS` preflight。後端只對 `INSIGHT_ALLOWED_ORIGINS` 裡的來源回 `Access-Control-Allow-Origin`，允許 `Content-Type` 與 `Authorization` 兩個 header。來源要完全相同（含 `http`／`https` 與 port），例如 `http://localhost:8081`；用另一台裝置以區網 IP 開網頁版（`http://192.168.x.x:8081`）時，也要把那個來源加進去。設成 `*` 也可以，因為存取碼與次數限制仍然有效，但不建議長期這樣開。
+
+**費用估算**（依 `claude-api` skill 的定價，2026-10-06 快取：Claude Opus 5.5 輸入 US$4、輸出 US$20／百萬 tokens；**沒有用真 key 實測**，數字是估的，實際以後端 log 印的 token 用量為準）
+
+| 項目 | 估算 |
+|---|---|
+| 輸入：system prompt（約 600 字，九成是中文）＋ structured outputs 的 schema ＋ 1～5 檔持股的 JSON | 約 1,200～1,800 tokens → US$0.005～0.007 |
+| 輸出：解讀文字（總結 + 2～4 點 + 提醒，約 150～300 字）＋ adaptive thinking（Opus 5.5 關不掉，`effort: "low"`） | 約 300～1,100 tokens → US$0.006～0.022 |
+| **每次解讀** | **約 US$0.01～0.03（約新台幣 0.3～1 元）** |
+| 命中禁用字眼要重寫一次 | 那一次的費用約兩倍 |
+| 單次最壞情況：30 檔 + 兩次都用滿 `max_tokens` 2048 | 約 US$0.11 |
+| 每天上限 100 次全部用到最壞情況 | 約 US$11／天 |
+
+Tech Day 正常使用（30～50 人、每人幾次）估計總共 US$1～5。
+
+**花費上限建議**
+
+1. 在 [Anthropic Console](https://console.anthropic.com/) 開一個 Tech Day 專用的 workspace，key 建在裡面，並設**每月花費上限 US$10～20**。這是唯一真正的硬上限：存取碼外流、後端被大量打時，最多就損失這個金額，超過後 API 回錯誤，app 顯示「AI 服務錯誤…請稍後再試」。
+2. 後端的 `INSIGHT_DAILY_LIMIT`（預設 100）讓單日最多約 US$11，搭配上面的月上限。
+3. 不用時關掉 `cloudflared` 與 `npm run backend`；活動結束後在 Console 刪掉這把 key。
+4. 想再省：把 `backend/src/claudeInsight.ts` 的 `INSIGHT_MODEL` 換成 `claude-haiku-5-5`（US$0.10／US$0.50，約便宜 40 倍），但中文解讀品質與法規字眼的遵守度要先用幾組真實數字比較過再決定（同時要拿掉只有 Opus／Sonnet 支援的 `fallbacks` 參數）。
+
 ### APK 大小
 
 preview APK 從 **92,659,407 bytes（約 88 MB）縮到 25,116,066 bytes（約 24 MB）**（EAS build `71d5a8c3-3e2c-4afa-a375-c3029d03f6e3`）。原本的 88 MB 有 90% 是原生 `.so`（四種 ABI 各一份，共約 83 MB），JS bundle 只有 2 MB、字型 1.6 MB、圖片與其他資源約 2 MB。下表是 APK 內壓縮後的大小差：
@@ -250,6 +340,8 @@ npm run typecheck    # TypeScript
 npm run lint         # ESLint
 npm run check        # 以上三個一起跑，PR 前跑這個
 npm run e2e          # Maestro（需先開模擬器）
+npm run backend      # AI 解讀後端（backend/，見第 7 節「AI 解讀後端」）
+npm run backend:test # 後端的型別檢查 + 測試
 ```
 
 ## 11. Bug 回報格式（GitHub Issue 範本）

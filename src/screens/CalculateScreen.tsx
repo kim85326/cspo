@@ -16,6 +16,7 @@ import { features } from "@/config/features";
 import { holdingStore, PriceLoadError, priceSource, stockDirectory } from "@/data";
 import { compareHoldings, MAX_COMPARE_HOLDINGS, type ComparisonResult } from "@/domain/compare";
 import { applyExtraction, type ExtractionResult } from "@/domain/holdingExtract";
+import { insightInputFromQuotes } from "@/domain/insightInput";
 import { calculatePnl, validateHoldingInput } from "@/domain/pnl";
 import { resolveStock, searchStocks } from "@/domain/stockSearch";
 import type { Holding, PnlResult, Quote, SavedHolding, StockInfo } from "@/domain/types";
@@ -29,11 +30,12 @@ import {
   type HoldingFormState,
 } from "@/ui/HoldingForm";
 import { ImportSourceSheet } from "@/ui/ImportSourceSheet";
+import { InsightSection } from "@/ui/InsightCard";
 import { PnlCard } from "@/ui/PnlCard";
 import { colors, fonts, fontSize, radius, space, touchTarget } from "@/ui/theme";
 
 type Outcome =
-  | { kind: "single"; quote: Quote; result: PnlResult }
+  | { kind: "single"; holding: Holding; quote: Quote; result: PnlResult }
   | { kind: "comparison"; comparison: ComparisonResult };
 
 /** 斷網或證交所沒回應時的提示；按「計算」會再試一次 */
@@ -43,7 +45,8 @@ const LOAD_ERROR_MESSAGE = "行情載入失敗，請檢查網路後重試";
  * 輸入一檔或多檔持股 → 看盈虧；兩檔以上就排名比較。按「計算」成功後把輸入存在手機，重開帶回。
  * 對應 docs/stories/001-single-holding-pnl.md、002-stock-picker.md、003-compare-stocks.md、004-remember-holdings.md、
  * 005-import-from-screenshot.md（從截圖匯入：按鈕在這裡，選圖與辨識在 hooks/useScreenshotImport，套用在 domain/applyExtraction；
- *   目前由 src/config/features.ts 的 screenshotImport 開關控制，預設關閉）
+ *   目前由 src/config/features.ts 的 screenshotImport 開關控制，預設關閉）、
+ * 017-ai-insight.md（AI 解讀：ui/InsightCard 的 InsightSection，由 aiInsight 開關控制，預設關閉）
  * 現價來自 src/data 的 priceSource（app 裡是證交所收盤價，測試是假價）；載入失敗顯示「行情載入失敗」。
  * 路由入口在 src/app/index.tsx。
  */
@@ -259,7 +262,7 @@ export default function CalculateScreen() {
       const inputs = holdings.map((holding, i) => ({ holding, quote: quotes[i] as Quote }));
       if (inputs.length === 1) {
         const { holding, quote } = inputs[0];
-        setOutcome({ kind: "single", quote, result: calculatePnl(holding, quote.price) });
+        setOutcome({ kind: "single", holding, quote, result: calculatePnl(holding, quote.price) });
       } else {
         setOutcome({ kind: "comparison", comparison: compareHoldings(inputs) });
       }
@@ -433,6 +436,12 @@ export default function CalculateScreen() {
         ) : null}
         {outcome?.kind === "comparison" ? (
           <ComparisonCard comparison={outcome.comparison} />
+        ) : null}
+        {/* Story 017：AI 解讀，開關預設關閉 */}
+        {features.aiInsight && outcome ? (
+          <InsightSection
+            input={insightInputFromQuotes(outcome.kind === "single" ? [outcome] : outcome.comparison.rows)}
+          />
         ) : null}
 
         {saved.length > 0 ? (

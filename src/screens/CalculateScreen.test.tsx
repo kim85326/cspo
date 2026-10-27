@@ -5,6 +5,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import {
   holdingRecognizer,
   holdingStore,
+  InsightError,
+  insightProvider,
   PriceLoadError,
   priceSource,
   RecognizeError,
@@ -12,6 +14,7 @@ import {
 } from "@/data";
 import { features } from "@/config/features";
 import { FAKE_EXTRACTION } from "@/data/fakeHoldingRecognizer";
+import { FAKE_INSIGHT } from "@/data/fakeInsightProvider";
 import CalculateScreen from "./CalculateScreen";
 
 jest.mock("expo-router", () => ({
@@ -631,5 +634,120 @@ describe("從截圖匯入（對應 docs/stories/005）", () => {
     await waitFor(() => expect(screen.queryByLabelText("從相簿選")).toBeNull());
     expect(screen.getAllByLabelText("股票代號或名稱")).toHaveLength(1);
     expect(screen.queryByTestId("import-error")).toBeNull();
+  });
+});
+
+describe("AI 解讀（對應 docs/stories/017）", () => {
+  afterEach(() => {
+    features.aiInsight = false;
+    jest.restoreAllMocks();
+  });
+
+  async function calculateTsmcProfit() {
+    await renderScreen();
+    await typeStock("2330");
+    await fillPriceAndShares("500", "1000");
+    await pressCalculate();
+    expect(await screen.findByText("+20,000")).toBeTruthy();
+  }
+
+  test("開關關閉（預設）：算完也看不到「AI 解讀」按鈕", async () => {
+    features.aiInsight = false;
+    await calculateTsmcProfit();
+    expect(screen.queryByLabelText("AI 解讀")).toBeNull();
+    expect(screen.queryByTestId("insight-card")).toBeNull();
+  });
+
+  test("開關打開：還沒算之前沒有按鈕，算完才出現", async () => {
+    features.aiInsight = true;
+    await renderScreen();
+    expect(screen.queryByLabelText("AI 解讀")).toBeNull();
+    await typeStock("2330");
+    await fillPriceAndShares("500", "1000");
+    await pressCalculate();
+    expect(await screen.findByLabelText("AI 解讀")).toBeTruthy();
+  });
+
+  test("按下「AI 解讀」：顯示解讀中，完成後顯示總結、觀察、風險提醒與免責聲明", async () => {
+    features.aiInsight = true;
+    let resolve: (value: typeof FAKE_INSIGHT) => void = () => {};
+    const spy = jest
+      .spyOn(insightProvider, "getInsight")
+      .mockReturnValueOnce(new Promise((r) => (resolve = r)));
+    await calculateTsmcProfit();
+
+    await fireEvent.press(screen.getByLabelText("AI 解讀"));
+    expect(screen.getByTestId("insight-loading")).toBeTruthy();
+    expect(screen.getByText("AI 解讀中…")).toBeTruthy();
+
+    await act(async () => resolve(structuredClone(FAKE_INSIGHT)));
+    expect(await screen.findByTestId("insight-card")).toBeTruthy();
+    expect(screen.getByText(FAKE_INSIGHT.summary)).toBeTruthy();
+    for (const text of FAKE_INSIGHT.observations) expect(screen.getByText(text)).toBeTruthy();
+    expect(screen.getByText(FAKE_INSIGHT.riskNote)).toBeTruthy();
+    expect(screen.getByText("僅為數據解讀，不構成投資建議")).toBeTruthy();
+
+    // 送出去的只有數字與代號、名稱
+    const input = spy.mock.calls[0][0];
+    expect(input.holdings).toEqual([
+      { symbol: "2330", name: "台積電", shares: 1000, avgCost: 500, cost: 500_000, price: 520, pnl: 20_000, returnRate: 0.04 },
+    ]);
+    expect(input.total.pnl).toBe(20_000);
+  });
+
+  test("多檔比較：把每一檔與合計一起送去解讀", async () => {
+    features.aiInsight = true;
+    const spy = jest.spyOn(insightProvider, "getInsight");
+    await renderScreen();
+    await fireEvent.press(screen.getByLabelText("新增一檔比較"));
+    await fillHolding(1, "2317", "200", "1000");
+    await fillHolding(2, "2330", "500", "1000");
+    await pressCalculate();
+    await fireEvent.press(await screen.findByLabelText("AI 解讀"));
+
+    expect(await screen.findByTestId("insight-card")).toBeTruthy();
+    const input = spy.mock.calls[0][0];
+    expect(input.holdings.map((h) => h.symbol)).toEqual(["2330", "2317"]);
+    expect(input.total).toEqual({ cost: 700_000, marketValue: 700_000, pnl: 0, returnRate: 0 });
+  });
+
+  test("後端沒開或連不到：顯示原因，按「重試 AI 解讀」成功後顯示解讀卡", async () => {
+    features.aiInsight = true;
+    jest
+      .spyOn(insightProvider, "getInsight")
+      .mockRejectedValueOnce(new InsightError("連不上 AI 解讀服務：請確認電腦上已執行 npm run backend，且手機連得到這台電腦"));
+    await calculateTsmcProfit();
+
+    await fireEvent.press(screen.getByLabelText("AI 解讀"));
+    expect(await screen.findByText(/連不上 AI 解讀服務/)).toBeTruthy();
+    expect(screen.queryByTestId("insight-card")).toBeNull();
+    // 盈虧結果還在
+    expect(screen.getByText("+20,000")).toBeTruthy();
+
+    await fireEvent.press(screen.getByLabelText("重試 AI 解讀"));
+    expect(await screen.findByTestId("insight-card")).toBeTruthy();
+    expect(screen.queryByTestId("insight-error")).toBeNull();
+  });
+
+  test("太頻繁（429）：顯示後端給的訊息並可重試", async () => {
+    features.aiInsight = true;
+    jest
+      .spyOn(insightProvider, "getInsight")
+      .mockRejectedValueOnce(new InsightError("使用太頻繁，請 42 秒後再試"));
+    await calculateTsmcProfit();
+    await fireEvent.press(screen.getByLabelText("AI 解讀"));
+    expect(await screen.findByText("使用太頻繁，請 42 秒後再試")).toBeTruthy();
+    expect(screen.getByLabelText("重試 AI 解讀")).toBeTruthy();
+  });
+
+  test("重新計算：舊的解讀消失，要再按一次", async () => {
+    features.aiInsight = true;
+    await calculateTsmcProfit();
+    await fireEvent.press(screen.getByLabelText("AI 解讀"));
+    expect(await screen.findByTestId("insight-card")).toBeTruthy();
+
+    await pressCalculate();
+    expect(await screen.findByLabelText("AI 解讀")).toBeTruthy();
+    expect(screen.queryByTestId("insight-card")).toBeNull();
   });
 });
