@@ -45,14 +45,20 @@
 cspo/
 ├── src/
 │   ├── app/            路由（expo-router）。只放轉出，不放邏輯與測試
-│   │   ├── _layout.tsx 載入 IBM Plex Sans 字型、Stack 導覽
+│   │   ├── _layout.tsx 載入 IBM Plex Sans 字型、Stack 導覽、ProStatusProvider、首次開啟的免責聲明（DisclaimerGate）、首頁右上「設定」
 │   │   ├── index.tsx   → screens/CalculateScreen
+│   │   ├── settings.tsx → screens/SettingsScreen（免責聲明；Pro 區塊與 Demo 開關由 features.proPlan 控制）
+│   │   ├── pro.tsx     → screens/ProScreen（Pro 方案介紹，features.proPlan 關閉時導回首頁）
 │   │   ├── twse+api.ts 網頁版同源代理 GET /twse → 證交所（沒開 CORS）
 │   │   ├── tpex+api.ts 網頁版同源代理 GET /tpex → 櫃買中心（沒開 CORS）
 │   │   └── recognize+api.ts 截圖辨識 API route（Story 005）
 │   ├── screens/        畫面本體與畫面測試
 │   │   ├── CalculateScreen.tsx
-│   │   └── CalculateScreen.test.tsx
+│   │   ├── SettingsScreen.tsx  設定頁（Story 013、020）
+│   │   ├── ProScreen.tsx       Pro 方案介紹頁（Story 020）
+│   │   └── *.test.tsx
+│   ├── config/features.ts 功能開關：screenshotImport、proPlan（預設關閉，EXPO_PUBLIC_FEATURE_*=1 打開）
+│   ├── hooks/          useProStatus（Pro 狀態 Provider）、useDisclaimerConsent、usePersistedHoldings 等
 │   ├── domain/         純 TypeScript，不碰 UI 與網路，單元測試主戰場
 │   │   ├── types.ts        Holding、Quote、PnlResult、StockInfo（含 type 個股／ETF、market 上市／上櫃）、SecurityType、Market
 │   │   ├── security.ts     securityTypeOf（代號 00 開頭 = ETF）、SECURITY_TYPE_LABEL、toStockInfo
@@ -64,6 +70,7 @@ cspo/
 │   │   ├── position.ts     computePosition（依日期重播 → 持股、平均成本、已實現、未實現、股利、總報酬、持有天數）、replaySymbol
 │   │   ├── portfolio.ts    summarize（整體、核心、衛星三組加總）、bucketOf、defaultBucket
 │   │   ├── ledgerValidation.ts validateLedgerChange（新增／修改／刪除後重播，賣超就拒絕並說是哪一筆）、validateLedger、欄位檢查
+│   │   ├── plan.ts         PRO_FEATURES（Pro 功能清單）、isPro（是不是 Pro 只問它，Story 020）
 │   │   ├── ledgerTestData.ts   測試共用資料（product-spec 3.7 範例、makeTx、makeDividend），只給 *.test.ts 用
 │   │   └── *.test.ts
 │   ├── data/           對外資料來源
@@ -80,6 +87,7 @@ cspo/
 │   │   ├── dailyQuoteSource.ts 上市上櫃共用：一次拿全市場收盤價、5 分鐘快取、失敗沿用舊快取、PriceSource + StockDirectory
 │   │   ├── directoryOrder.ts   orderForDirectory：熱門清單在前、其餘依代號、重複代號留第一筆
 │   │   ├── marketSource.ts     把上市 + 上櫃合成一個來源；一邊失敗另一邊照用，兩邊都失敗才丟 PriceLoadError
+│   │   ├── appPrefs.ts         本機是非設定：免責聲明已同意、Pro Demo 開關（AsyncStorage）
 │   │   ├── __fixtures__/       真實 API 回應（裁剪過），測試用：tpexMainboardQuotes.json
 │   │   └── index.ts            Jest 或 EXPO_PUBLIC_USE_FAKE_PRICES=1 用假來源，否則 marketSource（證交所 + 櫃買中心）
 │   └── ui/             可重用元件與設計 token
@@ -88,12 +96,15 @@ cspo/
 │       ├── LabeledInput.tsx
 │       ├── HoldingForm.tsx 一檔的輸入區塊（StockPicker + 買入價 + 數量 + 移除鈕）
 │       ├── PnlCard.tsx     單檔結果卡
-│       └── ComparisonCard.tsx 多檔比較結果（排名、表現最好／最差、合計）
+│       ├── ComparisonCard.tsx 多檔比較結果（排名、表現最好／最差、合計）
+│       ├── DisclaimerGate.tsx 首次開啟的免責聲明 Modal；DISCLAIMER_TEXT（M-10 原文）
+│       ├── SettingsHeaderButton.tsx 首頁右上「設定」
+│       └── ProLockedCard.tsx  ProLockedCard（鎖定的 Pro 功能預覽）、ProGate（Pro 才顯示內容）、ProBadge
 ├── e2e/                Maestro 流程（001-profit、001-loss、002-pick-by-name、003-compare-two）
 ├── docs/
 │   ├── architecture.md 架構、分工、迭代規劃（最完整的設計文件）
 │   ├── glossary.md     共同語言與顯示慣例
-│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、007 證券類型與上櫃（Gherkin AC + 對應測試表 + 決策紀錄）
+│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、007 證券類型與上櫃、013 免責聲明、016 K 線圖、020 Free／Pro 鎖定畫面（Gherkin AC + 對應測試表 + 決策紀錄）
 │   ├── test-plan.md    手動測試清單、bug 回報格式
 │   └── context-for-ai.md 本檔
 ├── design-system/stock-pnl/MASTER.md
@@ -129,6 +140,8 @@ cspo/
   - ~~持股存手機~~（Story 004 已完成：AsyncStorage，存幾檔帶回幾檔，一鍵清除）
   - ~~從券商截圖匯入持股~~（Story 005：expo-image-picker + Expo Router API route `/recognize` + Claude vision；API key 放 `.env`，見 architecture.md 第 7 節）
   - ~~K 線圖與買入點~~（Story 016：證交所 STOCK_DAY 日 K，近 3～6 個月；`react-native-svg` 自繪；選填「買入日期」標 ▲；網頁版走 `/twse-day` 代理）
+  - 免責聲明（Story 013：首次開啟要按同意，設定頁常駐；首頁右上新增「設定」入口）
+  - Free／Pro 鎖定畫面（Story 020：只做畫面，不串金流；`features.proPlan` 預設關閉；Demo 開關在設定頁底部）
   - 手續費 0.1425%（最低 20 元）與交易稅 0.3%
 - **第三迭代候選**：報酬率圖、到價提醒、商店截圖與隱私權政策。
 

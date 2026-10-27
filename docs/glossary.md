@@ -27,6 +27,9 @@ PO、測試、工程三方都用這份表上的詞。程式裡的名字對應右
 | 行情來源 | 給代號回現價的地方。app 裡把證交所（上市）與櫃買中心（上櫃）的 OpenAPI「每日收盤行情」合成一個來源（最近一個交易日收盤價，一次拿全市場，5 分鐘內不重抓）；一邊拿不到時另一邊照用。自動化測試與 `EXPO_PUBLIC_USE_FAKE_PRICES=1` 時用固定假價 | `PriceSource`（`marketSource` = `twseSource` + `tpexSource` / `fakePriceSource`） |
 | 資料日期 | 現價是哪一個交易日的收盤價，結果卡上顯示「收盤價 2026/10/22」。假價沒有這欄 | `Quote.asOf` |
 | 行情載入失敗 | 斷網或證交所、櫃買中心都沒回應，畫面顯示「行情載入失敗，請檢查網路後重試」，再按「計算」會重試。只有一邊沒回應時，查不到的代號也顯示這句，不顯示「找不到這檔股票」 | `PriceLoadError` |
+| 免責聲明 | product-spec M-10 那段文字：「本 App 僅供記帳與計算參考，不構成任何投資建議……請以券商資料為準。」第一次開 app 要按「我已了解並同意」才能用，之後在「設定」頁隨時看得到（Story 013） | `DISCLAIMER_TEXT` / `DisclaimerGate` |
+| Free／Pro | 兩種方案。Pro 功能：年化報酬率、個股 vs ETF 對決（完整）、股利自動帶入、定期定額自動記帳（不限條數）、資產走勢與配置（全部期間）。Tech Day 只做畫面，按「升級 Pro」只顯示「Pro 方案即將推出」（Story 020） | `PRO_FEATURES` / `isPro` |
+| Demo 開關 | 設定頁底部的「Demo：解鎖所有 Pro 功能」，打開後所有 Pro 功能解鎖，只為了展示，不會收費；重開 app 仍維持 | `demoUnlocked` |
 | 比較 | 舊版首頁的功能：兩檔以上的持股一起算，依報酬率排名；第一名標「表現最好」、最後一名標「表現最差」。之後由持股明細的排序取代（Story 010、011） | `compareHoldings` / `ComparisonResult` |
 | 排名 | 比較結果裡的名次，從 1 開始。報酬率高者在前；相同則盈虧金額大者在前；再相同照輸入順序 | `ComparisonRow.rank` |
 | 合計 | 所有持股的成本、現值、盈虧相加；總報酬率 = 總盈虧 ÷ 總成本（不是各檔報酬率平均） | `ComparisonResult.total` |

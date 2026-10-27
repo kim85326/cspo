@@ -7,6 +7,9 @@ import { useFonts } from "expo-font";
 import { SplashScreen, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { ProStatusProvider } from "@/hooks/useProStatus";
+import { DisclaimerGate } from "@/ui/DisclaimerGate";
+import { SettingsHeaderButton } from "@/ui/SettingsHeaderButton";
 import { colors, fonts } from "@/ui/theme";
 
 SplashScreen.preventAutoHideAsync();
@@ -26,8 +29,9 @@ export default function RootLayout() {
 
   if (!fontsLoaded && !fontError) return null;
 
+  // ProStatusProvider：Pro 狀態全 app 共用（Story 020）；DisclaimerGate：首次開啟的免責聲明（Story 013）
   return (
-    <>
+    <ProStatusProvider>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -37,7 +41,10 @@ export default function RootLayout() {
           headerTitleStyle: { fontFamily: fonts.semibold, color: colors.foreground },
           contentStyle: { backgroundColor: colors.background },
         }}
-      />
-    </>
+      >
+        <Stack.Screen name="index" options={{ headerRight: () => <SettingsHeaderButton /> }} />
+      </Stack>
+      <DisclaimerGate />
+    </ProStatusProvider>
   );
 }

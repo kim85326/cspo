@@ -13,4 +13,9 @@
 export const features = {
   /** Story 005：從券商截圖匯入持股。APK 版連不到辨識服務，上線方式見 docs/research/screenshot-import.md */
   screenshotImport: process.env.EXPO_PUBLIC_FEATURE_SCREENSHOT_IMPORT === "1",
+  /**
+   * Story 020：Free／Pro 鎖定畫面（只做畫面，不串金流）。
+   * 關閉時設定頁沒有 Pro 區塊，/pro 直接導回首頁。開法：EXPO_PUBLIC_FEATURE_PRO_PLAN=1
+   */
+  proPlan: process.env.EXPO_PUBLIC_FEATURE_PRO_PLAN === "1",
 };
