@@ -1,17 +1,28 @@
-import { formatStockLabel, normalizeQuery, resolveStock, searchStocks } from "./stockSearch";
-import type { StockInfo } from "./types";
+import { toStockInfo } from "./security";
+import {
+  formatStockLabel,
+  MAX_SEARCH_RESULTS,
+  normalizeQuery,
+  resolveStock,
+  searchStocks,
+} from "./stockSearch";
+import type { Market, StockInfo } from "./types";
+
+function info(symbol: string, name: string, market: Market = "TWSE"): StockInfo {
+  return toStockInfo({ symbol, name }, market);
+}
 
 const STOCKS: StockInfo[] = [
-  { symbol: "2330", name: "台積電" },
-  { symbol: "2317", name: "鴻海" },
-  { symbol: "2454", name: "聯發科" },
-  { symbol: "2303", name: "聯電" },
-  { symbol: "2308", name: "台達電" },
-  { symbol: "0050", name: "元大台灣50" },
-  { symbol: "2881", name: "富邦金" },
-  { symbol: "2882", name: "國泰金" },
-  { symbol: "2603", name: "長榮" },
-  { symbol: "2609", name: "陽明" },
+  info("2330", "台積電"),
+  info("2317", "鴻海"),
+  info("2454", "聯發科"),
+  info("2303", "聯電"),
+  info("2308", "台達電"),
+  info("0050", "元大台灣50"),
+  info("2881", "富邦金"),
+  info("2882", "國泰金"),
+  info("2603", "長榮"),
+  info("2609", "陽明"),
 ];
 
 describe("normalizeQuery", () => {
@@ -43,7 +54,7 @@ describe("searchStocks（對應 docs/stories/002）", () => {
   });
 
   test("完全相同的名稱排在開頭相同之前", () => {
-    const withLonger = [...STOCKS, { symbol: "9999", name: "台積電二號" }];
+    const withLonger = [...STOCKS, info("9999", "台積電二號")];
     expect(searchStocks("台積電", withLonger).map((s) => s.symbol)).toEqual(["2330", "9999"]);
   });
 
@@ -52,7 +63,7 @@ describe("searchStocks（對應 docs/stories/002）", () => {
   });
 
   test("代號帶英文字母：00631l 找到 00631L（不分大小寫，照代號比對而不是名稱）", () => {
-    const withLetter = [...STOCKS, { symbol: "00631L", name: "元大台灣50正2" }];
+    const withLetter = [...STOCKS, info("00631L", "元大台灣50正2")];
     expect(searchStocks("00631l", withLetter).map((s) => s.symbol)).toEqual(["00631L"]);
     expect(searchStocks("00631", withLetter).map((s) => s.symbol)).toEqual(["00631L"]);
   });
@@ -63,13 +74,47 @@ describe("searchStocks（對應 docs/stories/002）", () => {
   });
 });
 
+describe("searchStocks：證券類型與上櫃（對應 docs/stories/007）", () => {
+  const WITH_TPEX: StockInfo[] = [
+    ...STOCKS,
+    info("00878", "國泰永續高股息"),
+    info("5347", "世界", "TPEx"),
+    info("006201", "元大富櫃50", "TPEx"),
+  ];
+
+  test("輸入 0050 第一筆是 0050 元大台灣50，類型 ETF", () => {
+    const [first] = searchStocks("0050", WITH_TPEX);
+    expect(first).toEqual({ symbol: "0050", name: "元大台灣50", type: "etf", market: "TWSE" });
+  });
+
+  test("輸入台積包含 2330 台積電，類型個股", () => {
+    expect(searchStocks("台積", WITH_TPEX)).toContainEqual(
+      expect.objectContaining({ symbol: "2330", type: "stock" }),
+    );
+  });
+
+  test("上櫃股票與上櫃 ETF 搜得到", () => {
+    expect(searchStocks("世界", WITH_TPEX)).toEqual([
+      { symbol: "5347", name: "世界", type: "stock", market: "TPEx" },
+    ]);
+    expect(searchStocks("006201", WITH_TPEX)[0]).toMatchObject({ name: "元大富櫃50", type: "etf" });
+  });
+
+  test("沒指定 limit 時最多 20 筆", () => {
+    const many = Array.from({ length: 30 }, (_, i) => info(`${2000 + i}`, `測試${i}`));
+    expect(MAX_SEARCH_RESULTS).toBe(20);
+    expect(searchStocks("2", many)).toHaveLength(20);
+    expect(searchStocks("", many)).toHaveLength(20);
+  });
+});
+
 describe("resolveStock", () => {
   test("代號完全相同", () => {
     expect(resolveStock("2330", STOCKS)?.name).toBe("台積電");
   });
 
   test("代號帶英文字母，大小寫都能命中", () => {
-    const withLetter = [...STOCKS, { symbol: "00631L", name: "元大台灣50正2" }];
+    const withLetter = [...STOCKS, info("00631L", "元大台灣50正2")];
     expect(resolveStock("00631L", withLetter)?.name).toBe("元大台灣50正2");
     expect(resolveStock("00631l", withLetter)?.name).toBe("元大台灣50正2");
   });

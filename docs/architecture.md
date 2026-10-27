@@ -39,6 +39,7 @@ cspo/
 │   │   ├── _layout.tsx       導覽外框
 │   │   ├── index.tsx         → screens/CalculateScreen
 │   │   ├── twse+api.ts       API route：網頁版的證交所代理（GET /twse），手機不經過
+│   │   ├── tpex+api.ts       API route：網頁版的櫃買中心代理（GET /tpex），手機不經過
 │   │   └── recognize+api.ts  API route：手機把截圖 POST 來，server 端呼叫 Claude（只在 dev server／部署的 server 跑）
 │   ├── screens/              畫面本體與畫面測試
 │   │   ├── CalculateScreen.tsx       輸入一檔或多檔持股 → 看盈虧／比較
@@ -65,7 +66,12 @@ cspo/
 │   │   ├── recognizeEndpoint.ts  用 expo-constants 的 hostUri 找到 dev server 的 /recognize
 │   │   ├── twseEndpoint.ts   證交所網址；網頁版改走同源代理 /twse（證交所沒開 CORS）
 │   │   ├── twseParse.ts      證交所回應 → Quote[]（純函式，有單元測試）
-│   │   ├── twseSource.ts     證交所 OpenAPI 來源：抓全市場、5 分鐘快取，同時是 PriceSource 與 StockDirectory
+│   │   ├── twseSource.ts     證交所（上市）來源
+│   │   ├── tpexEndpoint.ts / tpexParse.ts / tpexSource.ts  櫃買中心（上櫃）：網址與 /tpex 代理、回應 → Quote[]、來源
+│   │   ├── dailyQuoteSource.ts  上市上櫃共用：抓全市場、5 分鐘快取，同時是 PriceSource 與 StockDirectory
+│   │   ├── directoryOrder.ts 清單排序：熱門在前、其餘依代號
+│   │   ├── marketSource.ts   上市 + 上櫃合成一個來源，一邊失敗另一邊照用（Story 007）
+│   │   ├── __fixtures__/     真實 API 回應（裁剪過），測試用
 │   │   └── index.ts          依環境決定用假來源還是真的（Jest 一律用假的；EXPO_PUBLIC_USE_FAKE_PRICES／EXPO_PUBLIC_USE_FAKE_RECOGNIZER=1 也可切）
 │   ├── server/               只在 server 端跑的程式（API route 才會載入，不進手機 bundle）
 │   │   └── recognizeHoldings.ts  Claude vision + JSON schema 的 prompt 與呼叫；API key 從 process.env 讀
@@ -179,14 +185,14 @@ appId: host.exp.Exponent
   7. 想在沒有 key 的情況下跑畫面：`EXPO_PUBLIC_USE_FAKE_RECOGNIZER=1 npx expo start`，會用固定結果的假辨識器（Jest 一律用假的）。
 - **Android APK**：`npx eas-cli build -p android --profile preview`（設定在 `eas.json`）。在 Expo 雲端打包，完成後給一個下載連結與 QR code，同學直接裝，不需要 Expo Go。免費方案一個月有數次額度，排隊時間從幾分鐘到幾十分鐘不等。第一次執行會在 Expo 帳號建專案並產生 Android 簽章金鑰，之後都沿用。
 - **iOS 真機安裝**：要 Apple 開發者帳號（99 美元／年）走 TestFlight。這次先不需要，Expo Go 就夠。
-- **行情來源**：app 預設接證交所 OpenAPI（`https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`，前一交易日收盤價，免金鑰，手機要能上網）。要切回固定假價（demo 固定數字、Maestro 流程、斷網環境）就設環境變數再開 dev server：
+- **行情來源**：app 預設接證交所 OpenAPI（上市，`https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`）與櫃買中心 OpenAPI（上櫃，`https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes`），都是最近一個交易日收盤價，免金鑰，手機要能上網。要切回固定假價（demo 固定數字、Maestro 流程、斷網環境）就設環境變數再開 dev server：
 
   ```bash
   EXPO_PUBLIC_USE_FAKE_PRICES=1 npx expo start --tunnel
   ```
 
   或在專案根目錄建 `.env.local`（已被 git 忽略）寫一行 `EXPO_PUBLIC_USE_FAKE_PRICES=1`。改了變數之後要在手機上整個 reload app（不用重開 CLI）。Jest 永遠用假價，不用設。
-- **網頁版的行情**：證交所沒開 CORS，瀏覽器不能直接打，所以網頁版改打同源的 `/twse`（`src/app/twse+api.ts`，expo-router API route，`app.json` 的 `web.output` 已設為 `server`）。`npx expo start` 的 dev server 會直接提供這條路；若要把網頁版部署出去，需要能跑 server 的主機（例如 EAS Hosting），純靜態主機上行情會載入失敗。
+- **網頁版的行情**：證交所與櫃買中心都沒開 CORS，瀏覽器不能直接打，所以網頁版改打同源的 `/twse`、`/tpex`（`src/app/twse+api.ts`、`src/app/tpex+api.ts`，expo-router API route，`app.json` 的 `web.output` 已設為 `server`）。`npx expo start` 的 dev server 會直接提供這條路；若要把網頁版部署出去，需要能跑 server 的主機（例如 EAS Hosting），純靜態主機上行情會載入失敗。
 - **打包加速與 OTA 更新**：APK 打包時間分析、EAS Update 導入步驟與「何時要重打 APK」見 [build-speed.md](build-speed.md)。
 
 ### APK 大小
