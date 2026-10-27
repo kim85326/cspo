@@ -245,7 +245,7 @@ export default function CalculateScreen() {
       style={styles.flex}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Stack.Screen options={{ title: "股票盈虧" }} />
+      <Stack.Screen options={{ title: "賺了嗎" }} />
       <ScrollView
         style={styles.flex}
         contentContainerStyle={[styles.content, { paddingBottom: space.xl + insets.bottom }]}

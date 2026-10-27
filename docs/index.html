@@ -3,9 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>股票盈虧 App 下載</title>
+    <title>賺了嗎 App 下載</title>
     <meta name="description" content="你買的股票賺了還是虧了？輸入代號、買入價、數量，多檔一起比。Android APK 下載與安裝說明。" />
-    <link rel="icon" href="../assets/favicon.png" />
+    <link rel="icon" href="icon.png" />
     <link
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
@@ -171,8 +171,8 @@
   <body>
     <main>
       <header>
-        <img class="icon" src="../assets/icon.png" alt="" width="88" height="88" />
-        <h1>股票盈虧</h1>
+        <img class="icon" src="icon.png" alt="" width="88" height="88" />
+        <h1>賺了嗎</h1>
         <p class="tagline">你買的股票賺了還是虧了？</p>
       </header>
 
@@ -189,7 +189,7 @@
         <ol>
           <li>用手機打開上面的連結，下載 APK。</li>
           <li>點開下載的檔案。第一次安裝會問「允許安裝來自此來源的應用程式」，按允許。</li>
-          <li>安裝完成後打開「股票盈虧」。</li>
+          <li>安裝完成後打開「賺了嗎」。</li>
         </ol>
         <p class="note">這是測試版，沒有上架 Play 商店，所以會有未知來源的提示，屬正常情況。</p>
       </section>
@@ -228,7 +228,7 @@
     <script>
       // 換新版 APK 時只改這兩行，然後 commit。
       var APK_URL = "https://expo.dev/artifacts/eas/qZch4JIcbD3pzOMCOFpkzdI9rUqM9b78lYz3n5I4ZZg.apk";
-      var BUILD_INFO = "版本 1.0.0 ・ 2026/10/27 打包 ・ 含多檔比較";
+      var BUILD_INFO = "版本 1.0.0 ・ 2026/10/27 打包 ・ 含多檔比較（新版打包中，含證交所行情與記住持股）";
 
       document.getElementById("download").href = APK_URL;
       document.getElementById("build-meta").textContent = BUILD_INFO;
