@@ -6,9 +6,11 @@
 //   例：npm run release -- 71d5a8c3-3e2c-4afa-a375-c3029d03f6e3 "APK 瘦身到 24 MB、加 OTA 更新"
 //
 // 版本名稱自動取下一號（build 1、build 2 → build 3），GitHub tag 是 v<app 版本>-build<N>。
+// 每個 release 另外附一份固定檔名的 zhuanlema-latest.apk：下載頁的按鈕與 QR code 連到
+// releases/latest/download/zhuanlema-latest.apk，GitHub Pages 的頁面快取還沒過期也能下載到最新版。
 // 需要：已登入的 gh（gh auth status）與 eas-cli（npx eas-cli whoami）。
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +18,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const INDEX = path.join(ROOT, "docs/index.html");
 const REPO = "kim85326/cspo";
+const LATEST_APK = "zhuanlema-latest.apk";
 
 function run(cmd, args, opts = {}) {
   return execFileSync(cmd, args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"], ...opts });
@@ -59,10 +62,12 @@ const apkPath = path.join(dir, fileName);
 run("curl", ["-fsSL", "-o", apkPath, apkUrl]);
 const sizeMb = Math.round(statSync(apkPath).size / 1024 / 1024);
 console.log(`  ${sizeMb} MB`);
+const latestPath = path.join(dir, LATEST_APK);
+copyFileSync(apkPath, latestPath);
 
 step(`建立 GitHub Release ${tag}（標為最新）`);
 const ghArgs = [
-  "release", "create", tag, apkPath,
+  "release", "create", tag, apkPath, latestPath,
   "--repo", REPO,
   "--title", `賺了嗎 ${appVersion} build ${n}（Android APK）`,
   "--notes", `${notes}\n\nEAS build：${buildId}\n\n其他版本：https://github.com/${REPO}/releases`,
@@ -95,4 +100,5 @@ console.log(`
 ✔ 發版完成
   Release：https://github.com/${REPO}/releases/tag/${tag}
   APK：    ${releaseUrl}
+  固定網址：https://github.com/${REPO}/releases/latest/download/${LATEST_APK}
   下載頁： https://kim85326.github.io/cspo/  （GitHub Pages 約 1 分鐘後更新，瀏覽器快取最多 10 分鐘）`);

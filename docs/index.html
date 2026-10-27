@@ -349,7 +349,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
-      // 版本清單：第一筆是最新版（下載按鈕與 QR code 用它）。npm run release 會自動在最上面加一筆。
+      // 版本清單：第一筆是最新版（顯示在下載按鈕旁）。npm run release 會自動在最上面加一筆。
       // 檔案放在 GitHub Releases：https://github.com/kim85326/cspo/releases
       var VERSIONS = [
         {
@@ -375,7 +375,8 @@
         },
       ];
       var latest = VERSIONS[0];
-      var APK_URL = latest.url;
+      // 按鈕與 QR code 用固定網址：GitHub 會導向標為最新的 release，頁面被快取時也拿得到新版
+      var APK_URL = "https://github.com/kim85326/cspo/releases/latest/download/zhuanlema-latest.apk";
       var BUILD_INFO = "最新版 " + latest.name + " ・ " + latest.date + " ・ " + latest.size;
 
       document.querySelectorAll(".js-download").forEach(function (a) {
