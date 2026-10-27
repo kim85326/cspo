@@ -3,9 +3,9 @@
 // 已經裝好的 APK 不用重打、也不用發 OTA。用已經登入的 gh（gh auth status）寫入，不碰 iteration-1。
 //
 // 用法：
-//   npm run flags -- list
-//   npm run flags -- set aiInsight on|off
-//   npm run flags -- set aiInsight on --dry-run   # 只印出會寫什麼，不動遠端
+//   node scripts/feature-flags.mjs list
+//   node scripts/feature-flags.mjs set aiInsight on|off
+//   node scripts/feature-flags.mjs set aiInsight on --dry-run   # 只印出會寫什麼，不動遠端
 //
 // 生效時間：raw.githubusercontent.com 的 CDN 快取最多 5 分鐘；之後同學把 app 切到背景再切回來（或重開）就會套用。
 // 開關只控制畫面看不看得到，不是保護：repo 是公開的，任何人都能讀這份 JSON。
@@ -18,8 +18,8 @@ const FILE = "feature-flags.json";
 const FEATURE_NAMES = ["screenshotImport", "aiInsight", "proPlan"];
 
 const USAGE = `用法：
-  npm run flags -- list
-  npm run flags -- set <名稱> on|off [--dry-run]
+  node scripts/feature-flags.mjs list
+  node scripts/feature-flags.mjs set <名稱> on|off [--dry-run]
 認得的名稱：${FEATURE_NAMES.join("、")}`;
 
 function gh(args, input) {
@@ -71,7 +71,7 @@ function list() {
   const remote = readRemote();
   if (!remote) {
     console.log(`遠端還沒有 ${BRANCH} 分支的 ${FILE}：全部用 APK 打包時的預設（目前都是關）。`);
-    console.log("第一次 npm run flags -- set 會自動建立。");
+    console.log("第一次 node scripts/feature-flags.mjs set 會自動建立。");
     return;
   }
   console.log(`遠端設定（${REPO} 的 ${BRANCH} 分支）：`);

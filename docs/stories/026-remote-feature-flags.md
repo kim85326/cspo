@@ -10,10 +10,10 @@
 ## 怎麼操作（Elaine）
 
 ```bash
-npm run flags -- list                  # 看遠端目前的值
-npm run flags -- set aiInsight on      # 打開
-npm run flags -- set aiInsight off     # 關掉
-npm run flags -- set proPlan on --dry-run   # 只印出會寫什麼，不動遠端
+node scripts/feature-flags.mjs list                  # 看遠端目前的值
+node scripts/feature-flags.mjs set aiInsight on      # 打開
+node scripts/feature-flags.mjs set aiInsight off     # 關掉
+node scripts/feature-flags.mjs set proPlan on --dry-run   # 只印出會寫什麼，不動遠端
 ```
 
 - 認得的名稱：`screenshotImport`、`aiInsight`、`proPlan`。
@@ -26,13 +26,13 @@ npm run flags -- set proPlan on --dry-run   # 只印出會寫什麼，不動遠�
 ```gherkin
 Scenario: 遠端打開功能
   Given 我裝的 APK 沒有打開 aiInsight
-  And Elaine 執行 npm run flags -- set aiInsight on，已經過了 5 分鐘
+  And Elaine 執行 node scripts/feature-flags.mjs set aiInsight on，已經過了 5 分鐘
   When 我把 app 切到背景再切回來
   Then 算完盈虧後看得到「AI 解讀」按鈕，不用重裝、不用等 OTA
 
 Scenario: 遠端關掉功能
   Given aiInsight 原本是開的
-  When Elaine 執行 npm run flags -- set aiInsight off，等快取過期後我回到 app
+  When Elaine 執行 node scripts/feature-flags.mjs set aiInsight off，等快取過期後我回到 app
   Then 「AI 解讀」按鈕消失
 
 Scenario: 沒網路時用上次的設定
@@ -82,7 +82,7 @@ Scenario: 工程師本機測試蓋過遠端
 | 404、不是 JSON、網路錯、逾時、存取手機 | `src/data/remoteFeatureFlags.test.ts`（假的 fetch） | — |
 | 先用預設不卡畫面、抓到後重新 render、沒抓到用存的、回到前景再抓 | — | `src/hooks/useFeatures.test.tsx` |
 | 各畫面跟著開關顯示／隱藏 | — | `CalculateScreen.test.tsx`、`SettingsScreen.test.tsx`、`ProScreen.test.tsx`（`StaticFeatureFlags`） |
-| `npm run flags` 的名稱清單和 app 一致 | `src/config/features.test.ts` | — |
+| `node scripts/feature-flags.mjs` 的名稱清單和 app 一致 | `src/config/features.test.ts` | — |
 
 ## 決策紀錄
 
@@ -101,5 +101,5 @@ Scenario: 工程師本機測試蓋過遠端
 
 - [ ] AC 經 PO 確認
 - [x] 實作完成、自動化測試綠燈（遠端用假的 fetch，沒有改真的遠端設定、沒有建立遠端分支）
-- [ ] Elaine 確認後發 OTA，第一次 `npm run flags -- set` 建立 `feature-flags` 分支
+- [ ] Elaine 確認後發 OTA，第一次 `node scripts/feature-flags.mjs set` 建立 `feature-flags` 分支
 - [ ] 手機實測：切開關後 5 分鐘內、切回前景就看到變化

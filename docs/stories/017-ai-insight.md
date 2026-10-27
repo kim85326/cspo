@@ -101,7 +101,7 @@ Scenario: 重新計算
 
 ## 功能開關
 
-由 `src/config/features.ts` 的 `aiInsight` 控制，**預設關閉**，APK 與測試同學的 Expo Go 都看不到「AI 解讀」按鈕。現場要打開用 `npm run flags -- set aiInsight on`（Story 026，最多 5 分鐘生效）。
+由 `src/config/features.ts` 的 `aiInsight` 控制，**預設關閉**，APK 與測試同學的 Expo Go 都看不到「AI 解讀」按鈕。現場要打開用 `node scripts/feature-flags.mjs set aiInsight on`（Story 026，最多 5 分鐘生效）。
 
 工程同學要在自己的 dev server 打開：專案根目錄的 `.env.local`（已被 git 忽略）加
 

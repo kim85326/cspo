@@ -344,7 +344,7 @@ preview APK 從 **92,659,407 bytes（約 88 MB）縮到 25,116,066 bytes（約 2
 | 只有 JS／畫面／文案／圖片 | `npm run ota -- "改了什麼"` | 2～3 分鐘，同學把 app 滑掉重開兩次就是新版 |
 | 原生：加原生套件、改 `app.json` 的 icon／名稱／權限／plugins、升 SDK | `npx eas-cli build -p android --profile preview`，完成後 `npm run release -- <build ID> "改了什麼"` | 打包約 5～7 分鐘，發版約 1 分鐘 |
 
-- `npm run ota` 會先自動比對 fingerprint，原生有變就拒絕發 OTA 並提示改打 APK；也會擋下 `.env.local` 裡開著的 `EXPO_PUBLIC_*=1`（假價、開發中的功能開關），避免發給所有人。
+- `npm run ota` 會先自動比對 fingerprint，原生有變就拒絕發 OTA 並提示改打 APK；**注意 `package.json` 的 `scripts` 也算進 fingerprint**：新增或修改 npm script 會讓已安裝的 APK 收不到 OTA，一次性工具請用 `node scripts/xxx.mjs` 直接執行，不要加進 scripts（例：`node scripts/feature-flags.mjs`）；也會擋下 `.env.local` 裡開著的 `EXPO_PUBLIC_*=1`（假價、開發中的功能開關），避免發給所有人。
 - `npm run release` 會下載 EAS 的 APK、建立 GitHub Release（標為最新）、在 `docs/index.html` 的版本清單最上面加一筆，然後 commit + push。舊版本都會留在下載頁，新版有問題可以改裝舊版。
 - OTA 只對「裝了 build 3 以後」的 APK 有效，build 1、2 沒有 expo-updates，收不到更新。Story 018 加了 `expo-application`、`expo-clipboard` 兩個原生模組，合併後要先打一次 APK（build 4），之後的 OTA 只送得到 build 4 以後。
 - `eas.json` 的 preview profile 已開 `EAS_GRADLE_CACHE=1`；`package-lock.json` 沒變時第二次以後的打包會比較快。
@@ -352,12 +352,12 @@ preview APK 從 **92,659,407 bytes（約 88 MB）縮到 25,116,066 bytes（約 2
 ### 功能開關：不重打 APK、不發 OTA 就能切換（Story 026）
 
 ```bash
-npm run flags -- list                 # 看遠端目前的值
-npm run flags -- set aiInsight on     # 或 off；名稱：screenshotImport、aiInsight、proPlan
-npm run flags -- set aiInsight on --dry-run   # 只印出會寫什麼
+node scripts/feature-flags.mjs list                 # 看遠端目前的值
+node scripts/feature-flags.mjs set aiInsight on     # 或 off；名稱：screenshotImport、aiInsight、proPlan
+node scripts/feature-flags.mjs set aiInsight on --dry-run   # 只印出會寫什麼
 ```
 
-- 設定檔是 GitHub `kim85326/cspo` 的 **`feature-flags` 分支**裡的 `feature-flags.json`（例如 `{"aiInsight": true}`）。`npm run flags` 用已經登入的 `gh` 寫入；第一次 `set` 會建立這個獨立分支（只有這一個檔，不碰 iteration-1）。
+- 設定檔是 GitHub `kim85326/cspo` 的 **`feature-flags` 分支**裡的 `feature-flags.json`（例如 `{"aiInsight": true}`）。`node scripts/feature-flags.mjs` 用已經登入的 `gh` 寫入；第一次 `set` 會建立這個獨立分支（只有這一個檔，不碰 iteration-1）。
 - app 從 `https://raw.githubusercontent.com/kim85326/cspo/feature-flags/feature-flags.json` 讀：**啟動時**與**每次回到前景**各抓一次，抓到就存進 AsyncStorage。
 - **raw.githubusercontent.com 的 CDN 快取最多 5 分鐘**：改完要等最多 5 分鐘，再請同學把 app 切到背景再切回來。
 - 優先順序：開發時 `.env.local` 明確設的 `EXPO_PUBLIC_FEATURE_*`（`1`／`0`，只在 dev server）> 遠端 > 上次存的 > 打包預設（APK 一律關閉）。抓失敗、逾時（5 秒）、格式不對都當作沒抓到；只接受認得的名稱、值是 true／false。
@@ -420,7 +420,7 @@ npm run e2e          # Maestro（需先開模擬器）
 npm run backend        # AI 解讀後端，只給自己電腦／同 Wi-Fi 用（見第 7 節「AI 解讀後端」）
 npm run backend:tunnel # AI 解讀後端 + ngrok，讓別人從外面連進來
 npm run backend:test   # 後端的型別檢查 + 測試
-npm run flags -- list  # 遠端功能開關；set <名稱> on|off 切換（見第 7 節「功能開關」）
+node scripts/feature-flags.mjs list  # 遠端功能開關；set <名稱> on|off 切換（見第 7 節「功能開關」）
 ```
 
 ## 11. Bug 回報格式（GitHub Issue 範本）

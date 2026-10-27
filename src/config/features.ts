@@ -25,7 +25,7 @@ export type Features = Record<FeatureName, boolean>;
 
 /**
  * 遠端設定的位置：GitHub repo kim85326/cspo 的 feature-flags 分支（只放這一個檔，不碰 iteration-1）。
- * 用 `npm run flags -- set <名稱> on|off` 改。raw.githubusercontent.com 有 CDN 快取，改完最多 5 分鐘才看得到。
+ * 用 `node scripts/feature-flags.mjs set <名稱> on|off` 改。raw.githubusercontent.com 有 CDN 快取，改完最多 5 分鐘才看得到。
  */
 export const REMOTE_FLAGS_URL = "https://raw.githubusercontent.com/kim85326/cspo/feature-flags/feature-flags.json";
 
