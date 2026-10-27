@@ -189,6 +189,24 @@ appId: host.exp.Exponent
 - **網頁版的行情**：證交所沒開 CORS，瀏覽器不能直接打，所以網頁版改打同源的 `/twse`（`src/app/twse+api.ts`，expo-router API route，`app.json` 的 `web.output` 已設為 `server`）。`npx expo start` 的 dev server 會直接提供這條路；若要把網頁版部署出去，需要能跑 server 的主機（例如 EAS Hosting），純靜態主機上行情會載入失敗。
 - **打包加速與 OTA 更新**：APK 打包時間分析、EAS Update 導入步驟與「何時要重打 APK」見 [build-speed.md](build-speed.md)。
 
+### APK 大小
+
+preview APK 從 **92,659,407 bytes（約 88 MB）縮到 25,116,066 bytes（約 24 MB）**（EAS build `71d5a8c3-3e2c-4afa-a375-c3029d03f6e3`）。原本的 88 MB 有 90% 是原生 `.so`（四種 ABI 各一份，共約 83 MB），JS bundle 只有 2 MB、字型 1.6 MB、圖片與其他資源約 2 MB。下表是 APK 內壓縮後的大小差：
+
+| 設定 | 寫在哪裡 | 省下 |
+| --- | --- | --- |
+| 只打 `arm64-v8a`，去掉 `armeabi-v7a`、`x86`、`x86_64` | `app.json` → `expo-build-properties` 的 `android.buildArchs` | 約 61 MB |
+| 不連結沒用到的 `react-native-reanimated`、`react-native-worklets`、`react-native-gesture-handler` | `package.json` → `expo.autolinking.android.exclude` | 約 3.7 MB（arm64 的 `.so`） |
+| 只帶用到的 4 個 IBM Plex Sans 字重（原本 14 個連斜體全進來） | `src/app/_layout.tsx` 改從 `@expo-google-fonts/ibm-plex-sans/400Regular` 這類子路徑 import | 約 1.1 MB |
+| release 開 R8 與 shrinkResources | `app.json` → `enableMinifyInReleaseBuilds`、`enableShrinkResourcesInReleaseBuilds` | 約 1 MB（dex 0.3 MB、資源 0.7 MB） |
+
+幾點說明：
+
+- **為什麼只打 arm64-v8a**：x86／x86_64 只有模擬器在用；armeabi-v7a 是 32 位元舊手機，近幾年的 Android 手機都是 64 位元 ARM。測試同學用的是自己的手機，所以只留 arm64。若有人裝時出現「與裝置不相容」或「應用程式未安裝」，多半是 32 位元的舊機或入門機，把 `buildArchs` 加回 `"armeabi-v7a"` 再打一次（APK 約多 13–15 MB）。
+- **模擬器要用時**：Android 模擬器（x86_64 映像）裝不了這個 APK。日常開發請用 `npx expo start` 搭配 Expo Go，不受影響；真的要在模擬器裝 APK，暫時把 `buildArchs` 改成 `["arm64-v8a", "x86_64"]` 再打包，或在 Apple Silicon Mac 上用 arm64 的模擬器映像。
+- **為什麼排除那三個原生套件**：它們不在 `package.json`，是 npm 依 `expo-router` → `react-native-drawer-layout` 的 peer dependency 自動裝進來的，autolinking 看到就會編進 APK。這個 app 只用 Stack，JS bundle 裡完全沒有載入它們（用 `npx expo export --platform android --source-maps` 的 source map 確認過）。`expo-modules-core` 對 worklets 是選用整合，找不到就跳過。之後如果要用 Drawer、手勢或 Reanimated 動畫，要先把對應套件從 exclude 清單拿掉並 `npx expo install` 進來，否則 release APK 會在執行時找不到原生模組。Expo Go 本來就內建這些模組，不受這個設定影響。
+- **刻意沒做的**：Hermes 與新架構都是 SDK 58 預設，保留。`useLegacyPackaging`（把 `.so` 壓縮進 APK，估計可再省 8–10 MB 下載量，未實測，但安裝後佔用較多空間）與 `enableBundleCompression`（文件註明會拖慢啟動）都沒開。icon 原圖合計約 130 KB，沒有再壓縮的必要。
+
 ## 8. 迭代規劃建議
 
 | 迭代 | 目標 | 可驗收的東西 |
