@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { HoldingDraft, ReviewFlags } from "@/domain/holdingExtract";
 import type { HoldingInput } from "@/domain/pnl";
 import type { StockInfo } from "@/domain/types";
+import { DateField } from "./DateField";
 import { LabeledInput } from "./LabeledInput";
 import { StockPicker } from "./StockPicker";
 import { colors, fonts, fontSize, radius, space } from "./theme";
@@ -118,18 +119,15 @@ export function HoldingForm({
         badge={badge("buyPrice")}
         testID={`input-buy-price-${n}`}
       />
-      <LabeledInput
+      <DateField
         label="買入日期"
-        placeholder="選填，例如 2026/10/05"
-        hint="填了會在 K 線圖標出買入點"
-        keyboardType="numbers-and-punctuation"
-        returnKeyType="next"
+        placeholder="選填，點一下選日期"
+        hint="選了會在 K 線圖標出買入點"
         value={form.buyDate ?? ""}
-        onChangeText={(buyDate) => {
+        onChange={(buyDate) => {
           onChange({ buyDate });
           clearError("buyDate");
         }}
-        onBlur={() => onBlurField("buyDate")}
         error={form.errors.buyDate}
         testID={`input-buy-date-${n}`}
       />
