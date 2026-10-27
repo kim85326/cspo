@@ -1,0 +1,15 @@
+# Story 011 / Scenario: 沒有任何交易
+# 要在空的記帳本上跑：先在 Expo Go 裡清掉這個專案的資料（或重新安裝），不能用 clearState，它會連 Expo Go 一起清掉
+appId: host.exp.Exponent
+---
+- launchApp
+# Story 013：第一次開啟會先跳免責聲明，有就按掉
+- runFlow:
+    when:
+      visible: "我已了解並同意"
+    commands:
+      - tapOn: "我已了解並同意"
+- assertVisible: "還沒有任何交易"
+- assertVisible: "新增第一筆交易"
+- assertNotVisible: "累計投入"
+- assertVisible: "快速試算"
