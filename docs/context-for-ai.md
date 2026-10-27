@@ -55,6 +55,12 @@ cspo/
 │   │   ├── pnl.ts          calculatePnl、formatSignedAmount、formatReturnRate、validateHoldingInput
 │   │   ├── stockSearch.ts  searchStocks、resolveStock、normalizeQuery、formatStockLabel
 │   │   ├── compare.ts      compareHoldings（多檔依報酬率排名 + 合計）、MAX_COMPARE_HOLDINGS = 5
+│   │   ├── ledgerTypes.ts  記帳本型別：Transaction、Dividend、HoldingSetting、UserSettings、Ledger、SecurityType、Bucket（Story 006）
+│   │   ├── fees.ts         floorMoney、calcFee、calcTax、defaultTaxRate、estimateTrade、DEFAULT_USER_SETTINGS
+│   │   ├── position.ts     computePosition（依日期重播 → 持股、平均成本、已實現、未實現、股利、總報酬、持有天數）、replaySymbol
+│   │   ├── portfolio.ts    summarize（整體、核心、衛星三組加總）、bucketOf、defaultBucket
+│   │   ├── ledgerValidation.ts validateLedgerChange（新增／修改／刪除後重播，賣超就拒絕並說是哪一筆）、validateLedger、欄位檢查
+│   │   ├── ledgerTestData.ts   測試共用資料（product-spec 3.7 範例、makeTx、makeDividend），只給 *.test.ts 用
 │   │   └── *.test.ts
 │   ├── data/           對外資料來源
 │   │   ├── PriceSource.ts      介面：getQuote(symbol) → Quote | null
