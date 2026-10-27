@@ -2,14 +2,14 @@ import { spec37 } from "@/domain/ledgerTestData";
 import { emptyLedger } from "@/domain/migrateSavedHoldings";
 import type { SavedHolding } from "@/domain/types";
 import { createLedgerHoldingStore } from "./ledgerHoldingStore";
-import { createMemoryLedgerStore } from "./memoryLedgerStore";
+import { createMemoryLedgerRepository } from "./ledgerRepository";
 
 const NOW = new Date(2026, 9, 27, 10, 0, 0);
 const TSMC: SavedHolding = { symbol: "2330", buyPrice: "500", shares: "1000", buyDate: "2026/10/05" };
 const HONHAI: SavedHolding = { symbol: "2317", buyPrice: "100.5", shares: "2000" };
 
 function setup() {
-  const ledgerStore = createMemoryLedgerStore({ ...emptyLedger(), dividends: [spec37.step4] });
+  const ledgerStore = createMemoryLedgerRepository({ ...emptyLedger(), dividends: [spec37.step4] });
   return { ledgerStore, store: createLedgerHoldingStore(ledgerStore, { now: () => NOW }) };
 }
 

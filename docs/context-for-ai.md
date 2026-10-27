@@ -58,7 +58,7 @@ cspo/
 │   │   ├── ProScreen.tsx       Pro 方案介紹頁（Story 020）
 │   │   └── *.test.tsx
 │   ├── config/features.ts 功能開關：screenshotImport、proPlan（預設關閉，EXPO_PUBLIC_FEATURE_*=1 打開）
-│   ├── hooks/          useProStatus（Pro 狀態 Provider）、useDisclaimerConsent、usePersistedHoldings 等
+│   ├── hooks/          useProStatus（Pro 狀態 Provider）、useDisclaimerConsent、usePersistedHoldings、useLedger（畫面讀寫記帳本，Story 008）等
 │   ├── domain/         純 TypeScript，不碰 UI 與網路，單元測試主戰場
 │   │   ├── types.ts        Holding、Quote、PnlResult、StockInfo（含 type 個股／ETF、market 上市／上櫃）、SecurityType、Market
 │   │   ├── security.ts     securityTypeOf（代號 00 開頭 = ETF）、SECURITY_TYPE_LABEL、toStockInfo
@@ -94,6 +94,7 @@ cspo/
 │   │   ├── LedgerStore.ts      介面：記帳本整份 load／save／clear（Story 008）
 │   │   ├── asyncStorageLedgerStore.ts  AsyncStorage `cspo.ledger.v1`；第一次讀寫時自動把舊版 `cspo.holdings.v1` 搬過來（migrateLegacyHoldings），壞掉回空記帳本並備份原文
 │   │   ├── memoryLedgerStore.ts        測試用記憶體版
+│   │   ├── ledgerRepository.ts         畫面讀寫記帳本的入口：訂閱、新增／修改／刪除交易與股利（先驗證再存）、setBucket、updateSettings；createMemoryLedgerRepository 給測試與畫面開發
 │   │   ├── ledgerHoldingStore.ts       過渡轉接：讓 CalculateScreen 用 HoldingStore 介面讀寫記帳本，T6 後刪除
 │   │   ├── asyncStorageHoldingStore.ts 舊版 `cspo.holdings.v1`，現在只用來讀舊資料搬移
 │   │   ├── appPrefs.ts         本機是非設定：免責聲明已同意、Pro Demo 開關（AsyncStorage）

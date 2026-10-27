@@ -7,6 +7,7 @@ import {
   holdingRecognizer,
   holdingStore,
   InsightError,
+  ledgerRepository,
   insightProvider,
   PriceLoadError,
   priceSource,
@@ -41,8 +42,10 @@ jest.mock("expo-image-picker", () => ({
 
 // holdingStore 走 AsyncStorage（jest.setup.js 已換成記憶體 mock）。
 // 按「計算」會把輸入存起來，所以每個測試前要清空，否則下一個測試一開畫面就被帶入資料。
+// 記帳本在記憶體裡也有一份（ledgerRepository），清完 AsyncStorage 要 reload 才會跟著變空。
 beforeEach(async () => {
   await AsyncStorage.clear();
+  await ledgerRepository.reload();
 });
 
 // 畫面用了 useSafeAreaInsets，測試要包 SafeAreaProvider 並給固定 inset。

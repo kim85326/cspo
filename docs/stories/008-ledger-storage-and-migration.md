@@ -76,6 +76,30 @@ Scenario: 關閉重開 App 資料還在（M-07）
   Then 持股帶回欄位，記帳本裡的交易、股利與設定都還在
 ```
 
+## 給畫面用的介面（T4、T5、T6 從這裡接）
+
+畫面讀寫記帳本一律走 `LedgerRepository`（`src/data/ledgerRepository.ts`）或 `useLedger` hook（`src/hooks/useLedger.ts`），不要直接碰 `LedgerStore` 或 AsyncStorage。
+
+```ts
+const { ledger, loaded, repository } = useLedger();          // 預設用 src/data 的 ledgerRepository
+const result = await repository.addTransaction(draft);        // draft 不含 id、createdAt、updatedAt
+if (!result.ok) showError(result.error.message);              // 賣超、欄位錯、存檔失敗都有中文訊息
+```
+
+| 方法 | 說明 |
+|---|---|
+| `getSnapshot()` / `load()` / `subscribe()` / `reload()` | 讀、等讀完、訂閱變更、重新從手機讀 |
+| `addTransaction` / `updateTransaction` / `deleteTransaction` | 先經過 `validateLedgerChange`（從頭重播），存檔成功才更新並通知 |
+| `addDividend` / `updateDividend` / `deleteDividend` | 同上 |
+| `setBucket(symbol, bucket \| null)` | 核心／衛星手動切換，`null` 改回依類型預設（M-06） |
+| `updateSettings(partial)` | 手續費設定；不回頭改已存交易 |
+| `replaceLedger(ledger)` | 整份取代，`validateLedger` 不過就拒絕 |
+
+- 寫入結果是 `LedgerWriteResult`：成功帶新的整份記帳本；失敗的 `error.code` 是 `oversell`、`stockDividendWithoutShares`、`invalid`、`notFound`（沿用 Story 006 的 `LedgerError`）或 `saveFailed`。
+- 寫入依呼叫順序排隊，同時按兩次不會互相覆蓋。
+- 測試與畫面開發用 `createMemoryLedgerRepository(initialLedger?, { now, newId })`，資料不進手機；`ledgerTestData.ts` 的 `spec37Ledger()` 可當初始資料。
+- 畫面測試若用預設的 `ledgerRepository`，`AsyncStorage.clear()` 之後要 `await ledgerRepository.reload()`，否則記憶體裡還是上一個測試的資料。
+
 ## 對應的自動化測試
 
 | 情境 | 單元測試 | 畫面測試 | Maestro |
@@ -90,6 +114,7 @@ Scenario: 關閉重開 App 資料還在（M-07）
 | 搬過就不再搬 | 同上 | — | — |
 | 資料損壞 | 同上 | — | — |
 | 交給計算引擎 | `migrateSavedHoldings.test.ts`、`asyncStorageLedgerStore.test.ts` | — | — |
+| 畫面用介面（新增／修改／刪除、賣超拒絕、存檔失敗、依序寫入、訂閱） | `src/data/ledgerRepository.test.ts`、`src/hooks/useLedger.test.ts` | — | — |
 | 關閉重開資料還在 | `asyncStorageLedgerStore.test.ts`、`src/data/ledgerHoldingStore.test.ts` | `src/screens/CalculateScreen.test.tsx`（Story 004 情境沿用，現在底下是新記帳本） | `e2e/001-*.yaml`（沿用） |
 
 搬移只在升級的那一次發生，Maestro 做不出「舊版存資料 → 升級」的情境，改由測試同學手機驗收：先裝舊版 APK 存 2 檔，再 OTA 升級，確認 2 檔都在。
@@ -113,7 +138,8 @@ Scenario: 關閉重開 App 資料還在（M-07）
 13. **搬移在第一次讀寫記帳本時自動執行**，不另外在 `_layout.tsx` 加啟動流程。首頁一開就會讀記帳本，效果等於「升級後第一次開啟時」。
 14. **過渡轉接 `ledgerHoldingStore`**：`CalculateScreen` 還是讀寫 `SavedHolding`，轉接把記帳本的買入交易轉成欄位字串、把畫面上的持股整份取代記帳本的交易（沒改的那幾筆沿用原本的交易，保留 id、建立時間與「由舊版資料轉入」備註；股利與設定不動）。「清除已儲存的資料」清掉交易與股利，手續費與持股設定留著。**T4 加入賣出與股利後，這個整份取代會把交易畫面記的賣出蓋掉**，所以 T4 要嘛同時把首頁改成唯讀，要嘛 T6 一起換掉首頁並刪除轉接。
 15. 舊的 `asyncStorageHoldingStore.ts`（`cspo.holdings.v1`）保留，只用來讀舊資料（`parseSavedHoldings`）；app 不再寫入舊 key。
-16. 交易 id 用「時間 + 流水號 + 亂數」，不加 uuid 套件。只在這台手機上用，不會撞號；P2-01b 雲端同步時再換成 uuid。
+16. **畫面一律透過 `LedgerRepository` 寫入**，記憶體裡只有一份記帳本，所有用 `useLedger` 的畫面同步更新（`useSyncExternalStore`）。存檔失敗時記憶體不變，免得畫面顯示的跟手機裡的不一樣。過渡轉接也走同一個 repository。
+17. 交易 id 用「時間 + 流水號 + 亂數」，不加 uuid 套件。只在這台手機上用，不會撞號；P2-01b 雲端同步時再換成 uuid。
 
 ## 狀態
 
