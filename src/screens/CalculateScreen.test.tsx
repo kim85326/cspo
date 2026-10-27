@@ -715,7 +715,7 @@ describe("AI 解讀（對應 docs/stories/017）", () => {
     features.aiInsight = true;
     jest
       .spyOn(insightProvider, "getInsight")
-      .mockRejectedValueOnce(new InsightError("連不上 AI 解讀服務：請確認電腦上已執行 npm run backend，且手機連得到這台電腦"));
+      .mockRejectedValueOnce(new InsightError("連不上 AI 解讀服務：提供服務的電腦可能還沒開（npm run backend:tunnel），請稍後再試"));
     await calculateTsmcProfit();
 
     await fireEvent.press(screen.getByLabelText("AI 解讀"));

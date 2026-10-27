@@ -32,6 +32,8 @@ PO、測試、工程三方都用這份表上的詞。程式裡的名字對應右
 | AI 解讀後端 | 跑在工程同學電腦上的小服務（`backend/`，`npm run backend` 啟動）。手機把持股數字送過去，它用電腦上的 API key 呼叫 Claude。API key 不會離開那台電腦 | `backend/` / `InsightProvider`（`backendInsightProvider`） |
 | 解讀輸入 | 送給 AI 解讀後端的資料：股票代號、名稱、股數、平均成本、成本、現價、盈虧、報酬率與合計。沒有任何個人資料 | `InsightInput`（`src/domain/insightInput.ts`） |
 | 存取碼（AI 解讀） | app 呼叫 AI 解讀後端時帶的共享密碼。會被打包進 app，所以只能擋路人，不是真正的秘密 | `EXPO_PUBLIC_INSIGHT_ACCESS_TOKEN` / `INSIGHT_ACCESS_TOKEN` |
+| 對外公開（AI 解讀） | 用 `npm run backend:tunnel` 透過 ngrok 讓其他網路的手機連到工程同學電腦上的後端。ngrok 免費帳號給一個固定網址（`xxxx.ngrok-free.app`），設進 app 一次就好；Ctrl+C 關掉後別人就連不到 | `backend/src/tunnel.ts` / `EXPO_PUBLIC_INSIGHT_API_URL` |
+| 每日上限（AI 解讀） | 後端每天最多呼叫 AI 幾次（所有人合計，預設 100），超過顯示「今天的 AI 解讀次數已達上限」 | `INSIGHT_DAILY_LIMIT` |
 | 禁用字眼 | AI 解讀不能出現的詞（建議、應該、買進、賣出、加碼、減碼、停損、目標價等）。命中就請 AI 重寫；再命中就刪掉那幾句並標示「部分內容…已移除」 | `BANNED_TERMS`（`backend/src/contentFilter.ts`） |
 
 ## 顯示慣例

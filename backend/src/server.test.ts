@@ -3,7 +3,12 @@ import type { AddressInfo } from "node:net";
 import { after, describe, it } from "node:test";
 import type { CreateMessage } from "./claudeInsight.ts";
 import { loadConfig, type InsightConfig } from "./config.ts";
-import { createInsightServer, MISSING_API_KEY_MESSAGE, MISSING_TOKEN_MESSAGE } from "./server.ts";
+import {
+  createInsightServer,
+  MISSING_API_KEY_MESSAGE,
+  MISSING_TOKEN_MESSAGE,
+  originAllowed,
+} from "./server.ts";
 import { CLEAN_REPLY, fakeClaude, sampleInput } from "./testHelpers.ts";
 
 const TOKEN = "test-token-123";
@@ -129,9 +134,61 @@ describe("POST /insight", () => {
     assert.equal(body.summary.includes("建議"), false);
   });
 
-  it("returns 404 for unknown paths", async () => {
+  it("returns 429 when too many requests are already waiting for Claude", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => (release = r));
+    const slow: CreateMessage = async (params) => {
+      await gate;
+      return fakeClaude([CLEAN_REPLY]).createMessage(params);
+    };
+    const base = await start({ INSIGHT_MAX_CONCURRENT: "1", INSIGHT_TRUST_PROXY: "1" }, slow);
+    const first = postInsight(base, sampleInput(), { "CF-Connecting-IP": "203.0.113.1" });
+    await new Promise((r) => setTimeout(r, 50));
+    const second = await postInsight(base, sampleInput(), { "CF-Connecting-IP": "203.0.113.2" });
+    assert.equal(second.status, 429);
+    assert.match((await second.json()).error, /忙碌/);
+    release();
+    assert.equal((await first).status, 200);
+  });
+});
+
+describe("only /health and /insight are exposed", () => {
+  it("returns 404 for any other path, including preflight", async () => {
     const base = await start();
     assert.equal((await fetch(`${base}/nope`)).status, 404);
+    assert.equal((await fetch(`${base}/`)).status, 404);
+    assert.equal((await fetch(`${base}/.env`)).status, 404);
+    const preflight = await fetch(`${base}/admin`, { method: "OPTIONS", headers: { Origin: "http://localhost:8081" } });
+    assert.equal(preflight.status, 404);
+  });
+
+  it("returns 405 for the wrong method", async () => {
+    const base = await start();
+    assert.equal((await fetch(`${base}/health`, { method: "POST" })).status, 405);
+    assert.equal((await fetch(`${base}/insight`)).status, 405);
+  });
+});
+
+describe("source IP behind a tunnel", () => {
+  it("counts each CF-Connecting-IP separately when INSIGHT_TRUST_PROXY=1 and the connection is local", async () => {
+    const base = await start({ INSIGHT_RATE_LIMIT_PER_MINUTE: "1", INSIGHT_TRUST_PROXY: "1" });
+    assert.equal((await postInsight(base, sampleInput(), { "CF-Connecting-IP": "203.0.113.1" })).status, 200);
+    assert.equal((await postInsight(base, sampleInput(), { "CF-Connecting-IP": "203.0.113.1" })).status, 429);
+    assert.equal((await postInsight(base, sampleInput(), { "CF-Connecting-IP": "203.0.113.2" })).status, 200);
+  });
+
+  it("uses the last X-Forwarded-For entry (the one ngrok appends), so a forged first entry does not help", async () => {
+    const base = await start({ INSIGHT_RATE_LIMIT_PER_MINUTE: "1", INSIGHT_TRUST_PROXY: "1" });
+    assert.equal((await postInsight(base, sampleInput(), { "X-Forwarded-For": "9.9.9.9, 198.51.100.7" })).status, 200);
+    // 同一個真實 IP，前面換成別的假 IP 也一樣被擋
+    assert.equal((await postInsight(base, sampleInput(), { "X-Forwarded-For": "8.8.8.8, 198.51.100.7" })).status, 429);
+    assert.equal((await postInsight(base, sampleInput(), { "X-Forwarded-For": "8.8.8.8, 198.51.100.8" })).status, 200);
+  });
+
+  it("ignores the headers when INSIGHT_TRUST_PROXY is off, so they cannot be used to dodge the limit", async () => {
+    const base = await start({ INSIGHT_RATE_LIMIT_PER_MINUTE: "1" });
+    assert.equal((await postInsight(base, sampleInput(), { "CF-Connecting-IP": "203.0.113.1" })).status, 200);
+    assert.equal((await postInsight(base, sampleInput(), { "CF-Connecting-IP": "203.0.113.2" })).status, 429);
   });
 });
 
@@ -149,6 +206,16 @@ describe("CORS", () => {
     assert.equal(response.status, 204);
     assert.equal(response.headers.get("access-control-allow-origin"), "http://localhost:8081");
     assert.match(response.headers.get("access-control-allow-headers") ?? "", /Authorization/);
+  });
+
+  it("supports subdomain wildcards such as https://*.exp.direct", () => {
+    const allowed = ["http://localhost:8081", "https://*.exp.direct"];
+    assert.equal(originAllowed("https://abc-anonymous-8081.exp.direct", allowed), true);
+    assert.equal(originAllowed("http://abc-anonymous-8081.exp.direct", allowed), false);
+    assert.equal(originAllowed("https://evilexp.direct", allowed), false);
+    assert.equal(originAllowed("https://exp.direct.evil.com", allowed), false);
+    assert.equal(originAllowed("http://localhost:8081", allowed), true);
+    assert.equal(originAllowed("http://localhost:3000", allowed), false);
   });
 
   it("sends no CORS headers to an origin that is not allowed", async () => {

@@ -6,7 +6,8 @@ export const DEFAULT_INSIGHT_PORT = 8787;
 
 /**
  * AI 解讀後端的網址。
- * 1. 有設 EXPO_PUBLIC_INSIGHT_API_URL 就用它（tunnel 網址、APK 一定要設）。
+ * 1. 有設 EXPO_PUBLIC_INSIGHT_API_URL 就用它：ngrok 的固定網址（https://xxxx.ngrok-free.app），
+ *    給別人連、APK、tunnel 都靠這個；npm run backend:tunnel 啟動時會印出要設的值。
  * 2. 沒設時猜一個，省得在同一台電腦或同一個 Wi-Fi 開發還要設定：
  *    - 網頁版：同一台電腦的 http://<網頁的主機名>:8787
  *    - Expo Go 區網模式：dev server 的 IP（expoConfig.hostUri）換成 8787

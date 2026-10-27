@@ -9,13 +9,15 @@ export type InsightConfig = {
   accessToken: string;
   port: number;
   host: string;
-  /** 允許的網頁版來源；含 "*" 代表全部允許 */
+  /** 允許的網頁版來源；含 "*" 代表全部允許，"https://*.exp.direct" 代表該網域的所有子網域 */
   allowedOrigins: string[];
   rateLimitPerMinute: number;
   dailyLimit: number;
   maxBodyBytes: number;
   maxTokens: number;
-  /** 走 Cloudflare tunnel 時才開：用 CF-Connecting-IP 當來源 IP */
+  /** 同時最多幾個請求在等 Claude，超過回 429 */
+  maxConcurrent: number;
+  /** 走 tunnel 時才開：本機轉進來的連線改用 CF-Connecting-IP／X-Forwarded-For 當來源 IP */
   trustProxy: boolean;
 };
 
@@ -37,6 +39,7 @@ export function loadConfig(env: Record<string, string | undefined>): InsightConf
     dailyLimit: intSetting(env.INSIGHT_DAILY_LIMIT, 100, 1, 10_000),
     maxBodyBytes: intSetting(env.INSIGHT_MAX_BODY_BYTES, 16_384, 1_024, 262_144),
     maxTokens: intSetting(env.INSIGHT_MAX_TOKENS, 2048, 512, MAX_TOKENS_CEILING),
+    maxConcurrent: intSetting(env.INSIGHT_MAX_CONCURRENT, 3, 1, 20),
     trustProxy: env.INSIGHT_TRUST_PROXY === "1",
   };
 }

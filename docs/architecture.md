@@ -189,95 +189,126 @@ appId: host.exp.Exponent
 - **網頁版的行情**：證交所沒開 CORS，瀏覽器不能直接打，所以網頁版改打同源的 `/twse`（`src/app/twse+api.ts`，expo-router API route，`app.json` 的 `web.output` 已設為 `server`）。`npx expo start` 的 dev server 會直接提供這條路；若要把網頁版部署出去，需要能跑 server 的主機（例如 EAS Hosting），純靜態主機上行情會載入失敗。
 - **打包加速與 OTA 更新**：APK 打包時間分析、EAS Update 導入步驟與「何時要重打 APK」見 [build-speed.md](build-speed.md)。
 
-### AI 解讀後端（Story 017）
+### AI 解讀後端：給別人連進來（Story 017）
 
-「AI 解讀」按鈕（[docs/stories/017-ai-insight.md](stories/017-ai-insight.md)）背後是一台跑在**工程同學電腦上**的小後端 `backend/`。Anthropic API key 只放在那台電腦的 `backend/.env`，app 裡沒有、git 裡也沒有。它和 Expo dev server 互相獨立：不開 `npx expo start` 也能單獨跑、單獨對外。
+「AI 解讀」按鈕（[docs/stories/017-ai-insight.md](stories/017-ai-insight.md)）背後是一台跑在**工程同學電腦上**的小後端 `backend/`。Anthropic API key 只放在那台電腦的 `backend/.env`，app 裡沒有、git 裡也沒有。其他人的手機（不同網路、APK、Expo Go、網頁版）透過 **ngrok 的固定網址**連進來：
 
 ```
-手機 / 網頁版 ──POST /insight（持股數字 + 存取碼）──▶ backend/（你的電腦，port 8787）──▶ Claude API
+別人的手機 ──https──▶ https://xxxx.ngrok-free.app ──▶ ngrok（你的電腦）──▶ backend/（127.0.0.1:8787）──▶ Claude API
 ```
 
-**啟動**
+它和 Expo dev server 互相獨立，不開 `npx expo start` 也能單獨跑。需要 Node 24 以上（直接執行 `.ts`、用 `--env-file-if-exists` 讀 `.env`，不需要建置步驟）。
+
+#### 一次性準備
+
+1. **API key 與存取碼**：`cp backend/.env.example backend/.env`，填 `ANTHROPIC_API_KEY` 與 `INSIGHT_ACCESS_TOKEN`（產生：`openssl rand -hex 16`）。
+2. **Anthropic Console 花費上限（一定要做）**：到 [Anthropic Console](https://console.anthropic.com/) 開一個 Tech Day 專用的 workspace，key 建在裡面，設**每月花費上限 US$10～20**。後端對外公開後，這是唯一真正的硬上限（理由見下面「防濫用」）。
+3. **ngrok（自己註冊與安裝，agent 不會替你做）**：
+   ```bash
+   # 先到 https://dashboard.ngrok.com/signup 註冊免費帳號
+   brew install ngrok
+   ngrok config add-authtoken <dashboard「Your Authtoken」頁的 token>
+   ```
+   免費帳號會自動配一個**固定不變**的 dev domain（ngrok 文件的說法是「a stable, auto-assigned hostname」，格式是 `xxxx.ngrok-free.app` 之類）。`npm run backend:tunnel` 沒偵測到 ngrok 或 authtoken 時，也會印出這幾步。
+4. **第一次啟動，拿到固定網址**：`npm run backend:tunnel`，畫面會印出「公開網址：https://xxxx.ngrok-free.app」。
+5. **把網址告訴 app**（只要做一次，因為網址不會變）：
+   - Expo Go／網頁版（從你的 dev server 載入）：根目錄 `.env.local` 加
+     ```
+     EXPO_PUBLIC_FEATURE_AI_INSIGHT=1
+     EXPO_PUBLIC_INSIGHT_ACCESS_TOKEN=<和 backend/.env 的 INSIGHT_ACCESS_TOKEN 相同>
+     EXPO_PUBLIC_INSIGHT_API_URL=https://xxxx.ngrok-free.app
+     ```
+     然後在手機上整個 reload app。
+   - APK：在 EAS 的 preview 環境設同樣三個變數（`EXPO_PUBLIC_` 一律用 plaintext，反正會進 bundle）：
+     ```bash
+     npx eas-cli env:set --name EXPO_PUBLIC_FEATURE_AI_INSIGHT --value 1 --environment preview --visibility plaintext
+     npx eas-cli env:set --name EXPO_PUBLIC_INSIGHT_ACCESS_TOKEN --value <存取碼> --environment preview --visibility plaintext
+     npx eas-cli env:set --name EXPO_PUBLIC_INSIGHT_API_URL --value https://xxxx.ngrok-free.app --environment preview --visibility plaintext
+     ```
+     再發一次 `npm run ota -- "開啟 AI 解讀"`（`npm run ota` 已帶 `--environment preview`；它會先比對 fingerprint，原生有變才會要求改打 APK。這個功能的改動都是 JS）。`npm run ota` 會擋下 `.env.local` 裡的 `EXPO_PUBLIC_*=1`，發之前先把 `.env.local` 那行開關註解掉，發完再打開。
+   - 存取碼 `EXPO_PUBLIC_INSIGHT_ACCESS_TOKEN` 會被打包進 app，APK 又放在公開的 GitHub Releases，所以**它不是秘密**，只擋隨手亂打網址的路人。
+
+#### 每次要讓別人連進來
 
 ```bash
-cp backend/.env.example backend/.env    # 第一次：填 ANTHROPIC_API_KEY 與 INSIGHT_ACCESS_TOKEN
-npm run backend                          # 會先 npm install backend 的套件（只有 @anthropic-ai/sdk），再啟動
-curl http://localhost:8787/health        # {"ok":true,"apiKeyConfigured":true,"accessTokenConfigured":true,...}
-npm run backend:test                     # 後端自己的型別檢查 + 測試（node:test，不打真的 Claude）
+npm run backend:tunnel
 ```
 
-需要 Node 24 以上（直接執行 `.ts`、用 `--env-file-if-exists` 讀 `.env`，不需要建置步驟）。
+這個指令會依序：
 
-**設定**（`backend/.env`，完整說明在 `backend/.env.example`）
+1. 檢查 ngrok 有沒有裝、有沒有設 authtoken；沒有就印出安裝與 `ngrok config add-authtoken` 的步驟後結束（不會替你安裝或註冊）。
+2. 檢查 8787 與 ngrok 的 4040 沒被佔用（另一個 `npm run backend` 或 ngrok 還開著就停下來）。
+3. 印出「即將對外公開什麼」：只有 `GET /health` 與 `POST /insight` 兩條路、目前的次數限制、提醒設 Console 花費上限。
+4. 啟動後端，**只聽 `127.0.0.1`**（區網的人不能繞過 ngrok 直接連），並開 `INSIGHT_TRUST_PROXY=1`。`backend/.env` 沒設 key 或存取碼就停下來，不對外公開。
+5. 啟動 `ngrok http 8787`，從 ngrok 本機 API（`http://127.0.0.1:4040/api/endpoints`）讀出公開網址。
+6. 從公開網址打一次 `/health` 確認外面連得到，並對照 `.env.local` 的 `EXPO_PUBLIC_INSIGHT_API_URL`，不一致就印出要設的值與 `eas-cli env:set` 指令。
 
-| 變數 | 預設 | 說明 |
+**確認外部連得到**：手機關掉 Wi-Fi、用行動網路，在瀏覽器開 `https://xxxx.ngrok-free.app/health`，看到 `{"ok":true,"apiKeyConfigured":true,"accessTokenConfigured":true,...}` 就代表別人連得進來。用瀏覽器直接開時可能先看到 ngrok 的免費方案提示頁，點過去就好；app 的請求有帶 `ngrok-skip-browser-warning`，不會遇到。也可以用 `curl -H "ngrok-skip-browser-warning: 1" https://xxxx.ngrok-free.app/health`。
+
+**關掉**：在跑 `npm run backend:tunnel` 的終端機按 Ctrl+C，ngrok 與後端會一起關。關掉後別人按「AI 解讀」會看到「連不上 AI 解讀服務：提供服務的電腦可能還沒開…」，其他功能照常。電腦睡眠也等於關掉。活動結束後在 Console 刪掉這把 key。
+
+只在自己電腦或同一個 Wi-Fi 開發時，不需要 ngrok，用 `npm run backend` 即可（聽所有網卡，port 8787）：同電腦的網頁版自動打 `http://localhost:8787`，同 Wi-Fi 的 Expo Go 自動用 dev server 的 IP 換成 8787，`EXPO_PUBLIC_INSIGHT_API_URL` 可以不設。公司 Wi-Fi 有裝置隔離（context-for-ai.md 第 8 節），在公司一律用 `npm run backend:tunnel`。
+
+#### 網址穩定性：為什麼選 ngrok（其他做法當備案）
+
+APK 的 `EXPO_PUBLIC_INSIGHT_API_URL` 是打包（或發 OTA）時寫死的，所以後端網址最好永遠不變。比較過的做法：
+
+| 做法 | 一次性設定 | 網址變了多久生效 | 使用者平常要做的事 | 缺點 |
+|---|---|---|---|---|
+| **ngrok 免費 dev domain（採用）** | 註冊 ngrok、`brew install ngrok`、`ngrok config add-authtoken`；EAS 設一次網址並發一次 OTA | 網址不會變 | `npm run backend:tunnel`，用完 Ctrl+C | 要 ngrok 帳號；免費方案每月 20,000 個 HTTP 請求、1 GB 流量（每次解讀約 2～4 KB，Tech Day 用不完）；瀏覽器要帶 `ngrok-skip-browser-warning`（app 已帶） |
+| Cloudflare 具名 tunnel | Cloudflare 帳號，而且要有一個加到 Cloudflare 的網域（多半要買）；在 dashboard 建 tunnel、跑它給的安裝指令、設 published application route | 網址不會變 | 啟動 connector | 要網域，設定步驟最多 |
+| Cloudflare quick tunnel ＋ 公開設定檔（例如 repo 專用分支或 `docs/` 下的 JSON，tunnel 腳本啟動後用 `gh` 更新網址，app 每次解讀前先讀） | 免新帳號；app 要多一段讀設定檔的程式 | raw.githubusercontent.com 最多 5 分鐘、GitHub Pages 最多 10 分鐘＋建置約 1 分鐘（2026-10-27 實測 `cache-control: max-age=300`／`600`，加 query string 也不會略過 CDN 快取） | 每次重開 tunnel 後等快取過期，期間 APK 連到舊網址會失敗 | quick tunnel 官方定位是測試用、沒有可用性保證；網址公開在 repo；每次重開都有空窗 |
+| quick tunnel ＋ 換網址就發 OTA | 免新帳號 | 發布 2～3 分鐘＋同學把 app 滑掉重開兩次 | 每次重開 tunnel 都要 `npm run ota` | 只對 build 3 以後的 APK 有效；每次都佔一個 EAS Update；Expo Go／網頁版還要另外改 `.env.local` |
+
+要改用 Cloudflare：後端用 `npm run backend`（或自己設 `INSIGHT_HOST=127.0.0.1`、`INSIGHT_TRUST_PROXY=1`），tunnel 指向 `http://localhost:8787`，app 一樣只要設 `EXPO_PUBLIC_INSIGHT_API_URL`。quick tunnel 指令是 `cloudflared tunnel --url http://localhost:8787`（[官方說明](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/)，安裝 `brew install cloudflared`）。
+
+#### 防濫用（對外公開後每一關都假設呼叫者不可信）
+
+| 關卡 | 預設 | 超過時 | 設定 |
+|---|---|---|---|
+| 只開兩條路 | `GET /health`、`POST /insight`（加上這兩條的 CORS preflight） | 其他路徑 404、方法不對 405 | — |
+| 存取碼 | `Authorization: Bearer <INSIGHT_ACCESS_TOKEN>`，固定時間比對 | 401；後端沒設存取碼一律 503（fail closed） | `INSIGHT_ACCESS_TOKEN` |
+| 每 IP 頻率 | 每分鐘 5 次（猜存取碼也算） | 429 + `Retry-After` | `INSIGHT_RATE_LIMIT_PER_MINUTE` |
+| 全域每日上限 | 每天 100 次 Claude 呼叫（只算真的呼叫，重啟歸零） | 429「今天的 AI 解讀次數已達上限」 | `INSIGHT_DAILY_LIMIT` |
+| 同時處理數 | 3 個 | 429「AI 解讀忙碌中」 | `INSIGHT_MAX_CONCURRENT` |
+| 請求大小 | 16 KB；最多 30 檔、欄位白名單 | 413／400 | `INSIGHT_MAX_BODY_BYTES` |
+| 輸出上限 | `max_tokens` 2048，設再大也不超過 4096 | — | `INSIGHT_MAX_TOKENS` |
+| API key | 沒設 | 503「AI 解讀後端沒有設定 ANTHROPIC_API_KEY…」 | `ANTHROPIC_API_KEY` |
+| 網頁版 CORS | 只允許 `INSIGHT_ALLOWED_ORIGINS`（預設 `http://localhost:8081`、`http://127.0.0.1:8081`；可寫 `https://*.exp.direct` 給 Expo tunnel 網頁版） | 不回 CORS header，瀏覽器擋下 | `INSIGHT_ALLOWED_ORIGINS` |
+
+- **來源 IP**：ngrok 轉進來的連線，來源都是 127.0.0.1。`INSIGHT_TRUST_PROXY=1` 時，後端改看 `X-Forwarded-For` 的**最後一個**值（ngrok 文件：ngrok 會把真正的來源 IP 接在最後，前面的值可能是使用者自己塞的）或 Cloudflare 的 `CF-Connecting-IP`。而且只有「連線本身來自本機」才看這兩個 header，從區網直接連進來的人偽造它們沒有用。
+- **存取碼等於公開**：APK 在公開的 GitHub Releases，拆包就拿得到存取碼；ngrok 網址也寫在 APK 裡。所以真正擋住花費的是每日上限與 **Console 的每月花費上限**，請一定要設。
+- 後端錯誤只回中文訊息，Claude 的英文錯誤原文只寫在終端機 log；log 只印 token 用量與檔數，不印持股內容。
+
+#### 其他設定與 app 端變數
+
+| 變數（`backend/.env`） | 預設 | 說明 |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | （必填） | 沒設時 `/insight` 回 503「AI 解讀後端沒有設定 ANTHROPIC_API_KEY…」，`/health` 照常 200 |
-| `INSIGHT_ACCESS_TOKEN` | （必填） | app 用 `Authorization: Bearer <token>` 帶來。沒設時 `/insight` 一律 503（fail closed）。產生：`openssl rand -hex 16` |
-| `INSIGHT_PORT` / `INSIGHT_HOST` | `8787` / `0.0.0.0` | 聽所有網卡，同一個 Wi-Fi 的手機才連得到 |
-| `INSIGHT_ALLOWED_ORIGINS` | `http://localhost:8081,http://127.0.0.1:8081` | 網頁版的來源（CORS），逗號分隔，`*` 代表全部 |
-| `INSIGHT_RATE_LIMIT_PER_MINUTE` | `5` | 每個來源 IP 每分鐘幾次，超過回 429 + `Retry-After` |
-| `INSIGHT_DAILY_LIMIT` | `100` | 整台後端每天最多呼叫 Claude 幾次（重啟歸零） |
-| `INSIGHT_MAX_BODY_BYTES` | `16384` | 請求內容上限，超過回 413 |
-| `INSIGHT_MAX_TOKENS` | `2048` | 每次呼叫的 `max_tokens`，最多 4096 |
-| `INSIGHT_TRUST_PROXY` | `0` | 走 Cloudflare tunnel 時設 `1`，改用 `CF-Connecting-IP` 當來源 IP |
+| `INSIGHT_PORT` / `INSIGHT_HOST` | `8787` / `0.0.0.0` | `npm run backend:tunnel` 會強制 `INSIGHT_HOST=127.0.0.1` |
+| `INSIGHT_TRUST_PROXY` | `0` | `npm run backend:tunnel` 會自動設 `1` |
 
-`/insight` 依序檢查：頻率 → 存取碼 → API key → 大小 → 格式 → 每日上限，全部通過才呼叫 Claude。錯誤一律回 `{ "error": "中文訊息" }`，app 原樣顯示。每次呼叫會在終端機印 token 用量（不印持股內容），可以拿來核對費用。
-
-app 端（根目錄 `.env.local`）：
-
-| 變數 | 說明 |
+| 變數（app，`.env.local` 或 EAS） | 說明 |
 |---|---|
 | `EXPO_PUBLIC_FEATURE_AI_INSIGHT=1` | 功能開關，預設關閉 |
-| `EXPO_PUBLIC_INSIGHT_ACCESS_TOKEN` | 和後端的 `INSIGHT_ACCESS_TOKEN` 相同。**會被打包進 app，拆包就看得到，不是秘密**，只擋隨手亂打網址的路人。真正的保護是 key 不離開電腦、後端的次數限制，和下面的 Console 花費上限 |
-| `EXPO_PUBLIC_INSIGHT_API_URL` | 後端網址。沒設時：網頁版用 `http://<網頁的主機名>:8787`、Expo Go 區網模式用 dev server 的 IP 換成 8787；tunnel 與 APK 猜不到，一定要設 |
+| `EXPO_PUBLIC_INSIGHT_ACCESS_TOKEN` | 和後端的 `INSIGHT_ACCESS_TOKEN` 相同（不是秘密，見上） |
+| `EXPO_PUBLIC_INSIGHT_API_URL` | ngrok 固定網址。沒設時網頁版用 `http://<網頁主機>:8787`、Expo Go 區網用 dev server 的 IP；Expo tunnel 與 APK 猜不到，畫面提示要設 |
 | `EXPO_PUBLIC_USE_FAKE_INSIGHT=1` | 不開後端也能看畫面（固定內容的假解讀）；Jest 一律用假的 |
 
-改了 `.env.local` 之後在手機上整個 reload app。
+`npm run backend:test` 跑後端的型別檢查與測試（node:test，不打真的 Claude）。
 
-**手機怎麼連到這台電腦的後端**
+#### 費用
 
-| 怎麼開 app | 怎麼連 | 要設什麼 |
-|---|---|---|
-| 網頁版，在同一台電腦開（`npx expo start --web`，`http://localhost:8081`） | 直接打 `http://localhost:8787` | 什麼都不用設。dev server 不是 8081 時，把那個來源加進 `INSIGHT_ALLOWED_ORIGINS` |
-| Expo Go，**同一個 Wi-Fi、區網模式**（`npx expo start`，沒加 `--tunnel`） | 打電腦的區網 IP `http://192.168.x.x:8787`（app 從 dev server 位址自動推出來） | 什麼都不用設。macOS 第一次會問是否允許 node 接受連入連線，選允許 |
-| Expo Go，**不同網路**，或公司 Wi-Fi（有裝置隔離，手機連不到電腦的區網 IP，見 context-for-ai.md 第 8 節） | 開 Cloudflare quick tunnel，給後端一個公開的 https 網址 | `EXPO_PUBLIC_INSIGHT_API_URL=https://xxxx.trycloudflare.com`；後端設 `INSIGHT_TRUST_PROXY=1` |
-| 網頁版，透過 Expo tunnel 給別人開（`https://xxxx.exp.direct`，iPhone 非帳號擁有者用這個） | 同上（https 網頁不能打 http 後端，瀏覽器會擋 mixed content） | 同上，再把那個 `https://xxxx.exp.direct` 加進 `INSIGHT_ALLOWED_ORIGINS` |
-| APK | 同上，而且只能用 https：Android 9 以後 release 版預設禁止 http 明文連線 | 目前 APK 一律關閉（EAS 打包沒設開關）。要開得在 EAS 環境設上面四個變數並重打或發 OTA；quick tunnel 每次重開網址都會變，要固定網址得改用 Cloudflare 具名 tunnel（需要 Cloudflare 帳號），這次不做 |
-
-Cloudflare quick tunnel（[官方說明](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/)）：
-
-```bash
-brew install cloudflared                          # 安裝（Cloudflare 下載頁提供的 macOS 方式）
-cloudflared tunnel --url http://localhost:8787    # 終端機會印出 https://xxxx.trycloudflare.com
-```
-
-- 不需要 Cloudflare 帳號或網域；網址**每次重開都不同**，關掉 `cloudflared` 就失效，所以每次都要更新 `EXPO_PUBLIC_INSIGHT_API_URL` 再 reload app。
-- 官方定位是測試用：沒有可用性保證、同時最多 200 個進行中的請求（超過由 Cloudflare 直接回 429，app 會顯示「AI 解讀使用太頻繁…」）。
-- 開了 tunnel 就是公開網址，任何人都打得到。所以後端一定要設存取碼，並設 `INSIGHT_TRUST_PROXY=1`：Cloudflare 會在 `CF-Connecting-IP` header 帶上真正的來源 IP，頻率限制才能分得出不同人；不開的話所有人共用 `127.0.0.1` 一個額度。**沒走 tunnel 時不要開**，否則同網路的人可以偽造這個 header 繞過限制。
-- 本專案的 agent 沒有安裝或執行過 cloudflared，以上依官方文件整理。
-
-**網頁版的 CORS**：手機 app（Expo Go、APK）的請求不受 CORS 限制，只有瀏覽器會先送 `OPTIONS` preflight。後端只對 `INSIGHT_ALLOWED_ORIGINS` 裡的來源回 `Access-Control-Allow-Origin`，允許 `Content-Type` 與 `Authorization` 兩個 header。來源要完全相同（含 `http`／`https` 與 port），例如 `http://localhost:8081`；用另一台裝置以區網 IP 開網頁版（`http://192.168.x.x:8081`）時，也要把那個來源加進去。設成 `*` 也可以，因為存取碼與次數限制仍然有效，但不建議長期這樣開。
-
-**費用估算**（依 `claude-api` skill 的定價，2026-10-06 快取：Claude Opus 5.5 輸入 US$4、輸出 US$20／百萬 tokens；**沒有用真 key 實測**，數字是估的，實際以後端 log 印的 token 用量為準）
+依 `claude-api` skill 的定價（2026-10-06 快取：Claude Opus 5.5 輸入 US$4、輸出 US$20／百萬 tokens）。2026-10-27 用真 key 實測一次（兩檔、`effort: "low"`）：**輸入 1,235 tokens、輸出 254 tokens（含 thinking），約 US$0.010，回應約 5 秒**。後端每次都會在終端機印 `usage input=… output=…`，可以持續核對。
 
 | 項目 | 估算 |
 |---|---|
-| 輸入：system prompt（約 600 字，九成是中文）＋ structured outputs 的 schema ＋ 1～5 檔持股的 JSON | 約 1,200～1,800 tokens → US$0.005～0.007 |
-| 輸出：解讀文字（總結 + 2～4 點 + 提醒，約 150～300 字）＋ adaptive thinking（Opus 5.5 關不掉，`effort: "low"`） | 約 300～1,100 tokens → US$0.006～0.022 |
-| **每次解讀** | **約 US$0.01～0.03（約新台幣 0.3～1 元）** |
-| 命中禁用字眼要重寫一次 | 那一次的費用約兩倍 |
-| 單次最壞情況：30 檔 + 兩次都用滿 `max_tokens` 2048 | 約 US$0.11 |
-| 每天上限 100 次全部用到最壞情況 | 約 US$11／天 |
+| 每次解讀（1～5 檔） | **約 US$0.01～0.02（約新台幣 0.3～0.6 元）**；實測一次 US$0.010 |
+| 命中禁用字眼要重寫一次 | 那一次約兩倍 |
+| 單次最壞情況：30 檔＋兩次都用滿 `max_tokens` 2048 | 約 US$0.11 |
+| 每日上限 100 次全部最壞情況 | 約 US$11／天 |
+| Tech Day 正常使用（30～50 人、每人幾次，100～250 次） | 約 US$1～5 |
 
-Tech Day 正常使用（30～50 人、每人幾次）估計總共 US$1～5。
-
-**花費上限建議**
-
-1. 在 [Anthropic Console](https://console.anthropic.com/) 開一個 Tech Day 專用的 workspace，key 建在裡面，並設**每月花費上限 US$10～20**。這是唯一真正的硬上限：存取碼外流、後端被大量打時，最多就損失這個金額，超過後 API 回錯誤，app 顯示「AI 服務錯誤…請稍後再試」。
-2. 後端的 `INSIGHT_DAILY_LIMIT`（預設 100）讓單日最多約 US$11，搭配上面的月上限。
-3. 不用時關掉 `cloudflared` 與 `npm run backend`；活動結束後在 Console 刪掉這把 key。
-4. 想再省：把 `backend/src/claudeInsight.ts` 的 `INSIGHT_MODEL` 換成 `claude-haiku-5-5`（US$0.10／US$0.50，約便宜 40 倍），但中文解讀品質與法規字眼的遵守度要先用幾組真實數字比較過再決定（同時要拿掉只有 Opus／Sonnet 支援的 `fallbacks` 參數）。
+**花費上限建議**：Console 專用 workspace 每月上限 US$10～20（硬上限，存取碼外流也最多損失這個數），搭配 `INSIGHT_DAILY_LIMIT`；不用時 Ctrl+C 關掉 tunnel；活動結束刪 key。想再省可把 `backend/src/claudeInsight.ts` 的 `INSIGHT_MODEL` 換成 `claude-haiku-5-5`（約便宜 40 倍），但中文品質與禁用字眼的遵守度要先用幾組真實數字比較過，且要拿掉只有 Opus／Sonnet 支援的 `fallbacks` 參數。
 
 ### APK 大小
 
@@ -340,8 +371,9 @@ npm run typecheck    # TypeScript
 npm run lint         # ESLint
 npm run check        # 以上三個一起跑，PR 前跑這個
 npm run e2e          # Maestro（需先開模擬器）
-npm run backend      # AI 解讀後端（backend/，見第 7 節「AI 解讀後端」）
-npm run backend:test # 後端的型別檢查 + 測試
+npm run backend        # AI 解讀後端，只給自己電腦／同 Wi-Fi 用（見第 7 節「AI 解讀後端」）
+npm run backend:tunnel # AI 解讀後端 + ngrok，讓別人從外面連進來
+npm run backend:test   # 後端的型別檢查 + 測試
 ```
 
 ## 11. Bug 回報格式（GitHub Issue 範本）

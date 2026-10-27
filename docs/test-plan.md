@@ -82,7 +82,7 @@ app 的現價來自證交所 OpenAPI 的「每日收盤行情」，是前一個�
 
 ## AI 解讀（Story 017）
 
-需要工程同學的電腦先設定好 `backend/.env`（`ANTHROPIC_API_KEY`、`INSIGHT_ACCESS_TOKEN`）並執行 `npm run backend`，dev server 的 `.env.local` 打開 `EXPO_PUBLIC_FEATURE_AI_INSIGHT=1` 並設好存取碼。公司 Wi-Fi 手機連不到電腦，要用 Cloudflare tunnel（設定見 [architecture.md](architecture.md) 第 7 節「AI 解讀後端」）。
+需要工程同學的電腦先設定好 `backend/.env`（`ANTHROPIC_API_KEY`、`INSIGHT_ACCESS_TOKEN`）並執行 `npm run backend:tunnel`（ngrok），app 端設好開關、存取碼與 ngrok 網址（Expo Go／網頁版用 `.env.local`，APK 用 EAS 環境變數＋OTA；見 [architecture.md](architecture.md) 第 7 節「AI 解讀後端：給別人連進來」）。
 解讀是 AI 寫的，**每次都要對照結果卡的數字核對**，並注意有沒有「投資建議」的語氣。
 
 | # | 檢查項目 | iPhone | Android | 網頁版 | 備註 |
@@ -92,6 +92,8 @@ app 的現價來自證交所 OpenAPI 的「每日收盤行情」，是前一個�
 | I3 | 解讀裡的金額、報酬率、股票名稱都跟結果卡一致，沒有出現結果卡以外的數字或新聞 | | | | 對錯的句子記在 Issue，附截圖 |
 | I4 | 多檔比較：解讀有提到表現最好與最差的那檔，合計報酬率正確 | | | | |
 | I5 | 解讀裡沒有「建議」「應該」「買進」「賣出」「加碼」「減碼」「停損」「目標價」，也沒有「可以考慮多買」之類換句話說的操作建議 | | | | 看到請整段截圖回報 |
-| I6 | 關掉電腦的 `npm run backend` 再按：顯示「連不上 AI 解讀服務…」與「重試 AI 解讀」，盈虧結果還在；重開後端後按重試能成功 | | | | |
+| I6 | 關掉電腦的 `npm run backend:tunnel` 再按：顯示「連不上 AI 解讀服務…」與「重試 AI 解讀」，盈虧結果還在；重開後端後按重試能成功 | | | | |
 | I7 | 一分鐘內連按超過 5 次（每次等結果出來再按）：顯示「使用太頻繁，請 N 秒後再試」，等一下再按能成功 | | | | |
 | I8 | 改數字重新「計算」：舊的解讀卡消失，出現「AI 解讀」按鈕 | | | | |
+| I9 | 手機關掉 Wi-Fi、用行動網路：瀏覽器開 `https://<ngrok 網址>/health` 看到 `{"ok":true,...}`；APK 按「AI 解讀」能看到解讀卡 | | | | 工程同學跑 `npm run backend:tunnel` 時 |
+| I10 | 工程同學 Ctrl+C 關掉 tunnel 後再按：顯示「連不上 AI 解讀服務：提供服務的電腦可能還沒開…」；重開後按重試能成功（網址不變，不用重裝 app） | | | | |

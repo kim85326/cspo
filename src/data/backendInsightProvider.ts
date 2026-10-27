@@ -5,12 +5,13 @@ import { InsightError, type Insight, type InsightProvider } from "./InsightProvi
 export const NOT_CONFIGURED_MESSAGE =
   "還沒設定 AI 解讀服務的網址：請在 .env.local 設定 EXPO_PUBLIC_INSIGHT_API_URL 後重新載入 app";
 export const NETWORK_ERROR_MESSAGE =
-  "連不上 AI 解讀服務：請確認電腦上已執行 npm run backend，且手機連得到這台電腦";
+  "連不上 AI 解讀服務：提供服務的電腦可能還沒開（npm run backend:tunnel），請稍後再試";
 export const TIMEOUT_MESSAGE = "AI 解讀等太久沒有回應，請重試";
 const TIMEOUT_MS = 60_000;
 
 /**
  * 打工程同學電腦上的 AI 解讀後端（backend/，見 docs/architecture.md 第 7 節）。
+ * 別人的手機透過 ngrok 的固定網址連進來（EXPO_PUBLIC_INSIGHT_API_URL）。
  * Anthropic API key 只放在那台電腦的 backend/.env，app 裡沒有。
  *
  * 存取碼 EXPO_PUBLIC_INSIGHT_ACCESS_TOKEN：EXPO_PUBLIC_ 變數會被打包進 app，拆包就看得到，
@@ -33,7 +34,12 @@ export function createBackendInsightProvider(
       try {
         response = await fetchFn(`${base}/insight`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken()}` },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken()}`,
+            // 後端走 ngrok 免費網域時，沒帶這個 header 的瀏覽器請求會拿到 ngrok 的提示頁而不是 JSON
+            "ngrok-skip-browser-warning": "1",
+          },
           body: JSON.stringify(input),
           signal: controller.signal,
         });

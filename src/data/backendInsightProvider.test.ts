@@ -31,6 +31,7 @@ describe("backendInsightProvider", () => {
     expect(url).toBe("http://192.168.1.5:8787/insight");
     expect(init.method).toBe("POST");
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer secret-token");
+    expect((init.headers as Record<string, string>)["ngrok-skip-browser-warning"]).toBe("1");
     expect(JSON.parse(String(init.body))).toEqual(INPUT);
   });
 
@@ -40,7 +41,7 @@ describe("backendInsightProvider", () => {
     expect(fetchFn).not.toHaveBeenCalled();
   });
 
-  test("連不到（後端沒開、網路不通）：提示啟動 npm run backend", async () => {
+  test("連不到（後端沒開、網路不通）：提示服務可能還沒開，請稍後再試", async () => {
     const fetchFn = jest.fn(async () => {
       throw new TypeError("Network request failed");
     });
@@ -83,8 +84,8 @@ describe("parseInsight", () => {
 
 describe("insightBaseUrl", () => {
   test("有設網址就用它（去掉結尾斜線）", () => {
-    expect(insightBaseUrl("https://abc.trycloudflare.com/", "192.168.1.5:8081", "android")).toBe(
-      "https://abc.trycloudflare.com",
+    expect(insightBaseUrl("https://abc.ngrok-free.app/", "192.168.1.5:8081", "android")).toBe(
+      "https://abc.ngrok-free.app",
     );
   });
 

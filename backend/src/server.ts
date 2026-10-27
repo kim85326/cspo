@@ -12,11 +12,12 @@ import { InvalidInsightRequest, parseInsightRequest } from "./insightRequest.ts"
 import { createDailyQuota, createPerMinuteLimiter } from "./rateLimit.ts";
 
 /**
- * 路由：
+ * 路由（只開這兩條，其他一律 404）：
  * - GET  /health   → 200，回報 key／token 有沒有設（不回值）
- * - POST /insight  → 依序檢查：頻率 → 存取碼 → API key → 大小 → 格式 → 每日上限 → 呼叫 Claude
- * - OPTIONS *      → CORS preflight（只有網頁版會送）
+ * - POST /insight  → 依序檢查：頻率 → 存取碼 → API key → 大小 → 格式 → 每日上限 → 同時處理數 → 呼叫 Claude
+ * - OPTIONS 上面兩條 → CORS preflight（只有網頁版會送）
  * 錯誤一律回 { error: 中文訊息 }，app 原樣顯示。
+ * 會透過 tunnel 公開到網路上，所以每一關都假設呼叫者不可信。
  */
 
 export const MISSING_API_KEY_MESSAGE =
@@ -36,6 +37,7 @@ export function createInsightServer(config: InsightConfig, deps: ServerDeps = {}
   const log = deps.log ?? ((line: string) => console.log(line));
   const perMinute = createPerMinuteLimiter(config.rateLimitPerMinute);
   const daily = createDailyQuota(config.dailyLimit);
+  let inFlight = 0;
   let createMessage = deps.createMessage;
   const getCreateMessage = (): CreateMessage =>
     (createMessage ??= createClaudeCreateMessage(config.apiKey));
@@ -48,8 +50,13 @@ export function createInsightServer(config: InsightConfig, deps: ServerDeps = {}
   });
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    applyCors(req, res, config.allowedOrigins);
+    res.setHeader("X-Content-Type-Options", "nosniff");
     const path = (req.url ?? "/").split("?")[0];
+    if (path !== "/health" && path !== "/insight") {
+      sendJson(res, 404, { error: "找不到這個路徑" });
+      return;
+    }
+    applyCors(req, res, config.allowedOrigins);
 
     if (req.method === "OPTIONS") {
       res.writeHead(204).end();
@@ -64,13 +71,9 @@ export function createInsightServer(config: InsightConfig, deps: ServerDeps = {}
       });
       return;
     }
-    if (path !== "/insight") {
-      sendJson(res, 404, { error: "找不到這個路徑" });
-      return;
-    }
-    if (req.method !== "POST") {
-      res.setHeader("Allow", "POST");
-      sendJson(res, 405, { error: "請用 POST" });
+    if (path === "/health" || req.method !== "POST") {
+      res.setHeader("Allow", path === "/health" ? "GET" : "POST");
+      sendJson(res, 405, { error: "不支援這個方法" });
       return;
     }
 
@@ -127,7 +130,14 @@ export function createInsightServer(config: InsightConfig, deps: ServerDeps = {}
       return;
     }
 
-    // 7. 呼叫 Claude
+    // 7. 同時處理數：一個請求要等 Claude 幾秒，同時湧入太多就先擋
+    if (inFlight >= config.maxConcurrent) {
+      sendJson(res, 429, { error: "AI 解讀忙碌中，請稍後再試" });
+      return;
+    }
+
+    // 8. 呼叫 Claude
+    inFlight += 1;
     try {
       const started = now();
       const result = await generateInsight(input, {
@@ -146,32 +156,59 @@ export function createInsightServer(config: InsightConfig, deps: ServerDeps = {}
         return;
       }
       throw error;
+    } finally {
+      inFlight -= 1;
     }
   }
 }
 
+/**
+ * 允許清單的寫法：完整來源（http://localhost:8081）、*（全部），
+ * 或子網域萬用字元（https://*.exp.direct，Expo tunnel 的網頁版網址每次不同時用）。
+ */
+export function originAllowed(origin: string, allowed: string[]): boolean {
+  return allowed.some((rule) => {
+    if (rule === "*" || rule === origin) return true;
+    const wildcard = /^(https?):\/\/\*\.(.+)$/.exec(rule);
+    if (!wildcard) return false;
+    const [, scheme, suffix] = wildcard;
+    return origin.startsWith(`${scheme}://`) && origin.endsWith(`.${suffix}`) && !origin.includes("/", scheme.length + 3);
+  });
+}
+
 function applyCors(req: IncomingMessage, res: ServerResponse, allowed: string[]): void {
   const origin = req.headers.origin;
-  if (!origin) return;
-  if (allowed.includes("*")) {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-  } else if (allowed.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
-  } else {
-    return;
-  }
+  if (!origin || !originAllowed(origin, allowed)) return;
+  res.setHeader("Access-Control-Allow-Origin", allowed.includes("*") ? "*" : origin);
+  if (!allowed.includes("*")) res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  // ngrok-skip-browser-warning：走 ngrok 免費網域時，瀏覽器版要帶這個 header 才不會拿到 ngrok 的提示頁（app 一律帶）
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, ngrok-skip-browser-warning");
   res.setHeader("Access-Control-Max-Age", "600");
 }
 
-function clientIp(req: IncomingMessage, trustProxy: boolean): string {
-  if (trustProxy) {
-    const cf = req.headers["cf-connecting-ip"];
-    if (typeof cf === "string" && cf !== "") return cf;
-  }
-  return req.socket.remoteAddress ?? "unknown";
+const LOOPBACK = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
+
+/**
+ * 頻率限制用的來源 IP。
+ * 只有在 INSIGHT_TRUST_PROXY=1 **而且連線來自本機**（也就是 ngrok／cloudflared 轉進來的）時才看 header，
+ * 直接連進來的人偽造 header 沒有用：
+ * - X-Forwarded-For（ngrok）：ngrok 會把真正的來源 IP **接在最後面**，前面的值可能是使用者自己塞的，所以取最後一個。
+ * - CF-Connecting-IP（Cloudflare tunnel）：由 Cloudflare 設定。
+ */
+export function clientIp(req: IncomingMessage, trustProxy: boolean): string {
+  const remote = req.socket.remoteAddress ?? "unknown";
+  if (!trustProxy || !LOOPBACK.has(remote)) return remote;
+  const forwarded = req.headers["x-forwarded-for"];
+  const last = (Array.isArray(forwarded) ? forwarded.join(",") : forwarded)
+    ?.split(",")
+    .map((ip) => ip.trim())
+    .filter(Boolean)
+    .pop();
+  if (last) return last;
+  const cf = req.headers["cf-connecting-ip"];
+  if (typeof cf === "string" && cf.trim() !== "") return cf.trim();
+  return remote;
 }
 
 function tokenMatches(header: string | undefined, expected: string): boolean {
