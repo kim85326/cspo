@@ -11,7 +11,7 @@ export function normalizeQuery(raw: string): string {
 /**
  * 依使用者輸入找候選股票。
  * - 空字串：回前 limit 檔（當作熱門清單讓人直接選）
- * - 純數字：代號開頭符合
+ * - 代號（數字，尾端可帶一個英文字母，例如 00631L）：代號開頭符合
  * - 其他：名稱包含
  * 排序：完全相同 > 開頭相同 > 包含。
  */
@@ -19,14 +19,15 @@ export function searchStocks(query: string, stocks: StockInfo[], limit = 8): Sto
   const q = normalizeQuery(query);
   if (q === "") return stocks.slice(0, limit);
 
-  const isNumeric = /^\d+$/.test(q);
+  // 數字開頭、最多尾端一個英文字母（00631l）就當代號查；q 已轉小寫
+  const isSymbolQuery = /^\d+[a-z]?$/.test(q);
   const scored: { stock: StockInfo; score: number }[] = [];
 
   for (const stock of stocks) {
     const symbol = stock.symbol.toLowerCase();
     const name = stock.name.toLowerCase();
     let score = 0;
-    if (isNumeric) {
+    if (isSymbolQuery) {
       if (symbol === q) score = 3;
       else if (symbol.startsWith(q)) score = 2;
     } else {

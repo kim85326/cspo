@@ -330,6 +330,41 @@ describe("記住持股（對應 docs/stories/004）", () => {
   });
 });
 
+describe("代號帶英文字母（槓桿／反向 ETF 等）", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function stubLetterSymbolStock() {
+    jest.spyOn(stockDirectory, "getAll").mockResolvedValue([
+      { symbol: "2330", name: "台積電" },
+      { symbol: "00631L", name: "元大台灣50正2" },
+    ]);
+    jest.spyOn(priceSource, "getQuote").mockImplementation(async (symbol) =>
+      symbol === "00631L" ? { symbol, name: "元大台灣50正2", price: 250 } : null,
+    );
+  }
+
+  test("打代號 00631L 算得出盈虧，不會被代號格式擋掉", async () => {
+    stubLetterSymbolStock();
+    await renderScreen();
+    await typeStock("00631L");
+    await fillPriceAndShares("200", "1000");
+    await pressCalculate();
+    expect(await screen.findByText("+50,000")).toBeTruthy();
+    expect(screen.queryByText(/請輸入正確的股票代號/)).toBeNull();
+  });
+
+  test("打小寫 00631l 也算得出來", async () => {
+    stubLetterSymbolStock();
+    await renderScreen();
+    await typeStock("00631l");
+    await fillPriceAndShares("200", "1000");
+    await pressCalculate();
+    expect(await screen.findByText("+50,000")).toBeTruthy();
+  });
+});
+
 describe("真實行情（證交所）：載入失敗與資料日期", () => {
   afterEach(() => {
     jest.restoreAllMocks();

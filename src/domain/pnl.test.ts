@@ -80,10 +80,28 @@ describe("validateHoldingInput", () => {
     expect(r).toEqual({ ok: true, holding: { symbol: "2330", buyPrice: 500, shares: 1000 } });
   });
 
-  test("代號不是 4 到 6 位數字", () => {
+  test("代號不是台股代號格式", () => {
     const r = validateHoldingInput({ symbol: "abc", buyPrice: "500", shares: "1000" });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors.symbol).toBeDefined();
+  });
+
+  test.each(["00631L", "00632R", "00625K", "01001T", "2881A"])(
+    "代號尾端帶一個英文字母也通過：%s（槓桿／反向 ETF、REITs、特別股）",
+    (symbol) => {
+      const r = validateHoldingInput({ symbol, buyPrice: "100", shares: "1000" });
+      expect(r).toEqual({ ok: true, holding: { symbol, buyPrice: 100, shares: 1000 } });
+    },
+  );
+
+  test("小寫字母轉成大寫：00631l → 00631L", () => {
+    const r = validateHoldingInput({ symbol: "00631l", buyPrice: "100", shares: "1000" });
+    expect(r.ok && r.holding.symbol).toBe("00631L");
+  });
+
+  test.each(["L00631", "00631LL", "123L", "2330-A"])("代號格式不對：%s", (symbol) => {
+    const r = validateHoldingInput({ symbol, buyPrice: "100", shares: "1000" });
+    expect(r.ok).toBe(false);
   });
 
   test("買入價為空或 0", () => {
