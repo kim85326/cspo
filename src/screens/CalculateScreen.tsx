@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { holdingStore, priceSource, stockDirectory } from "@/data";
+import { holdingStore, PriceLoadError, priceSource, stockDirectory } from "@/data";
 import { compareHoldings, MAX_COMPARE_HOLDINGS, type ComparisonResult } from "@/domain/compare";
 import { calculatePnl, validateHoldingInput } from "@/domain/pnl";
 import { resolveStock, searchStocks } from "@/domain/stockSearch";
@@ -32,9 +32,13 @@ type Outcome =
   | { kind: "single"; quote: Quote; result: PnlResult }
   | { kind: "comparison"; comparison: ComparisonResult };
 
+/** 斷網或證交所沒回應時的提示；按「計算」會再試一次 */
+const LOAD_ERROR_MESSAGE = "行情載入失敗，請檢查網路後重試";
+
 /**
  * 輸入一檔或多檔持股 → 看盈虧；兩檔以上就排名比較。按「計算」成功後把輸入存在手機，重開帶回。
  * 對應 docs/stories/001-single-holding-pnl.md、002-stock-picker.md、003-compare-stocks.md、004-remember-holdings.md
+ * 現價來自 src/data 的 priceSource（app 裡是證交所收盤價，測試是假價）；載入失敗顯示「行情載入失敗」。
  * 路由入口在 src/app/index.tsx。
  */
 export default function CalculateScreen() {
@@ -43,6 +47,8 @@ export default function CalculateScreen() {
   const [forms, setForms] = useState<HoldingFormState[]>([emptyHoldingForm(1)]);
   const nextId = useRef(2);
   const [loading, setLoading] = useState(false);
+  const [stocksLoading, setStocksLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
 
@@ -81,16 +87,41 @@ export default function CalculateScreen() {
 
   useEffect(() => {
     let active = true;
-    stockDirectory.getAll().then((list) => {
-      if (!active) return;
-      setStocks(list);
-      stocksRef.current = list;
-      restoreSaved();
-    });
+    stockDirectory
+      .getAll()
+      .then((list) => {
+        if (!active) return;
+        setStocks(list);
+        stocksRef.current = list;
+        restoreSaved();
+      })
+      .catch(() => {
+        if (active) setLoadError(LOAD_ERROR_MESSAGE);
+      })
+      .finally(() => {
+        if (active) setStocksLoading(false);
+      });
     return () => {
       active = false;
     };
   }, [restoreSaved]);
+
+  /** 清單上次沒載到（例如一開始斷網）時，按「計算」再載一次；失敗回 null */
+  const ensureStocks = async (): Promise<StockInfo[] | null> => {
+    if (stocks.length > 0) return stocks;
+    setStocksLoading(true);
+    try {
+      const list = await stockDirectory.getAll();
+      setStocks(list);
+      stocksRef.current = list;
+      restoreSaved();
+      return list;
+    } catch {
+      return null;
+    } finally {
+      setStocksLoading(false);
+    }
+  };
 
   const updateForm = (id: number, patch: Partial<HoldingFormState>) => {
     setForms((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
@@ -130,12 +161,15 @@ export default function CalculateScreen() {
   };
 
   /** 把選擇器的狀態解析成一檔股票；解析不了就回傳要顯示的錯誤 */
-  const resolveFormStock = (form: HoldingFormState): { stock: StockInfo } | { error: string } => {
+  const resolveFormStock = (
+    form: HoldingFormState,
+    list: StockInfo[],
+  ): { stock: StockInfo } | { error: string } => {
     if (form.selected) return { stock: form.selected };
     if (form.query.trim() === "") return { error: "請輸入代號或公司名稱，或從清單選擇" };
-    const stock = resolveStock(form.query, stocks);
+    const stock = resolveStock(form.query, list);
     if (stock) return { stock };
-    if (searchStocks(form.query, stocks, 2).length > 1) {
+    if (searchStocks(form.query, list, 2).length > 1) {
       return { error: "有多檔符合，請從清單選擇一檔" };
     }
     return { error: `找不到這檔股票（${form.query.trim()}）` };
@@ -146,13 +180,20 @@ export default function CalculateScreen() {
     Keyboard.dismiss();
     setOutcome(null);
     setNotFound(null);
+    setLoadError(null);
+
+    const list = await ensureStocks();
+    if (list === null) {
+      setLoadError(LOAD_ERROR_MESSAGE);
+      return;
+    }
 
     // 先把每一檔都驗完，錯誤一次顯示在各自的欄位下
     const holdings: Holding[] = [];
     const toSave: SavedHolding[] = [];
     const nextErrors = new Map<number, HoldingFormErrors>();
     for (const form of forms) {
-      const resolved = resolveFormStock(form);
+      const resolved = resolveFormStock(form, list);
       const symbol = "stock" in resolved ? resolved.stock.symbol : "";
       const validation = validateHoldingInput({
         symbol,
@@ -188,6 +229,9 @@ export default function CalculateScreen() {
         setOutcome({ kind: "comparison", comparison: compareHoldings(inputs) });
       }
       await persist(toSave);
+    } catch (error) {
+      if (!(error instanceof PriceLoadError)) throw error;
+      setLoadError(LOAD_ERROR_MESSAGE);
     } finally {
       setLoading(false);
     }
@@ -217,6 +261,7 @@ export default function CalculateScreen() {
             index={index}
             form={form}
             stocks={stocks}
+            stocksLoading={stocksLoading}
             removable={forms.length > 1}
             isLast={index === forms.length - 1}
             onChange={(patch) => updateForm(form.id, patch)}
@@ -264,6 +309,17 @@ export default function CalculateScreen() {
             <Text style={styles.buttonText}>{isComparing ? "計算並比較" : "計算"}</Text>
           )}
         </Pressable>
+
+        {loadError ? (
+          <View
+            style={styles.notFound}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            testID="load-error"
+          >
+            <Text style={styles.notFoundText}>{loadError}</Text>
+          </View>
+        ) : null}
 
         {notFound ? (
           <View style={styles.notFound} accessibilityRole="alert" accessibilityLiveRegion="polite">

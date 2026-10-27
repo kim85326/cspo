@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { holdingStore } from "@/data";
+import { holdingStore, PriceLoadError, priceSource, stockDirectory } from "@/data";
 import CalculateScreen from "./CalculateScreen";
 
 jest.mock("expo-router", () => ({
@@ -302,5 +302,87 @@ describe("記住持股（對應 docs/stories/004）", () => {
     await renderScreen();
     expect(await screen.findByDisplayValue("9999")).toBeTruthy();
     expect(screen.getByDisplayValue("10")).toBeTruthy();
+  });
+});
+
+describe("真實行情（證交所）：載入失敗與資料日期", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test("現價拿不到：顯示行情載入失敗，不顯示盈虧", async () => {
+    jest.spyOn(priceSource, "getQuote").mockRejectedValueOnce(new PriceLoadError());
+    await renderScreen();
+    await typeStock("2330");
+    await fillPriceAndShares("500", "1000");
+    await pressCalculate();
+    expect(await screen.findByText("行情載入失敗，請檢查網路後重試")).toBeTruthy();
+    expect(screen.queryByLabelText("盈虧結果")).toBeNull();
+  });
+
+  test("再按一次計算會重試，成功後錯誤消失", async () => {
+    jest.spyOn(priceSource, "getQuote").mockRejectedValueOnce(new PriceLoadError());
+    await renderScreen();
+    await typeStock("2330");
+    await fillPriceAndShares("500", "1000");
+    await pressCalculate();
+    expect(await screen.findByText("行情載入失敗，請檢查網路後重試")).toBeTruthy();
+    await pressCalculate();
+    expect(await screen.findByText("+20,000")).toBeTruthy();
+    expect(screen.queryByText("行情載入失敗，請檢查網路後重試")).toBeNull();
+  });
+
+  test("股票清單載不到：顯示錯誤；按計算會重載清單再算", async () => {
+    jest.spyOn(stockDirectory, "getAll").mockRejectedValueOnce(new PriceLoadError());
+    await renderScreen();
+    expect(await screen.findByText("行情載入失敗，請檢查網路後重試")).toBeTruthy();
+    await typeStock("2330");
+    await fillPriceAndShares("500", "1000");
+    await pressCalculate();
+    expect(await screen.findByText("+20,000")).toBeTruthy();
+  });
+
+  test("兩檔比較時其中一檔行情失敗：整體顯示載入失敗，不顯示比較結果", async () => {
+    const real = priceSource.getQuote.bind(priceSource);
+    jest.spyOn(priceSource, "getQuote").mockImplementation(async (symbol) => {
+      if (symbol === "2317") throw new PriceLoadError();
+      return real(symbol);
+    });
+    await renderScreen();
+    await fireEvent.press(screen.getByLabelText("新增一檔比較"));
+    await fillHolding(1, "2330", "500", "1000");
+    await fillHolding(2, "2317", "200", "1000");
+    await pressCalculate();
+    expect(await screen.findByText("行情載入失敗，請檢查網路後重試")).toBeTruthy();
+    expect(screen.queryByLabelText("比較結果")).toBeNull();
+  });
+
+  test("清單還在載入時聚焦欄位，顯示載入中", async () => {
+    let resolveList: (list: { symbol: string; name: string }[]) => void = () => {};
+    jest.spyOn(stockDirectory, "getAll").mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveList = resolve;
+      }),
+    );
+    await renderScreen();
+    await fireEvent(screen.getByLabelText("股票代號或名稱"), "focus");
+    expect(await screen.findByText("股票清單載入中…")).toBeTruthy();
+    await act(async () => {
+      resolveList([{ symbol: "2330", name: "台積電" }]);
+    });
+    expect(await screen.findByText("熱門股票")).toBeTruthy();
+    expect(screen.queryByText("股票清單載入中…")).toBeNull();
+  });
+
+  test("結果卡顯示資料日期", async () => {
+    jest
+      .spyOn(priceSource, "getQuote")
+      .mockResolvedValueOnce({ symbol: "2330", name: "台積電", price: 2385, asOf: "2026/10/22" });
+    await renderScreen();
+    await typeStock("2330");
+    await fillPriceAndShares("2000", "1000");
+    await pressCalculate();
+    expect(await screen.findByText("+385,000")).toBeTruthy();
+    expect(screen.getByText("收盤價 2026/10/22")).toBeTruthy();
   });
 });

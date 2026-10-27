@@ -10,6 +10,8 @@ export type Quote = {
   symbol: string;
   name: string;
   price: number;
+  /** 資料日期（例如 "2026/10/22"，證交所收盤價的交易日）；假價沒有 */
+  asOf?: string;
 };
 
 /** 盈虧計算結果 */

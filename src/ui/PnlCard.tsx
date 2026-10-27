@@ -28,9 +28,12 @@ export function PnlCard({ quote, result }: Props) {
 
   return (
     <View style={styles.card} accessibilityLabel="盈虧結果">
-      <Text style={styles.title}>
-        {quote.name}（{quote.symbol}）
-      </Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>
+          {quote.name}（{quote.symbol}）
+        </Text>
+        {quote.asOf ? <Text style={styles.asOf}>收盤價 {quote.asOf}</Text> : null}
+      </View>
       <Text style={styles.verdict}>{VERDICT[direction]}</Text>
 
       <View style={styles.amountRow}>
@@ -77,10 +80,23 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     ...shadow.sm,
   },
+  titleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    flexWrap: "wrap",
+    gap: space.sm,
+  },
   title: {
     fontFamily: fonts.regular,
     fontSize: fontSize.md,
     color: colors.mutedForeground,
+  },
+  asOf: {
+    fontFamily: fonts.regular,
+    fontSize: fontSize.xs,
+    color: colors.mutedForeground,
+    fontVariant: ["tabular-nums"],
   },
   verdict: {
     fontFamily: fonts.semibold,

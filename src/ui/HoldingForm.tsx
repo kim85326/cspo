@@ -21,6 +21,8 @@ type Props = {
   index: number;
   form: HoldingFormState;
   stocks: StockInfo[];
+  /** 股票清單還在載入（接證交所時第一次會等一下） */
+  stocksLoading?: boolean;
   /** 只有一檔時不能移除 */
   removable: boolean;
   isLast: boolean;
@@ -43,6 +45,7 @@ export function HoldingForm({
   index,
   form,
   stocks,
+  stocksLoading = false,
   removable,
   isLast,
   onChange,
@@ -77,6 +80,7 @@ export function HoldingForm({
         stocks={stocks}
         query={form.query}
         selected={form.selected}
+        loading={stocksLoading}
         error={form.errors.symbol}
         testID={`input-stock-${n}`}
         onChangeQuery={(query) =>
