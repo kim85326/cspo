@@ -12,7 +12,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { features } from "@/config/features";
 import { holdingStore, PriceLoadError, priceSource, stockDirectory } from "@/data";
 import { compareHoldings, MAX_COMPARE_HOLDINGS, type ComparisonResult } from "@/domain/compare";
 import { applyExtraction, type ExtractionResult } from "@/domain/holdingExtract";
@@ -20,6 +19,7 @@ import { insightInputFromQuotes } from "@/domain/insightInput";
 import { calculatePnl, validateHoldingInput } from "@/domain/pnl";
 import { resolveStock, searchStocks } from "@/domain/stockSearch";
 import type { Holding, PnlResult, Quote, SavedHolding, StockInfo } from "@/domain/types";
+import { useFeatures } from "@/hooks/useFeatures";
 import { usePersistedHoldings } from "@/hooks/usePersistedHoldings";
 import { useScreenshotImport } from "@/hooks/useScreenshotImport";
 import { ComparisonCard } from "@/ui/ComparisonCard";
@@ -47,7 +47,7 @@ const LOAD_ERROR_MESSAGE = "行情載入失敗，請檢查網路後重試";
  * 輸入一檔或多檔持股 → 看盈虧；兩檔以上就排名比較。按「計算」成功後把輸入存在手機，重開帶回。
  * 對應 docs/stories/001-single-holding-pnl.md、002-stock-picker.md、003-compare-stocks.md、004-remember-holdings.md、
  * 005-import-from-screenshot.md（從截圖匯入：按鈕在這裡，選圖與辨識在 hooks/useScreenshotImport，套用在 domain/applyExtraction；
- *   目前由 src/config/features.ts 的 screenshotImport 開關控制，預設關閉）、
+ *   目前由功能開關 screenshotImport 控制（useFeatures，見 src/config/features.ts），預設關閉）、
  * 016-candle-chart.md（單檔結果下方的日 K 線圖與買入點，見 ui/PriceHistoryCard）
  * 017-ai-insight.md（AI 解讀：ui/InsightCard 的 InsightSection，由 aiInsight 開關控制，預設關閉）
  * 現價來自 src/data 的 priceSource（app 裡是證交所收盤價，測試是假價）；載入失敗顯示「行情載入失敗」。
@@ -55,6 +55,7 @@ const LOAD_ERROR_MESSAGE = "行情載入失敗，請檢查網路後重試";
  */
 export default function CalculateScreen() {
   const insets = useSafeAreaInsets();
+  const features = useFeatures();
   const [stocks, setStocks] = useState<StockInfo[]>([]);
   const [forms, setForms] = useState<HoldingFormState[]>([emptyHoldingForm(1)]);
   const nextId = useRef(2);
@@ -288,7 +289,7 @@ export default function CalculateScreen() {
   };
 
   const canAdd = forms.length < MAX_COMPARE_HOLDINGS;
-  /** 功能開關：截圖匯入開發中，預設關閉（見 src/config/features.ts） */
+  /** 功能開關：截圖匯入開發中，預設關閉，可遠端打開（見 src/config/features.ts） */
   const showScreenshotImport = features.screenshotImport;
   const isComparing = forms.length > 1;
 

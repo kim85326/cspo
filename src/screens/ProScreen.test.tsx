@@ -1,9 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { features } from "@/config/features";
+import type { Features } from "@/config/features";
 import { PRO_DEMO_UNLOCKED_KEY } from "@/data/appPrefs";
 import { PRO_FEATURES } from "@/domain/plan";
+import { StaticFeatureFlags } from "@/hooks/useFeatures";
 import { ProStatusProvider } from "@/hooks/useProStatus";
 import ProScreen from "./ProScreen";
 
@@ -22,21 +23,22 @@ const METRICS = {
   insets: { top: 44, left: 0, right: 0, bottom: 34 },
 };
 
+// renderScreen 用 StaticFeatureFlags 把這裡的開關帶進畫面
+let features: Partial<Features> = {};
+
 beforeEach(async () => {
   await AsyncStorage.clear();
-  features.proPlan = true;
-});
-
-afterAll(() => {
-  features.proPlan = false;
+  features = { proPlan: true };
 });
 
 async function renderScreen() {
   await render(
     <SafeAreaProvider initialMetrics={METRICS}>
-      <ProStatusProvider>
-        <ProScreen />
-      </ProStatusProvider>
+      <StaticFeatureFlags flags={features}>
+        <ProStatusProvider>
+          <ProScreen />
+        </ProStatusProvider>
+      </StaticFeatureFlags>
     </SafeAreaProvider>,
   );
 }

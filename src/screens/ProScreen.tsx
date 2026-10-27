@@ -2,8 +2,8 @@ import { Redirect, Stack } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { features } from "@/config/features";
 import { PRO_FEATURES } from "@/domain/plan";
+import { useFeatures } from "@/hooks/useFeatures";
 import { useProStatus } from "@/hooks/useProStatus";
 import { ProLockedCard } from "@/ui/ProLockedCard";
 import { colors, fonts, fontSize, radius, space, touchTarget } from "@/ui/theme";
@@ -11,10 +11,11 @@ import { colors, fonts, fontSize, radius, space, touchTarget } from "@/ui/theme"
 /**
  * Pro 方案介紹頁（docs/stories/020-pro-plan-lock.md）。Tech Day 只做畫面，不串金流：
  * 「升級 Pro」只顯示「Pro 方案即將推出」，不進入任何付款流程。
- * 由 src/config/features.ts 的 proPlan 開關控制，關閉時導回首頁。路由入口在 src/app/pro.tsx。
+ * 由功能開關 proPlan 控制（useFeatures），關閉時導回首頁。路由入口在 src/app/pro.tsx。
  */
 export default function ProScreen() {
   const insets = useSafeAreaInsets();
+  const features = useFeatures();
   const { pro } = useProStatus();
   const [comingSoon, setComingSoon] = useState(false);
 

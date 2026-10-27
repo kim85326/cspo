@@ -13,10 +13,11 @@ import {
   RecognizeError,
   stockDirectory,
 } from "@/data";
-import { features } from "@/config/features";
+import type { Features } from "@/config/features";
 import { FAKE_EXTRACTION } from "@/data/fakeHoldingRecognizer";
 import type { StockInfo } from "@/domain/types";
 import { FAKE_INSIGHT } from "@/data/fakeInsightProvider";
+import { StaticFeatureFlags } from "@/hooks/useFeatures";
 import CalculateScreen from "./CalculateScreen";
 
 jest.mock("expo-router", () => ({
@@ -41,8 +42,12 @@ jest.mock("expo-image-picker", () => ({
 
 // holdingStore 走 AsyncStorage（jest.setup.js 已換成記憶體 mock）。
 // 按「計算」會把輸入存起來，所以每個測試前要清空，否則下一個測試一開畫面就被帶入資料。
+// 功能開關：各測試把要打開的寫進這裡，renderScreen 用 StaticFeatureFlags 帶進畫面；每個測試前清空（全部用預設值）。
+let features: Partial<Features> = {};
+
 beforeEach(async () => {
   await AsyncStorage.clear();
+  features = {};
 });
 
 // 畫面用了 useSafeAreaInsets，測試要包 SafeAreaProvider 並給固定 inset。
@@ -54,7 +59,9 @@ const METRICS = {
 async function renderScreen() {
   await render(
     <SafeAreaProvider initialMetrics={METRICS}>
-      <CalculateScreen />
+      <StaticFeatureFlags flags={features}>
+        <CalculateScreen />
+      </StaticFeatureFlags>
     </SafeAreaProvider>,
   );
   // 等股票清單載入完成（熱門清單會在聚焦時顯示）
@@ -454,10 +461,6 @@ describe("真實行情（證交所）：載入失敗與資料日期", () => {
 });
 
 describe("截圖匯入的功能開關", () => {
-  afterEach(() => {
-    features.screenshotImport = false;
-  });
-
   test("開關關閉（預設）：看不到「從截圖匯入」，其他功能照常", async () => {
     features.screenshotImport = false;
     await renderScreen();
@@ -482,7 +485,6 @@ describe("從截圖匯入（對應 docs/stories/005）", () => {
   });
 
   afterEach(() => {
-    features.screenshotImport = false;
     jest.restoreAllMocks();
     jest.clearAllMocks();
   });
@@ -822,7 +824,6 @@ describe("版本資訊（對應 docs/stories/018）", () => {
 
 describe("AI 解讀（對應 docs/stories/017）", () => {
   afterEach(() => {
-    features.aiInsight = false;
     jest.restoreAllMocks();
   });
 

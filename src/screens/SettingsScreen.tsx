@@ -1,21 +1,21 @@
 import { router, Stack } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { features } from "@/config/features";
+import { useFeatures } from "@/hooks/useFeatures";
 import { useProStatus } from "@/hooks/useProStatus";
 import { DISCLAIMER_TEXT } from "@/ui/DisclaimerGate";
 import { colors, fonts, fontSize, radius, space, touchTarget } from "@/ui/theme";
 
 /**
  * 設定頁。對應 docs/stories/013-disclaimer.md（常駐免責聲明）、
- * 020-pro-plan-lock.md（方案狀態與 Demo 開關，由 src/config/features.ts 的 proPlan 開關控制，預設關閉）。
+ * 020-pro-plan-lock.md（方案狀態與 Demo 開關，由功能開關 proPlan 控制，預設關閉）。
  * 之後首頁改成分頁導覽時，這頁就是「設定」分頁；Google 登入入口也會放這裡。
  * 路由入口在 src/app/settings.tsx。
  */
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { pro, demoUnlocked, setDemoUnlocked } = useProStatus();
-  const showPro = features.proPlan;
+  const showPro = useFeatures().proPlan;
 
   return (
     <ScrollView

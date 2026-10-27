@@ -47,8 +47,8 @@ cspo/
 │   ├── app/            路由（expo-router）。只放轉出，不放邏輯與測試
 │   │   ├── _layout.tsx 載入 IBM Plex Sans 字型、Stack 導覽、ProStatusProvider、首次開啟的免責聲明（DisclaimerGate）、首頁右上「設定」
 │   │   ├── index.tsx   → screens/CalculateScreen
-│   │   ├── settings.tsx → screens/SettingsScreen（免責聲明；Pro 區塊與 Demo 開關由 features.proPlan 控制）
-│   │   ├── pro.tsx     → screens/ProScreen（Pro 方案介紹，features.proPlan 關閉時導回首頁）
+│   │   ├── settings.tsx → screens/SettingsScreen（免責聲明；Pro 區塊與 Demo 開關由 proPlan 功能開關控制）
+│   │   ├── pro.tsx     → screens/ProScreen（Pro 方案介紹，proPlan 功能開關關閉時導回首頁）
 │   │   ├── twse+api.ts 網頁版同源代理 GET /twse → 證交所（沒開 CORS）
 │   │   ├── tpex+api.ts 網頁版同源代理 GET /tpex → 櫃買中心（沒開 CORS）
 │   │   └── recognize+api.ts 截圖辨識 API route（Story 005）
@@ -57,7 +57,7 @@ cspo/
 │   │   ├── SettingsScreen.tsx  設定頁（Story 013、020）
 │   │   ├── ProScreen.tsx       Pro 方案介紹頁（Story 020）
 │   │   └── *.test.tsx
-│   ├── config/features.ts 功能開關：screenshotImport、proPlan（預設關閉，EXPO_PUBLIC_FEATURE_*=1 打開）
+│   ├── config/features.ts 功能開關：screenshotImport、aiInsight、proPlan（預設關閉；可遠端切換，畫面用 hooks/useFeatures 讀，見 Story 026）
 │   ├── hooks/          useProStatus（Pro 狀態 Provider）、useDisclaimerConsent、usePersistedHoldings 等
 │   ├── domain/         純 TypeScript，不碰 UI 與網路，單元測試主戰場
 │   │   ├── types.ts        Holding、Quote、PnlResult、StockInfo（含 type 個股／ETF、market 上市／上櫃）、SecurityType、Market

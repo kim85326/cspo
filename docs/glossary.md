@@ -57,7 +57,7 @@ PO、測試、工程三方都用這份表上的詞。程式裡的名字對應右
 | 整體／核心／衛星加總 | 三組各自的累計投入、市值、已實現、未實現、股利、總報酬。有持股缺少價格時，市值與未實現不算那一檔，總報酬顯示 — | `summarize` / `GroupSummary` |
 | 年化報酬率（XIRR） | 把每一筆買入、賣出、現金股利和今天的期末價值（市值 − 預估賣出費用）當成現金流，算出相當於每年賺幾 %。第一筆現金流距今不到 365 天時不顯示，改顯示「持有未滿一年」；算不出來顯示 — | `xirr` / `positionAnnualizedReturn` / `portfolioAnnualizedReturns` / `AnnualizedReturn` |
 | 資產配置 | 持有中的持股依目前市值分成幾塊：核心／衛星、個股／ETF、每一檔各占多少 %。缺價格的不算進去，另外提示檔數 | `computeAllocation` / `Allocation` |
-| 功能開關 | 開發中的功能先藏起來，預設關閉；工程同學用環境變數在自己的 dev server 打開。例如「從截圖匯入」、「AI 解讀」 | `features`（`src/config/features.ts`） |
+| 功能開關 | 開發中的功能先藏起來，預設關閉。可以遠端切換：`npm run flags -- set <名稱> on`（或 `off`）改 GitHub `feature-flags` 分支的 JSON，已裝好的 APK 最多 5 分鐘後、回到前景就套用；工程同學也能用 `.env.local` 的環境變數在自己的 dev server 打開（蓋過遠端）。只控制畫面看不看得到，不是保護。例如「從截圖匯入」、「AI 解讀」、「Pro 方案」 | `useFeatures` / `FeatureFlagsProvider`（`src/hooks/useFeatures.tsx`）、`FEATURE_NAMES`（`src/config/features.ts`） |
 | 截圖匯入 | 把券商 app 的持股畫面截圖（從相簿選或現場拍）交給 AI 辨識，自動填進持股欄位。辨識結果一定要人工核對 | `useScreenshotImport` / `applyExtraction` |
 | 辨識結果 | AI 從截圖讀出的每一檔：代號、名稱、成本價、數量（股或張）與信心；還沒對到股票清單、還沒驗證 | `ExtractedHolding` / `ExtractionResult` |
 | 辨識信心 | AI 對一檔持股看得清不清楚：high 或 low。low、或對不到股票清單的欄位，標籤旁顯示「請確認」 | `ExtractionConfidence` / `ReviewFlags` |
