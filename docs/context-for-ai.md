@@ -45,14 +45,20 @@
 cspo/
 ├── src/
 │   ├── app/            路由（expo-router）。只放轉出，不放邏輯與測試
-│   │   ├── _layout.tsx 載入 IBM Plex Sans 字型、Stack 導覽
+│   │   ├── _layout.tsx 載入 IBM Plex Sans 字型、Stack 導覽、ProStatusProvider、首次開啟的免責聲明（DisclaimerGate）、首頁右上「設定」
 │   │   ├── index.tsx   → screens/CalculateScreen
+│   │   ├── settings.tsx → screens/SettingsScreen（免責聲明；Pro 區塊與 Demo 開關由 features.proPlan 控制）
+│   │   ├── pro.tsx     → screens/ProScreen（Pro 方案介紹，features.proPlan 關閉時導回首頁）
 │   │   ├── twse+api.ts 網頁版同源代理 GET /twse → 證交所（沒開 CORS）
 │   │   ├── tpex+api.ts 網頁版同源代理 GET /tpex → 櫃買中心（沒開 CORS）
 │   │   └── recognize+api.ts 截圖辨識 API route（Story 005）
 │   ├── screens/        畫面本體與畫面測試
 │   │   ├── CalculateScreen.tsx
-│   │   └── CalculateScreen.test.tsx
+│   │   ├── SettingsScreen.tsx  設定頁（Story 013、020）
+│   │   ├── ProScreen.tsx       Pro 方案介紹頁（Story 020）
+│   │   └── *.test.tsx
+│   ├── config/features.ts 功能開關：screenshotImport、proPlan（預設關閉，EXPO_PUBLIC_FEATURE_*=1 打開）
+│   ├── hooks/          useProStatus（Pro 狀態 Provider）、useDisclaimerConsent、usePersistedHoldings 等
 │   ├── domain/         純 TypeScript，不碰 UI 與網路，單元測試主戰場
 │   │   ├── types.ts        Holding、Quote、PnlResult、StockInfo（含 type 個股／ETF、market 上市／上櫃）、SecurityType、Market
 │   │   ├── security.ts     securityTypeOf（代號 00 開頭 = ETF）、SECURITY_TYPE_LABEL、toStockInfo
@@ -63,9 +69,10 @@ cspo/
 │   │   ├── fees.ts         floorMoney、calcFee、calcTax、defaultTaxRate、estimateTrade、DEFAULT_USER_SETTINGS
 │   │   ├── position.ts     computePosition（依日期重播 → 持股、平均成本、已實現、未實現、股利、總報酬、持有天數）、replaySymbol
 │   │   ├── portfolio.ts    summarize（整體、核心、衛星三組加總）、bucketOf、defaultBucket
-│   │   ├── xirr.ts         xirr（牛頓法，不收斂改二分法）、positionCashFlows、positionAnnualizedReturn、portfolioAnnualizedReturns（P2-04，Story 020）
-│   │   ├── allocation.ts   computeAllocation（核心／衛星、個股／ETF、每檔市值占比）、toDisplayPercents（P2-07 配置圖，Story 020）
+│   │   ├── xirr.ts         xirr（牛頓法，不收斂改二分法）、positionCashFlows、positionAnnualizedReturn、portfolioAnnualizedReturns（P2-04，Story 025）
+│   │   ├── allocation.ts   computeAllocation（核心／衛星、個股／ETF、每檔市值占比）、toDisplayPercents（P2-07 配置圖，Story 025）
 │   │   ├── ledgerValidation.ts validateLedgerChange（新增／修改／刪除後重播，賣超就拒絕並說是哪一筆）、validateLedger、欄位檢查
+│   │   ├── plan.ts         PRO_FEATURES（Pro 功能清單）、isPro（是不是 Pro 只問它，Story 020）
 │   │   ├── ledgerTestData.ts   測試共用資料（product-spec 3.7 範例、makeTx、makeDividend），只給 *.test.ts 用
 │   │   ├── versionInfo.ts  describeVersion：版本原始值 → 底部那行小字與詳細資訊（Story 018）
 │   │   └── *.test.ts
@@ -83,6 +90,7 @@ cspo/
 │   │   ├── dailyQuoteSource.ts 上市上櫃共用：一次拿全市場收盤價、5 分鐘快取、失敗沿用舊快取、PriceSource + StockDirectory
 │   │   ├── directoryOrder.ts   orderForDirectory：熱門清單在前、其餘依代號、重複代號留第一筆
 │   │   ├── marketSource.ts     把上市 + 上櫃合成一個來源；一邊失敗另一邊照用，兩邊都失敗才丟 PriceLoadError
+│   │   ├── appPrefs.ts         本機是非設定：免責聲明已同意、Pro Demo 開關（AsyncStorage）
 │   │   ├── __fixtures__/       真實 API 回應（裁剪過），測試用：tpexMainboardQuotes.json
 │   │   ├── appVersionSource.ts 讀 expo-application／expo-constants／expo-updates 的版本原始值（Story 018）
 │   │   └── index.ts            Jest 或 EXPO_PUBLIC_USE_FAKE_PRICES=1 用假來源，否則 marketSource（證交所 + 櫃買中心）
@@ -94,11 +102,14 @@ cspo/
 │       ├── PnlCard.tsx     單檔結果卡
 │       ├── ComparisonCard.tsx 多檔比較結果（排名、表現最好／最差、合計）
 │       └── VersionBadge.tsx 畫面最底部的版本資訊，點開看詳細、可複製（Story 018）
+│       ├── DisclaimerGate.tsx 首次開啟的免責聲明 Modal；DISCLAIMER_TEXT（M-10 原文）
+│       ├── SettingsHeaderButton.tsx 首頁右上「設定」
+│       └── ProLockedCard.tsx  ProLockedCard（鎖定的 Pro 功能預覽）、ProGate（Pro 才顯示內容）、ProBadge
 ├── e2e/                Maestro 流程（001-profit、001-loss、002-pick-by-name、003-compare-two）
 ├── docs/
 │   ├── architecture.md 架構、分工、迭代規劃（最完整的設計文件）
 │   ├── glossary.md     共同語言與顯示慣例
-│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、007 證券類型與上櫃、018 版本資訊（Gherkin AC + 對應測試表 + 決策紀錄）；020 年化報酬率與資產配置（只有計算）（Gherkin AC + 對應測試表 + 決策紀錄）
+│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、006 計算引擎、007 證券類型與上櫃、013 免責聲明、016 K 線圖、017 AI 解讀、018 版本資訊、019 歷史資料來源、020 Free／Pro 鎖定畫面、025 年化報酬率與資產配置（Gherkin AC + 對應測試表 + 決策紀錄）
 │   ├── test-plan.md    手動測試清單、bug 回報格式
 │   └── context-for-ai.md 本檔
 ├── design-system/stock-pnl/MASTER.md
@@ -134,8 +145,10 @@ cspo/
   - ~~持股存手機~~（Story 004 已完成：AsyncStorage，存幾檔帶回幾檔，一鍵清除）
   - ~~從券商截圖匯入持股~~（Story 005：expo-image-picker + Expo Router API route `/recognize` + Claude vision；API key 放 `.env`，見 architecture.md 第 7 節）
   - ~~K 線圖與買入點~~（Story 016：證交所 STOCK_DAY 日 K，近 3～6 個月；`react-native-svg` 自繪；選填「買入日期」標 ▲；網頁版走 `/twse-day` 代理）
+  - 免責聲明（Story 013：首次開啟要按同意，設定頁常駐；首頁右上新增「設定」入口）
+  - Free／Pro 鎖定畫面（Story 020：只做畫面，不串金流；`features.proPlan` 預設關閉；Demo 開關在設定頁底部）
   - 手續費 0.1425%（最低 20 元）與交易稅 0.3%
-  - 年化報酬率（XIRR）與資產配置的計算（Story 020，`src/domain/xirr.ts`、`allocation.ts`）已完成，畫面（首頁年化報酬率、配置圓餅圖）還沒接
+  - 年化報酬率（XIRR）與資產配置的計算（Story 025，`src/domain/xirr.ts`、`allocation.ts`）已完成，畫面（首頁年化報酬率、配置圓餅圖）還沒接
 - **第三迭代候選**：報酬率圖、到價提醒、商店截圖與隱私權政策。
 
 ### Code review 留下的 Minor（未處理，不影響正確性）

@@ -3,6 +3,12 @@
 appId: host.exp.Exponent
 ---
 - launchApp
+# Story 013：第一次開啟會先跳免責聲明，有就按掉
+- runFlow:
+    when:
+      visible: "我已了解並同意"
+    commands:
+      - tapOn: "我已了解並同意"
 - tapOn: "股票代號或名稱"
 - inputText: "2330"
 - tapOn: "買入價"

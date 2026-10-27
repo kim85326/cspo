@@ -20,7 +20,7 @@ function ratios<K extends string>(slices: { key: K; ratio: number }[]): Record<s
   return Object.fromEntries(slices.map((s) => [s.key, s.ratio]));
 }
 
-describe("computeAllocation（P2-07 配置圖，對應 docs/stories/020）", () => {
+describe("computeAllocation（P2-07 配置圖，對應 docs/stories/025）", () => {
   test("核心／衛星、個股／ETF、每檔持股的市值占比", () => {
     const a = computeAllocation([honhai, tsmc, etf], []);
     expect(a.totalMarketValue).toBe(1_000_000);

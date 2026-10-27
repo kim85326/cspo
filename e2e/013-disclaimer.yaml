@@ -1,0 +1,14 @@
+# Story 013 / Scenario: 免責聲明同意後不再出現；設定頁隨時看得到
+# 要測「第一次開啟」：先在 Expo Go 裡清掉這個專案的資料（或重新安裝），不能用 clearState，它會連 Expo Go 一起清掉
+appId: host.exp.Exponent
+---
+- launchApp
+- runFlow:
+    when:
+      visible: "我已了解並同意"
+    commands:
+      - tapOn: "我已了解並同意"
+- assertNotVisible: "使用前請先閱讀"
+- tapOn: "設定"
+- assertVisible: "免責聲明"
+- assertVisible: ".*不構成任何投資建議.*"
