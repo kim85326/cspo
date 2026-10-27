@@ -1,0 +1,43 @@
+# Story 009：買兩筆、賣一筆，檢查持股數字（product-spec 3.7 步驟 1–3）
+# 首頁還沒有「新增交易」入口（T5／T6 才會加），先用深層連結直接打開新增交易頁。
+# APP_URL 是 Expo Go 開啟本專案的網址，例如：maestro test -e APP_URL=exp://192.168.0.10:8081 e2e/009-buy-buy-sell.yaml
+# 記帳本要是空的（每次跑之前在 Expo Go 清掉 app 資料），否則持股數字會多算上一次的。
+appId: host.exp.Exponent
+---
+- launchApp
+- runFlow:
+    when:
+      visible: "我已了解並同意"
+    commands:
+      - tapOn: "我已了解並同意"
+- openLink: ${APP_URL}/--/transaction/new?symbol=2330
+- assertVisible: "台積電（2330）"
+
+# 步驟 1：買 1000 股 @ 600，手續費自動帶入 855
+- tapOn: "成交價"
+- inputText: "600"
+- tapOn: "股數"
+- inputText: "1000"
+- assertVisible: "855"
+- assertVisible: "600,855 元"
+- tapOn: "儲存並繼續新增"
+- assertVisible: "目前持有 1,000 股・平均成本 600.86"
+
+# 步驟 2：買 1000 股 @ 500
+- tapOn: "成交價"
+- inputText: "500"
+- tapOn: "股數"
+- inputText: "1000"
+- tapOn: "儲存並繼續新增"
+- assertVisible: "目前持有 2,000 股・平均成本 550.78"
+
+# 步驟 3：賣 500 股 @ 650，手續費 463、證交稅 975、淨額 323,562
+- tapOn: "賣出"
+- tapOn: "成交價"
+- inputText: "650"
+- tapOn: "股數"
+- inputText: "500"
+- assertVisible: "975"
+- assertVisible: "323,562 元"
+- tapOn: "儲存並繼續新增"
+- assertVisible: "目前持有 1,500 股・平均成本 550.78"

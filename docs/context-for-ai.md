@@ -49,6 +49,8 @@ cspo/
 │   │   ├── index.tsx   → screens/CalculateScreen
 │   │   ├── settings.tsx → screens/SettingsScreen（免責聲明；Pro 區塊與 Demo 開關由 proPlan 功能開關控制）
 │   │   ├── pro.tsx     → screens/ProScreen（Pro 方案介紹，proPlan 功能開關關閉時導回首頁）
+│   │   ├── transaction/new.tsx  → screens/TransactionFormScreen 新增交易，可帶 ?symbol=2330（Story 009）
+│   │   ├── transaction/[id].tsx → screens/TransactionFormScreen 編輯／刪除交易（Story 009）
 │   │   ├── twse+api.ts 網頁版同源代理 GET /twse → 證交所（沒開 CORS）
 │   │   ├── tpex+api.ts 網頁版同源代理 GET /tpex → 櫃買中心（沒開 CORS）
 │   │   └── recognize+api.ts 截圖辨識 API route（Story 005）
@@ -56,6 +58,7 @@ cspo/
 │   │   ├── CalculateScreen.tsx
 │   │   ├── SettingsScreen.tsx  設定頁（Story 013、020）
 │   │   ├── ProScreen.tsx       Pro 方案介紹頁（Story 020）
+│   │   ├── TransactionFormScreen.tsx 新增／編輯／刪除交易（Story 009）
 │   │   └── *.test.tsx
 │   ├── config/features.ts 功能開關：screenshotImport、aiInsight、proPlan（預設關閉；可遠端切換，畫面用 hooks/useFeatures 讀，見 Story 026）
 │   ├── hooks/          useProStatus（Pro 狀態 Provider）、useDisclaimerConsent、usePersistedHoldings、useLedger（畫面讀寫記帳本，Story 008）等
@@ -73,6 +76,7 @@ cspo/
 │   │   ├── allocation.ts   computeAllocation（核心／衛星、個股／ETF、每檔市值占比）、toDisplayPercents（P2-07 配置圖，Story 025）
 │   │   ├── migrateSavedHoldings.ts 舊版持股 → 買入交易（migrateSavedHoldings）、emptyLedger、首頁過渡轉接用的 savedHoldingsFromLedger／replaceSavedHoldings（Story 008）
 │   │   ├── ledgerValidation.ts validateLedgerChange（新增／修改／刪除後重播，賣超就拒絕並說是哪一筆）、validateLedger、欄位檢查
+│   │   ├── transactionForm.ts 交易表單的字串處理：全形轉半形、自動帶入手續費與稅（autoCosts）、預估總金額、存檔前驗證（Story 009）
 │   │   ├── plan.ts         PRO_FEATURES（Pro 功能清單）、isPro（是不是 Pro 只問它，Story 020）
 │   │   ├── ledgerTestData.ts   測試共用資料（product-spec 3.7 範例、makeTx、makeDividend），只給 *.test.ts 用
 │   │   ├── versionInfo.ts  describeVersion：版本原始值 → 底部那行小字與詳細資訊（Story 018）
@@ -151,6 +155,7 @@ cspo/
   - ~~多檔一起比~~（Story 003 已完成：最多 5 檔、依報酬率排名、合計）
   - ~~持股存手機~~（Story 004 已完成：AsyncStorage，存幾檔帶回幾檔，一鍵清除）
   - ~~新儲存層與舊資料搬移~~（Story 008 已完成：記帳本存 `cspo.ledger.v1`，舊版持股第一次開 App 自動轉成買入交易；首頁經過渡轉接照常使用。買入日期處理待 PO 確認，見 story 決策 1）
+  - ~~交易輸入畫面~~（Story 009 已完成：`/transaction/new`（可帶 `?symbol=`）、`/transaction/<id>`；手續費與證交稅自動帶入可覆寫、儲存並繼續新增、刪除二次確認。首頁還沒有入口，T5／T6 加）
   - ~~從券商截圖匯入持股~~（Story 005：expo-image-picker + Expo Router API route `/recognize` + Claude vision；API key 放 `.env`，見 architecture.md 第 7 節）
   - ~~K 線圖與買入點~~（Story 016：證交所 STOCK_DAY 日 K，近 3～6 個月；`react-native-svg` 自繪；選填「買入日期」標 ▲；網頁版走 `/twse-day` 代理）
   - 免責聲明（Story 013：首次開啟要按同意，設定頁常駐；首頁右上新增「設定」入口）
