@@ -31,3 +31,13 @@ export type StockInfo = {
   symbol: string;
   name: string;
 };
+
+/**
+ * 已儲存的持股：存使用者輸入的「原始字串」，不存算好的結果。
+ * 關掉 app 重開時帶回欄位用；真正算錢前仍要經過 validateHoldingInput。
+ */
+export type SavedHolding = {
+  symbol: string;
+  buyPrice: string;
+  shares: string;
+};

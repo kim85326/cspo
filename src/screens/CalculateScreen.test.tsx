@@ -1,10 +1,18 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { holdingStore } from "@/data";
 import CalculateScreen from "./CalculateScreen";
 
 jest.mock("expo-router", () => ({
   Stack: { Screen: () => null },
 }));
+
+// holdingStore 走 AsyncStorage（jest.setup.js 已換成記憶體 mock）。
+// 按「計算」會把輸入存起來，所以每個測試前要清空，否則下一個測試一開畫面就被帶入資料。
+beforeEach(async () => {
+  await AsyncStorage.clear();
+});
 
 // 畫面用了 useSafeAreaInsets，測試要包 SafeAreaProvider 並給固定 inset。
 const METRICS = {
@@ -19,7 +27,7 @@ async function renderScreen() {
     </SafeAreaProvider>,
   );
   // 等股票清單載入完成（熱門清單會在聚焦時顯示）
-  await screen.findByLabelText("股票代號或名稱");
+  await screen.findAllByLabelText("股票代號或名稱");
 }
 
 // RNTL 14 起 render 與 fireEvent 都是非同步，要 await。
@@ -212,5 +220,87 @@ describe("多檔比較（對應 docs/stories/003）", () => {
     expect(screen.getByText("最多比較 5 檔")).toBeTruthy();
     await fireEvent.press(screen.getByLabelText("新增一檔比較"));
     expect(screen.getAllByLabelText("股票代號或名稱")).toHaveLength(5);
+  });
+});
+
+describe("記住持股（對應 docs/stories/004）", () => {
+  const TSMC = { symbol: "2330", buyPrice: "500", shares: "1000" };
+  const HONHAI = { symbol: "2317", buyPrice: "200", shares: "1000" };
+
+  test("重開 app：上次存的持股自動帶回三個欄位，按計算看到 +20,000", async () => {
+    await holdingStore.save([TSMC]);
+    await renderScreen();
+    expect(await screen.findByDisplayValue("台積電（2330）")).toBeTruthy();
+    expect(screen.getByDisplayValue("500")).toBeTruthy();
+    expect(screen.getByDisplayValue("1000")).toBeTruthy();
+
+    await pressCalculate();
+    expect(await screen.findByText("+20,000")).toBeTruthy();
+  });
+
+  test("存了兩檔：重開會帶回兩個區塊，直接比較", async () => {
+    await holdingStore.save([HONHAI, TSMC]);
+    await renderScreen();
+    expect(await screen.findByDisplayValue("鴻海（2317）")).toBeTruthy();
+    expect(screen.getByDisplayValue("台積電（2330）")).toBeTruthy();
+    expect(screen.getAllByLabelText("股票代號或名稱")).toHaveLength(2);
+    expect(screen.getByText("第 2 檔")).toBeTruthy();
+
+    await pressCalculate();
+    expect(await screen.findByLabelText("比較結果")).toBeTruthy();
+    expect(screen.getByLabelText("第 1 名 台積電 2330")).toBeTruthy();
+  });
+
+  test("按計算成功後，所有檔的輸入都會存進手機", async () => {
+    await renderScreen();
+    expect(screen.queryByLabelText("清除已儲存的資料")).toBeNull();
+
+    await fireEvent.press(screen.getByLabelText("新增一檔比較"));
+    await fillHolding(1, "2317", "150", "2000");
+    await fillHolding(2, "台積電", "500", "1000");
+    await pressCalculate();
+    expect(await screen.findByLabelText("比較結果")).toBeTruthy();
+
+    await waitFor(async () => {
+      expect(await holdingStore.load()).toEqual([
+        { symbol: "2317", buyPrice: "150", shares: "2000" },
+        { symbol: "2330", buyPrice: "500", shares: "1000" },
+      ]);
+    });
+    expect(screen.getByLabelText("清除已儲存的資料")).toBeTruthy();
+  });
+
+  test("欄位有錯時不會存", async () => {
+    await renderScreen();
+    await typeStock("2330");
+    await pressCalculate();
+    expect(await screen.findByText("買入價必須大於 0")).toBeTruthy();
+    expect(await holdingStore.load()).toEqual([]);
+    expect(screen.queryByLabelText("清除已儲存的資料")).toBeNull();
+  });
+
+  test("按「清除已儲存的資料」：回到只有一檔且欄位空白、手機裡的資料也清掉", async () => {
+    await holdingStore.save([HONHAI, TSMC]);
+    await renderScreen();
+    expect(await screen.findByDisplayValue("台積電（2330）")).toBeTruthy();
+    expect(screen.getAllByLabelText("股票代號或名稱")).toHaveLength(2);
+
+    await fireEvent.press(screen.getByLabelText("清除已儲存的資料"));
+
+    expect(screen.getAllByLabelText("股票代號或名稱")).toHaveLength(1);
+    expect(screen.queryByDisplayValue("台積電（2330）")).toBeNull();
+    expect(screen.getByLabelText("買入價").props.value).toBe("");
+    expect(screen.getByLabelText("數量").props.value).toBe("");
+    await waitFor(async () => {
+      expect(await holdingStore.load()).toEqual([]);
+    });
+    expect(screen.queryByLabelText("清除已儲存的資料")).toBeNull();
+  });
+
+  test("存的代號不在清單裡：代號原樣放回欄位，不會 crash", async () => {
+    await holdingStore.save([{ symbol: "9999", buyPrice: "10", shares: "1" }]);
+    await renderScreen();
+    expect(await screen.findByDisplayValue("9999")).toBeTruthy();
+    expect(screen.getByDisplayValue("10")).toBeTruthy();
   });
 });

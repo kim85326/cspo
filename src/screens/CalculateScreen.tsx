@@ -1,5 +1,5 @@
 import { Stack } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -12,11 +12,12 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { priceSource, stockDirectory } from "@/data";
+import { holdingStore, priceSource, stockDirectory } from "@/data";
 import { compareHoldings, MAX_COMPARE_HOLDINGS, type ComparisonResult } from "@/domain/compare";
 import { calculatePnl, validateHoldingInput } from "@/domain/pnl";
 import { resolveStock, searchStocks } from "@/domain/stockSearch";
-import type { Holding, PnlResult, Quote, StockInfo } from "@/domain/types";
+import type { Holding, PnlResult, Quote, SavedHolding, StockInfo } from "@/domain/types";
+import { usePersistedHoldings } from "@/hooks/usePersistedHoldings";
 import { ComparisonCard } from "@/ui/ComparisonCard";
 import {
   emptyHoldingForm,
@@ -32,8 +33,8 @@ type Outcome =
   | { kind: "comparison"; comparison: ComparisonResult };
 
 /**
- * 輸入一檔或多檔持股 → 看盈虧；兩檔以上就排名比較。
- * 對應 docs/stories/001-single-holding-pnl.md、002-stock-picker.md、003-compare-stocks.md
+ * 輸入一檔或多檔持股 → 看盈虧；兩檔以上就排名比較。按「計算」成功後把輸入存在手機，重開帶回。
+ * 對應 docs/stories/001-single-holding-pnl.md、002-stock-picker.md、003-compare-stocks.md、004-remember-holdings.md
  * 路由入口在 src/app/index.tsx。
  */
 export default function CalculateScreen() {
@@ -45,15 +46,51 @@ export default function CalculateScreen() {
   const [notFound, setNotFound] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
 
+  /**
+   * 啟動時把上次存的持股帶回欄位（有幾筆就開幾檔，最多 MAX_COMPARE_HOLDINGS）。
+   * 股票清單與手機資料各自非同步到達，誰後到誰呼叫 restoreSaved；兩邊都到齊才填，而且只填一次。
+   */
+  const stocksRef = useRef<StockInfo[]>([]);
+  const savedRef = useRef<SavedHolding[] | null>(null);
+  const restoredRef = useRef(false);
+  const restoreSaved = useCallback(() => {
+    const items = savedRef.current;
+    if (restoredRef.current || !items || stocksRef.current.length === 0) return;
+    restoredRef.current = true;
+    if (items.length === 0) return;
+    const restored = items.slice(0, MAX_COMPARE_HOLDINGS).map((item) => {
+      const stock = stocksRef.current.find((s) => s.symbol === item.symbol) ?? null;
+      const form = emptyHoldingForm(nextId.current++);
+      return {
+        ...form,
+        selected: stock,
+        query: stock ? "" : item.symbol,
+        buyPrice: item.buyPrice,
+        shares: item.shares,
+      };
+    });
+    setForms(restored);
+  }, []);
+
+  const { saved, persist, clearSaved } = usePersistedHoldings(holdingStore, {
+    onLoaded: (items) => {
+      savedRef.current = items;
+      restoreSaved();
+    },
+  });
+
   useEffect(() => {
     let active = true;
     stockDirectory.getAll().then((list) => {
-      if (active) setStocks(list);
+      if (!active) return;
+      setStocks(list);
+      stocksRef.current = list;
+      restoreSaved();
     });
     return () => {
       active = false;
     };
-  }, []);
+  }, [restoreSaved]);
 
   const updateForm = (id: number, patch: Partial<HoldingFormState>) => {
     setForms((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
@@ -68,6 +105,14 @@ export default function CalculateScreen() {
   const removeForm = (id: number) => {
     setForms((prev) => (prev.length > 1 ? prev.filter((f) => f.id !== id) : prev));
     setOutcome(null);
+  };
+
+  /** 清掉手機裡存的資料，欄位與結果一起清空，回到只有一檔的初始狀態 */
+  const handleClearSaved = async () => {
+    setForms([emptyHoldingForm(nextId.current++)]);
+    setNotFound(null);
+    setOutcome(null);
+    await clearSaved();
   };
 
   /** 離開欄位就驗那一欄，錯誤緊貼欄位顯示 */
@@ -104,6 +149,7 @@ export default function CalculateScreen() {
 
     // 先把每一檔都驗完，錯誤一次顯示在各自的欄位下
     const holdings: Holding[] = [];
+    const toSave: SavedHolding[] = [];
     const nextErrors = new Map<number, HoldingFormErrors>();
     for (const form of forms) {
       const resolved = resolveFormStock(form);
@@ -116,7 +162,10 @@ export default function CalculateScreen() {
       const errors: HoldingFormErrors = validation.ok ? {} : { ...validation.errors };
       if ("error" in resolved) errors.symbol = resolved.error;
       nextErrors.set(form.id, errors);
-      if (validation.ok && "stock" in resolved) holdings.push(validation.holding);
+      if (validation.ok && "stock" in resolved) {
+        holdings.push(validation.holding);
+        toSave.push({ symbol, buyPrice: form.buyPrice, shares: form.shares });
+      }
     }
 
     setForms((prev) => prev.map((f) => ({ ...f, errors: nextErrors.get(f.id) ?? {} })));
@@ -138,6 +187,7 @@ export default function CalculateScreen() {
       } else {
         setOutcome({ kind: "comparison", comparison: compareHoldings(inputs) });
       }
+      await persist(toSave);
     } finally {
       setLoading(false);
     }
@@ -228,6 +278,19 @@ export default function CalculateScreen() {
           <ComparisonCard comparison={outcome.comparison} />
         ) : null}
 
+        {saved.length > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="清除已儲存的資料"
+            testID="button-clear-saved"
+            onPress={handleClearSaved}
+            hitSlop={space.sm}
+            style={({ pressed }) => [styles.clearSaved, pressed && styles.buttonPressed]}
+          >
+            <Text style={styles.clearSavedText}>清除已儲存的資料</Text>
+          </Pressable>
+        ) : null}
+
         <Text style={styles.disclaimer}>資料僅供參考，不構成投資建議。</Text>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -281,6 +344,19 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
   },
   notFoundText: { fontFamily: fonts.regular, color: colors.destructive, fontSize: fontSize.md },
+  clearSaved: {
+    alignSelf: "center",
+    minHeight: touchTarget,
+    justifyContent: "center",
+    paddingHorizontal: space.md,
+    marginTop: space.sm,
+  },
+  clearSavedText: {
+    fontFamily: fonts.medium,
+    color: colors.mutedForeground,
+    fontSize: fontSize.sm,
+    textDecorationLine: "underline",
+  },
   disclaimer: {
     marginTop: space.lg,
     fontFamily: fonts.regular,
