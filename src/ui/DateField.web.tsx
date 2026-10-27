@@ -1,8 +1,7 @@
 import { createElement } from "react";
 import { Pressable, Text, View } from "react-native";
 import { localIsoDate } from "@/domain/buyDate";
-import type { DateFieldProps } from "./DateField";
-import { dateFieldStyles as styles } from "./DateField";
+import { dateFieldStyles as styles, type DateFieldProps } from "./dateFieldStyles";
 import { colors, fonts, fontSize, space } from "./theme";
 
 /**
