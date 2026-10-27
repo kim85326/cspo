@@ -56,6 +56,9 @@ PO、測試、工程三方都用這份表上的詞。程式裡的名字對應右
 | 簡單報酬率 | 總報酬 ÷ 累計投入；累計投入為 0 時顯示 — | `returnRate` / `simpleReturnRate` |
 | 持有天數 | 從這一段持有的第一筆買入日算到今天；賣光再買就從新的第一筆算 | `Position.holdingDays` |
 | 核心／衛星 | 核心部位預設是全部 ETF，衛星部位預設是全部個股；使用者可以逐檔切換 | `Bucket`（`core` / `satellite`）/ `HoldingSetting` |
+| 持股明細 | 每一檔的持股數字：股數、平均成本、參考價、市值、未實現、已實現、股利、總報酬與報酬率、持有天數。分「持有中」與「已出清」兩頁，可依市值、報酬率、總報酬排序（Story 010） | `HoldingView` / `HoldingRow` / `useHoldings` |
+| 已出清 | 曾經買過、現在股數是 0 的證券。只顯示已實現損益與股利 | `closedHoldings` |
+| 未實現報酬率 | 未實現損益 ÷ 持有成本，持股明細「未實現損益」括號裡的 %。和總報酬率（÷ 累計投入）不同 | `unrealizedRate` |
 | 整體／核心／衛星加總 | 三組各自的累計投入、市值、已實現、未實現、股利、總報酬。有持股缺少價格時，市值與未實現不算那一檔，總報酬顯示 — | `summarize` / `GroupSummary` |
 | 年化報酬率（XIRR） | 把每一筆買入、賣出、現金股利和今天的期末價值（市值 − 預估賣出費用）當成現金流，算出相當於每年賺幾 %。第一筆現金流距今不到 365 天時不顯示，改顯示「持有未滿一年」；算不出來顯示 — | `xirr` / `positionAnnualizedReturn` / `portfolioAnnualizedReturns` / `AnnualizedReturn` |
 | 資產配置 | 持有中的持股依目前市值分成幾塊：核心／衛星、個股／ETF、每一檔各占多少 %。缺價格的不算進去，另外提示檔數 | `computeAllocation` / `Allocation` |

@@ -49,6 +49,8 @@ cspo/
 │   │   ├── index.tsx   → screens/CalculateScreen
 │   │   ├── settings.tsx → screens/SettingsScreen（免責聲明；Pro 區塊與 Demo 開關由 proPlan 功能開關控制）
 │   │   ├── pro.tsx     → screens/ProScreen（Pro 方案介紹，proPlan 功能開關關閉時導回首頁）
+│   │   ├── holdings/index.tsx → screens/HoldingsScreen（持股明細，Story 010）
+│   │   ├── holdings/[symbol].tsx → screens/HoldingDetailScreen（單一持股、核心／衛星切換，Story 010）
 │   │   ├── twse+api.ts 網頁版同源代理 GET /twse → 證交所（沒開 CORS）
 │   │   ├── tpex+api.ts 網頁版同源代理 GET /tpex → 櫃買中心（沒開 CORS）
 │   │   └── recognize+api.ts 截圖辨識 API route（Story 005）
@@ -56,9 +58,11 @@ cspo/
 │   │   ├── CalculateScreen.tsx
 │   │   ├── SettingsScreen.tsx  設定頁（Story 013、020）
 │   │   ├── ProScreen.tsx       Pro 方案介紹頁（Story 020）
+│   │   ├── HoldingsScreen.tsx  持股明細：持有中／已出清、排序（Story 010）
+│   │   ├── HoldingDetailScreen.tsx 單一持股：數字摘要、核心／衛星、股價走勢、交易與股利紀錄（Story 010）
 │   │   └── *.test.tsx
 │   ├── config/features.ts 功能開關：screenshotImport、aiInsight、proPlan（預設關閉；可遠端切換，畫面用 hooks/useFeatures 讀，見 Story 026）
-│   ├── hooks/          useProStatus（Pro 狀態 Provider）、useDisclaimerConsent、usePersistedHoldings、useLedger（畫面讀寫記帳本，Story 008）等
+│   ├── hooks/          useProStatus（Pro 狀態 Provider）、useDisclaimerConsent、usePersistedHoldings、useLedger（畫面讀寫記帳本，Story 008）、useHoldings（記帳本 + 參考價 → 每檔持股，Story 010）等
 │   ├── domain/         純 TypeScript，不碰 UI 與網路，單元測試主戰場
 │   │   ├── types.ts        Holding、Quote、PnlResult、StockInfo（含 type 個股／ETF、market 上市／上櫃）、SecurityType、Market
 │   │   ├── security.ts     securityTypeOf（代號 00 開頭 = ETF）、SECURITY_TYPE_LABEL、toStockInfo
@@ -69,6 +73,7 @@ cspo/
 │   │   ├── fees.ts         floorMoney、calcFee、calcTax、defaultTaxRate、estimateTrade、DEFAULT_USER_SETTINGS
 │   │   ├── position.ts     computePosition（依日期重播 → 持股、平均成本、已實現、未實現、股利、總報酬、持有天數）、replaySymbol
 │   │   ├── portfolio.ts    summarize（整體、核心、衛星三組加總）、bucketOf、defaultBucket
+│   │   ├── holdings.ts     buildHoldingViews、activeHoldings／closedHoldings、sortHoldings、symbolHistory、unrealizedRate、顯示格式（Story 010）
 │   │   ├── xirr.ts         xirr（牛頓法，不收斂改二分法）、positionCashFlows、positionAnnualizedReturn、portfolioAnnualizedReturns（P2-04，Story 025）
 │   │   ├── allocation.ts   computeAllocation（核心／衛星、個股／ETF、每檔市值占比）、toDisplayPercents（P2-07 配置圖，Story 025）
 │   │   ├── migrateSavedHoldings.ts 舊版持股 → 買入交易（migrateSavedHoldings）、emptyLedger、首頁過渡轉接用的 savedHoldingsFromLedger／replaceSavedHoldings（Story 008）
@@ -94,6 +99,7 @@ cspo/
 │   │   ├── LedgerStore.ts      介面：記帳本整份 load／save／clear（Story 008）
 │   │   ├── asyncStorageLedgerStore.ts  AsyncStorage `cspo.ledger.v1`；第一次讀寫時自動把舊版 `cspo.holdings.v1` 搬過來（migrateLegacyHoldings），壞掉回空記帳本並備份原文
 │   │   ├── memoryLedgerStore.ts        測試用記憶體版
+│   │   ├── demoLedger.ts               畫面開發用示範記帳本（EXPO_PUBLIC_USE_DEMO_LEDGER=1，只在 __DEV__，Story 010）
 │   │   ├── ledgerRepository.ts         畫面讀寫記帳本的入口：訂閱、新增／修改／刪除交易與股利（先驗證再存）、setBucket、updateSettings；createMemoryLedgerRepository 給測試與畫面開發
 │   │   ├── ledgerHoldingStore.ts       過渡轉接：讓 CalculateScreen 用 HoldingStore 介面讀寫記帳本，T6 後刪除
 │   │   ├── asyncStorageHoldingStore.ts 舊版 `cspo.holdings.v1`，現在只用來讀舊資料搬移
@@ -107,6 +113,8 @@ cspo/
 │       ├── LabeledInput.tsx
 │       ├── HoldingForm.tsx 一檔的輸入區塊（StockPicker + 買入價 + 數量 + 移除鈕）
 │       ├── PnlCard.tsx     單檔結果卡
+│       ├── HoldingRow.tsx  持股明細的一列（精簡版給首頁、detailed 給持股明細）、BucketTag（Story 010）
+│       ├── Segmented.tsx   分段切換（radiogroup）
 │       ├── ComparisonCard.tsx 多檔比較結果（排名、表現最好／最差、合計）
 │       └── VersionBadge.tsx 畫面最底部的版本資訊，點開看詳細、可複製（Story 018）
 │       ├── DisclaimerGate.tsx 首次開啟的免責聲明 Modal；DISCLAIMER_TEXT（M-10 原文）
@@ -116,7 +124,7 @@ cspo/
 ├── docs/
 │   ├── architecture.md 架構、分工、迭代規劃（最完整的設計文件）
 │   ├── glossary.md     共同語言與顯示慣例
-│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、006 計算引擎、007 證券類型與上櫃、013 免責聲明、016 K 線圖、017 AI 解讀、018 版本資訊、019 歷史資料來源、020 Free／Pro 鎖定畫面、025 年化報酬率與資產配置（Gherkin AC + 對應測試表 + 決策紀錄）
+│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、006 計算引擎、007 證券類型與上櫃、008 新儲存層、010 持股明細與核心／衛星、013 免責聲明、016 K 線圖、017 AI 解讀、018 版本資訊、019 歷史資料來源、020 Free／Pro 鎖定畫面、025 年化報酬率與資產配置（Gherkin AC + 對應測試表 + 決策紀錄）
 │   ├── test-plan.md    手動測試清單、bug 回報格式
 │   └── context-for-ai.md 本檔
 ├── design-system/stock-pnl/MASTER.md
@@ -156,6 +164,7 @@ cspo/
   - 免責聲明（Story 013：首次開啟要按同意，設定頁常駐；首頁右上新增「設定」入口）
   - Free／Pro 鎖定畫面（Story 020：只做畫面，不串金流；`features.proPlan` 預設關閉；Demo 開關在設定頁底部）
   - 手續費 0.1425%（最低 20 元）與交易稅 0.3%
+  - 持股明細、單一持股頁、核心／衛星切換（Story 010：`/holdings`、`/holdings/[symbol]`；首頁入口等 T6。未實現 % 的分母待 PO 確認，見 story 決策 2）
   - 年化報酬率（XIRR）與資產配置的計算（Story 025，`src/domain/xirr.ts`、`allocation.ts`）已完成，畫面（首頁年化報酬率、配置圓餅圖）還沒接
 - **第三迭代候選**：報酬率圖、到價提醒、商店截圖與隱私權政策。
 
