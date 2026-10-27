@@ -58,7 +58,7 @@ cspo/
 │   │   ├── ProScreen.tsx       Pro 方案介紹頁（Story 020）
 │   │   └── *.test.tsx
 │   ├── config/features.ts 功能開關：screenshotImport、aiInsight、proPlan（預設關閉；可遠端切換，畫面用 hooks/useFeatures 讀，見 Story 026）
-│   ├── hooks/          useProStatus（Pro 狀態 Provider）、useDisclaimerConsent、usePersistedHoldings 等
+│   ├── hooks/          useProStatus（Pro 狀態 Provider）、useDisclaimerConsent、usePersistedHoldings、useLedger（畫面讀寫記帳本，Story 008）等
 │   ├── domain/         純 TypeScript，不碰 UI 與網路，單元測試主戰場
 │   │   ├── types.ts        Holding、Quote、PnlResult、StockInfo（含 type 個股／ETF、market 上市／上櫃）、SecurityType、Market
 │   │   ├── security.ts     securityTypeOf（代號 00 開頭 = ETF）、SECURITY_TYPE_LABEL、toStockInfo
@@ -71,6 +71,7 @@ cspo/
 │   │   ├── portfolio.ts    summarize（整體、核心、衛星三組加總）、bucketOf、defaultBucket
 │   │   ├── xirr.ts         xirr（牛頓法，不收斂改二分法）、positionCashFlows、positionAnnualizedReturn、portfolioAnnualizedReturns（P2-04，Story 025）
 │   │   ├── allocation.ts   computeAllocation（核心／衛星、個股／ETF、每檔市值占比）、toDisplayPercents（P2-07 配置圖，Story 025）
+│   │   ├── migrateSavedHoldings.ts 舊版持股 → 買入交易（migrateSavedHoldings）、emptyLedger、首頁過渡轉接用的 savedHoldingsFromLedger／replaceSavedHoldings（Story 008）
 │   │   ├── ledgerValidation.ts validateLedgerChange（新增／修改／刪除後重播，賣超就拒絕並說是哪一筆）、validateLedger、欄位檢查
 │   │   ├── plan.ts         PRO_FEATURES（Pro 功能清單）、isPro（是不是 Pro 只問它，Story 020）
 │   │   ├── ledgerTestData.ts   測試共用資料（product-spec 3.7 範例、makeTx、makeDividend），只給 *.test.ts 用
@@ -90,6 +91,12 @@ cspo/
 │   │   ├── dailyQuoteSource.ts 上市上櫃共用：一次拿全市場收盤價、5 分鐘快取、失敗沿用舊快取、PriceSource + StockDirectory
 │   │   ├── directoryOrder.ts   orderForDirectory：熱門清單在前、其餘依代號、重複代號留第一筆
 │   │   ├── marketSource.ts     把上市 + 上櫃合成一個來源；一邊失敗另一邊照用，兩邊都失敗才丟 PriceLoadError
+│   │   ├── LedgerStore.ts      介面：記帳本整份 load／save／clear（Story 008）
+│   │   ├── asyncStorageLedgerStore.ts  AsyncStorage `cspo.ledger.v1`；第一次讀寫時自動把舊版 `cspo.holdings.v1` 搬過來（migrateLegacyHoldings），壞掉回空記帳本並備份原文
+│   │   ├── memoryLedgerStore.ts        測試用記憶體版
+│   │   ├── ledgerRepository.ts         畫面讀寫記帳本的入口：訂閱、新增／修改／刪除交易與股利（先驗證再存）、setBucket、updateSettings；createMemoryLedgerRepository 給測試與畫面開發
+│   │   ├── ledgerHoldingStore.ts       過渡轉接：讓 CalculateScreen 用 HoldingStore 介面讀寫記帳本，T6 後刪除
+│   │   ├── asyncStorageHoldingStore.ts 舊版 `cspo.holdings.v1`，現在只用來讀舊資料搬移
 │   │   ├── appPrefs.ts         本機是非設定：免責聲明已同意、Pro Demo 開關（AsyncStorage）
 │   │   ├── __fixtures__/       真實 API 回應（裁剪過），測試用：tpexMainboardQuotes.json
 │   │   ├── appVersionSource.ts 讀 expo-application／expo-constants／expo-updates 的版本原始值（Story 018）
@@ -143,6 +150,7 @@ cspo/
   - ~~上櫃股票與個股／ETF 標籤~~（Story 007 已完成：櫃買中心 `tpex_mainboard_quotes`，欄位 `Date`、`SecuritiesCompanyCode`、`CompanyName`、`Close`（無成交是 `----`），約 1,000 列；代號 00 開頭 = ETF）
   - ~~多檔一起比~~（Story 003 已完成：最多 5 檔、依報酬率排名、合計）
   - ~~持股存手機~~（Story 004 已完成：AsyncStorage，存幾檔帶回幾檔，一鍵清除）
+  - ~~新儲存層與舊資料搬移~~（Story 008 已完成：記帳本存 `cspo.ledger.v1`，舊版持股第一次開 App 自動轉成買入交易；首頁經過渡轉接照常使用。買入日期處理待 PO 確認，見 story 決策 1）
   - ~~從券商截圖匯入持股~~（Story 005：expo-image-picker + Expo Router API route `/recognize` + Claude vision；API key 放 `.env`，見 architecture.md 第 7 節）
   - ~~K 線圖與買入點~~（Story 016：證交所 STOCK_DAY 日 K，近 3～6 個月；`react-native-svg` 自繪；選填「買入日期」標 ▲；網頁版走 `/twse-day` 代理）
   - 免責聲明（Story 013：首次開啟要按同意，設定頁常駐；首頁右上新增「設定」入口）

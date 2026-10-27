@@ -60,7 +60,10 @@ cspo/
 │   │   ├── stocks.ts         固定 40 檔（代號、名稱、假價）：測試用，也是熱門清單的順序
 │   │   ├── fakePriceSource.ts / fakeStockDirectory.ts  用 stocks.ts 實作的假來源
 │   │   ├── HoldingStore.ts   介面：把輸入過的持股存在手機本機
-│   │   ├── asyncStorageHoldingStore.ts / memoryHoldingStore.ts  AsyncStorage 實作 ／ 測試用記憶體版
+│   │   ├── asyncStorageHoldingStore.ts / memoryHoldingStore.ts  舊版 AsyncStorage 實作（現在只讀舊資料搬移）／ 測試用記憶體版
+│   │   ├── LedgerStore.ts    介面：記帳本整份存在手機本機（Story 008）
+│   │   ├── asyncStorageLedgerStore.ts / memoryLedgerStore.ts  AsyncStorage `cspo.ledger.v1`（含舊資料自動搬移）／ 測試用記憶體版
+│   │   ├── ledgerHoldingStore.ts  過渡轉接：CalculateScreen 透過 HoldingStore 讀寫記帳本
 │   │   ├── HoldingRecognizer.ts  介面：給截圖回辨識結果
 │   │   ├── claudeHoldingRecognizer.ts / fakeHoldingRecognizer.ts  POST 到 /recognize ／ 測試用固定結果
 │   │   ├── recognizeEndpoint.ts  用 expo-constants 的 hostUri 找到 dev server 的 /recognize

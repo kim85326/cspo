@@ -21,6 +21,11 @@ export type Transaction = {
   side: TradeSide;
   /** 交易日期 YYYY-MM-DD，不可晚於今天 */
   tradeDate: string;
+  /**
+   * 不知道真正的交易日期：舊版資料沒填買入日期（或填的認不出來），tradeDate 暫用轉入當天。
+   * 畫面可以提醒使用者補上日期；持有天數、年化報酬率在補上之前都不準。見 docs/stories/008。
+   */
+  tradeDateUnknown?: boolean;
   /** 成交價，> 0 */
   price: number;
   /** 股數，正整數 */

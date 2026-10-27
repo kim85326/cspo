@@ -7,6 +7,7 @@ import {
   holdingRecognizer,
   holdingStore,
   InsightError,
+  ledgerRepository,
   insightProvider,
   PriceLoadError,
   priceSource,
@@ -47,8 +48,10 @@ jest.mock("expo-image-picker", () => ({
 // 功能開關：各測試把要打開的寫進這裡，renderScreen 用 StaticFeatureFlags 帶進畫面；每個測試前清空（全部用預設值）。
 let features: Partial<Features> = {};
 
+// 記帳本在記憶體裡也有一份（ledgerRepository），清完 AsyncStorage 要 reload 才會跟著變空。
 beforeEach(async () => {
   await AsyncStorage.clear();
+  await ledgerRepository.reload();
   features = {};
 });
 
