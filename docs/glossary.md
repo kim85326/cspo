@@ -47,6 +47,8 @@ PO、測試、工程三方都用這份表上的詞。程式裡的名字對應右
 | 持有天數 | 從這一段持有的第一筆買入日算到今天；賣光再買就從新的第一筆算 | `Position.holdingDays` |
 | 核心／衛星 | 核心部位預設是全部 ETF，衛星部位預設是全部個股；使用者可以逐檔切換 | `Bucket`（`core` / `satellite`）/ `HoldingSetting` |
 | 整體／核心／衛星加總 | 三組各自的累計投入、市值、已實現、未實現、股利、總報酬。有持股缺少價格時，市值與未實現不算那一檔，總報酬顯示 — | `summarize` / `GroupSummary` |
+| 年化報酬率（XIRR） | 把每一筆買入、賣出、現金股利和今天的期末價值（市值 − 預估賣出費用）當成現金流，算出相當於每年賺幾 %。第一筆現金流距今不到 365 天時不顯示，改顯示「持有未滿一年」；算不出來顯示 — | `xirr` / `positionAnnualizedReturn` / `portfolioAnnualizedReturns` / `AnnualizedReturn` |
+| 資產配置 | 持有中的持股依目前市值分成幾塊：核心／衛星、個股／ETF、每一檔各占多少 %。缺價格的不算進去，另外提示檔數 | `computeAllocation` / `Allocation` |
 | 功能開關 | 開發中的功能先藏起來，預設關閉；工程同學用環境變數在自己的 dev server 打開。目前只有「從截圖匯入」 | `features`（`src/config/features.ts`） |
 | 截圖匯入 | 把券商 app 的持股畫面截圖（從相簿選或現場拍）交給 AI 辨識，自動填進持股欄位。辨識結果一定要人工核對 | `useScreenshotImport` / `applyExtraction` |
 | 辨識結果 | AI 從截圖讀出的每一檔：代號、名稱、成本價、數量（股或張）與信心；還沒對到股票清單、還沒驗證 | `ExtractedHolding` / `ExtractionResult` |

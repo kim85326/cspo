@@ -63,6 +63,8 @@ cspo/
 │   │   ├── fees.ts         floorMoney、calcFee、calcTax、defaultTaxRate、estimateTrade、DEFAULT_USER_SETTINGS
 │   │   ├── position.ts     computePosition（依日期重播 → 持股、平均成本、已實現、未實現、股利、總報酬、持有天數）、replaySymbol
 │   │   ├── portfolio.ts    summarize（整體、核心、衛星三組加總）、bucketOf、defaultBucket
+│   │   ├── xirr.ts         xirr（牛頓法，不收斂改二分法）、positionCashFlows、positionAnnualizedReturn、portfolioAnnualizedReturns（P2-04，Story 019）
+│   │   ├── allocation.ts   computeAllocation（核心／衛星、個股／ETF、每檔市值占比）、toDisplayPercents（P2-07 配置圖，Story 019）
 │   │   ├── ledgerValidation.ts validateLedgerChange（新增／修改／刪除後重播，賣超就拒絕並說是哪一筆）、validateLedger、欄位檢查
 │   │   ├── ledgerTestData.ts   測試共用資料（product-spec 3.7 範例、makeTx、makeDividend），只給 *.test.ts 用
 │   │   └── *.test.ts
@@ -93,7 +95,7 @@ cspo/
 ├── docs/
 │   ├── architecture.md 架構、分工、迭代規劃（最完整的設計文件）
 │   ├── glossary.md     共同語言與顯示慣例
-│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、007 證券類型與上櫃（Gherkin AC + 對應測試表 + 決策紀錄）
+│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、007 證券類型與上櫃、019 年化報酬率與資產配置（只有計算）（Gherkin AC + 對應測試表 + 決策紀錄）
 │   ├── test-plan.md    手動測試清單、bug 回報格式
 │   └── context-for-ai.md 本檔
 ├── design-system/stock-pnl/MASTER.md
@@ -130,6 +132,7 @@ cspo/
   - ~~從券商截圖匯入持股~~（Story 005：expo-image-picker + Expo Router API route `/recognize` + Claude vision；API key 放 `.env`，見 architecture.md 第 7 節）
   - ~~K 線圖與買入點~~（Story 016：證交所 STOCK_DAY 日 K，近 3～6 個月；`react-native-svg` 自繪；選填「買入日期」標 ▲；網頁版走 `/twse-day` 代理）
   - 手續費 0.1425%（最低 20 元）與交易稅 0.3%
+  - 年化報酬率（XIRR）與資產配置的計算（Story 019，`src/domain/xirr.ts`、`allocation.ts`）已完成，畫面（首頁年化報酬率、配置圓餅圖）還沒接
 - **第三迭代候選**：報酬率圖、到價提醒、商店截圖與隱私權政策。
 
 ### Code review 留下的 Minor（未處理，不影響正確性）
