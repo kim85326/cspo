@@ -1,4 +1,4 @@
-import { asyncStorageHoldingStore } from "./asyncStorageHoldingStore";
+import { asyncStorageLedgerStore } from "./asyncStorageLedgerStore";
 import type { CandleSource } from "./CandleSource";
 import { backendInsightProvider } from "./backendInsightProvider";
 import { claudeHoldingRecognizer } from "./claudeHoldingRecognizer";
@@ -14,6 +14,8 @@ import { fakePriceSource } from "./fakePriceSource";
 import { fakeStockDirectory } from "./fakeStockDirectory";
 import type { HoldingRecognizer } from "./HoldingRecognizer";
 import type { HoldingStore } from "./HoldingStore";
+import { createLedgerHoldingStore } from "./ledgerHoldingStore";
+import type { LedgerStore } from "./LedgerStore";
 import { createMarketSource } from "./marketSource";
 import { createOfficialActionSource, createOfficialCandleSource, type MarketOf } from "./officialSources";
 import type { InsightProvider } from "./InsightProvider";
@@ -73,7 +75,12 @@ export const candleSource: CandleSource = useFakeSources ? fakeCandleSource : li
 export const corporateActionSource: CorporateActionSource = useFakeSources
   ? fakeCorporateActionSource
   : liveActionSource;
-export const holdingStore: HoldingStore = asyncStorageHoldingStore;
+/**
+ * 記帳本（Story 008）：AsyncStorage 的 cspo.ledger.v1；第一次讀寫時自動把舊版 cspo.holdings.v1 搬過來。
+ * holdingStore 是給 CalculateScreen 的過渡轉接，底下讀寫的也是這份記帳本。
+ */
+export const ledgerStore: LedgerStore = asyncStorageLedgerStore;
+export const holdingStore: HoldingStore = createLedgerHoldingStore(ledgerStore);
 export const holdingRecognizer: HoldingRecognizer = useFakeRecognizer
   ? fakeHoldingRecognizer
   : claudeHoldingRecognizer;
