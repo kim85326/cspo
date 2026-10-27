@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><link rel="stylesheet" href="base.css">
+<style>
+table { width: calc(100% - 20px); margin: 8px 10px; border-collapse: collapse; background: #fff; }
+th { font-weight: 400; color: #888; font-size: 11px; text-align: right; padding: 8px 6px; border-bottom: 1px solid #eee; }
+th:first-child, td:first-child { text-align: left; }
+td { text-align: right; padding: 10px 6px; border-bottom: 1px solid #f0f0f0; }
+.blur { filter: blur(4px); }
+.toast { position: absolute; left: 30px; right: 30px; top: 420px; background: rgba(0,0,0,.78); color: #fff; border-radius: 8px; padding: 12px; text-align: center; }
+.cut { position: absolute; top: 244px; left: 0; right: 0; bottom: 0; background: #f4f5f7; }
+</style></head><body>
+<div class="status"><span>13:30</span><span>5G 40%</span></div>
+<div class="bar"><span class="l">‹</span>我的持股</div>
+<table>
+  <tr><th>名稱/代號</th><th>持有股數</th><th>買進均價</th><th>參考市值</th></tr>
+  <tr><td>台積電 2330</td><td>1,000</td><td class="blur">505.00</td><td>520,000</td></tr>
+  <tr><td>不存在公司 9999</td><td>1,000</td><td>35.60</td><td>36,100</td></tr>
+  <tr><td>鴻海 2317</td><td>1,000</td><td>200.00</td><td>180,000</td></tr>
+  <tr><td>聯發科 2454</td><td>1,000</td><td>1,100.00</td><td>1,200,000</td></tr>
+</table>
+<div class="toast">委託已送出（範例通知）</div>
+<div class="cut"></div>
+</body></html>

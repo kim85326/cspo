@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><link rel="stylesheet" href="base.css">
+<style>
+.acct { background: #fff; margin: 8px 10px; border-radius: 8px; padding: 10px 12px; }
+.acct .row { display: flex; justify-content: space-between; margin-top: 4px; color: #555; font-size: 12px; }
+.acct .big { font-size: 20px; font-weight: 700; color: #1f2329; margin-top: 4px; }
+table { width: calc(100% - 20px); margin: 0 10px; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; }
+th { font-weight: 400; color: #888; font-size: 11px; text-align: right; padding: 8px 6px; border-bottom: 1px solid #eee; }
+th:first-child, td:first-child { text-align: left; }
+td { text-align: right; padding: 10px 6px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+td .sub { font-size: 11px; color: #888; }
+.foot { margin: 10px; color: #999; font-size: 11px; }
+</style></head><body>
+<div class="status"><span>10:42</span><span>5G ▮▮▮ 82%</span></div>
+<div class="bar"><span class="l">‹</span>庫存損益</div>
+<div class="tabs"><div class="on">現股</div><div>融資</div><div>融券</div><div>零股</div></div>
+<div class="acct">
+  <div class="row"><span>證券帳號 9A99-0000123（模擬）</span><span>王小明（範例）</span></div>
+  <div class="big">總市值 1,286,500</div>
+  <div class="row"><span>未實現損益 <b class="up">+42,180</b></span><span>報酬率 <b class="up">+3.39%</b></span></div>
+</div>
+<table>
+  <tr><th>股票</th><th>庫存(張)</th><th>成本價</th><th>現價</th><th>損益</th></tr>
+  <tr><td>台積電<div class="sub">2330</div></td><td>2</td><td>512.50</td><td class="up">520.00</td><td class="up">+15,000<div class="sub">+1.46%</div></td></tr>
+  <tr><td>鴻海<div class="sub">2317</div></td><td>3</td><td>186.20</td><td class="down">180.00</td><td class="down">-18,600<div class="sub">-3.33%</div></td></tr>
+  <tr><td>元大台灣50<div class="sub">0050</div></td><td>1</td><td>171.35</td><td class="up">180.00</td><td class="up">+8,650<div class="sub">+5.05%</div></td></tr>
+</table>
+<div class="foot">＊損益為估算值，未含交易成本。資料時間 2026/10/27 10:41</div>
+<div class="nav"><div>行情</div><div>下單</div><div class="on">帳務</div><div>我的</div></div>
+</body></html>
