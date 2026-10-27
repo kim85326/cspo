@@ -1,5 +1,5 @@
 import { Stack } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -13,32 +13,37 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { priceSource, stockDirectory } from "@/data";
-import { calculatePnl, validateHoldingInput, type HoldingInput } from "@/domain/pnl";
+import { compareHoldings, MAX_COMPARE_HOLDINGS, type ComparisonResult } from "@/domain/compare";
+import { calculatePnl, validateHoldingInput } from "@/domain/pnl";
 import { resolveStock, searchStocks } from "@/domain/stockSearch";
-import type { PnlResult, Quote, StockInfo } from "@/domain/types";
-import { LabeledInput } from "@/ui/LabeledInput";
+import type { Holding, PnlResult, Quote, StockInfo } from "@/domain/types";
+import { ComparisonCard } from "@/ui/ComparisonCard";
+import {
+  emptyHoldingForm,
+  HoldingForm,
+  type HoldingFormErrors,
+  type HoldingFormState,
+} from "@/ui/HoldingForm";
 import { PnlCard } from "@/ui/PnlCard";
-import { StockPicker } from "@/ui/StockPicker";
 import { colors, fonts, fontSize, radius, space, touchTarget } from "@/ui/theme";
 
-type Errors = Partial<Record<keyof HoldingInput, string>>;
+type Outcome =
+  | { kind: "single"; quote: Quote; result: PnlResult }
+  | { kind: "comparison"; comparison: ComparisonResult };
 
 /**
- * 第一迭代：輸入一筆持股 → 看到盈虧。
- * 對應 docs/stories/001-single-holding-pnl.md 與 002-stock-picker.md
+ * 輸入一檔或多檔持股 → 看盈虧；兩檔以上就排名比較。
+ * 對應 docs/stories/001-single-holding-pnl.md、002-stock-picker.md、003-compare-stocks.md
  * 路由入口在 src/app/index.tsx。
  */
 export default function CalculateScreen() {
   const insets = useSafeAreaInsets();
   const [stocks, setStocks] = useState<StockInfo[]>([]);
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<StockInfo | null>(null);
-  const [buyPrice, setBuyPrice] = useState("");
-  const [shares, setShares] = useState("");
-  const [errors, setErrors] = useState<Errors>({});
+  const [forms, setForms] = useState<HoldingFormState[]>([emptyHoldingForm(1)]);
+  const nextId = useRef(2);
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState<string | null>(null);
-  const [outcome, setOutcome] = useState<{ quote: Quote; result: PnlResult } | null>(null);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -50,43 +55,45 @@ export default function CalculateScreen() {
     };
   }, []);
 
-  const clearError = (key: keyof HoldingInput) => {
-    if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
+  const updateForm = (id: number, patch: Partial<HoldingFormState>) => {
+    setForms((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
   };
 
-  const handleQuery = (value: string) => {
-    setQuery(value);
-    setSelected(null);
-    clearError("symbol");
+  const addForm = () => {
+    if (forms.length >= MAX_COMPARE_HOLDINGS) return;
+    setForms((prev) => [...prev, emptyHoldingForm(nextId.current++)]);
+    setOutcome(null);
   };
 
-  const handleSelect = (stock: StockInfo) => {
-    setSelected(stock);
-    setQuery("");
-    clearError("symbol");
-  };
-
-  const handleClear = () => {
-    setSelected(null);
-    setQuery("");
+  const removeForm = (id: number) => {
+    setForms((prev) => (prev.length > 1 ? prev.filter((f) => f.id !== id) : prev));
+    setOutcome(null);
   };
 
   /** 離開欄位就驗那一欄，錯誤緊貼欄位顯示 */
-  const validateOne = (key: "buyPrice" | "shares") => () => {
-    const value = key === "buyPrice" ? buyPrice : shares;
+  const validateOne = (form: HoldingFormState, key: "buyPrice" | "shares") => {
+    const value = form[key];
     if (value.trim() === "") return;
-    const validation = validateHoldingInput({ symbol: "0000", buyPrice, shares });
-    setErrors((prev) => ({ ...prev, [key]: validation.ok ? undefined : validation.errors[key] }));
+    const validation = validateHoldingInput({
+      symbol: "0000",
+      buyPrice: form.buyPrice,
+      shares: form.shares,
+    });
+    updateForm(form.id, {
+      errors: { ...form.errors, [key]: validation.ok ? undefined : validation.errors[key] },
+    });
   };
 
   /** 把選擇器的狀態解析成一檔股票；解析不了就回傳要顯示的錯誤 */
-  const resolveSelectedStock = (): { stock: StockInfo } | { error: string } => {
-    if (selected) return { stock: selected };
-    if (query.trim() === "") return { error: "請輸入代號或公司名稱，或從清單選擇" };
-    const stock = resolveStock(query, stocks);
+  const resolveFormStock = (form: HoldingFormState): { stock: StockInfo } | { error: string } => {
+    if (form.selected) return { stock: form.selected };
+    if (form.query.trim() === "") return { error: "請輸入代號或公司名稱，或從清單選擇" };
+    const stock = resolveStock(form.query, stocks);
     if (stock) return { stock };
-    if (searchStocks(query, stocks, 2).length > 1) return { error: "有多檔符合，請從清單選擇一檔" };
-    return { error: `找不到這檔股票（${query.trim()}）` };
+    if (searchStocks(form.query, stocks, 2).length > 1) {
+      return { error: "有多檔符合，請從清單選擇一檔" };
+    }
+    return { error: `找不到這檔股票（${form.query.trim()}）` };
   };
 
   const calculate = async () => {
@@ -95,31 +102,49 @@ export default function CalculateScreen() {
     setOutcome(null);
     setNotFound(null);
 
-    const resolved = resolveSelectedStock();
-    const symbol = "stock" in resolved ? resolved.stock.symbol : "";
-    const validation = validateHoldingInput({ symbol, buyPrice, shares });
-    const nextErrors: Errors = validation.ok ? {} : { ...validation.errors };
-    if ("error" in resolved) nextErrors.symbol = resolved.error;
-
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
-      return;
+    // 先把每一檔都驗完，錯誤一次顯示在各自的欄位下
+    const holdings: Holding[] = [];
+    const nextErrors = new Map<number, HoldingFormErrors>();
+    for (const form of forms) {
+      const resolved = resolveFormStock(form);
+      const symbol = "stock" in resolved ? resolved.stock.symbol : "";
+      const validation = validateHoldingInput({
+        symbol,
+        buyPrice: form.buyPrice,
+        shares: form.shares,
+      });
+      const errors: HoldingFormErrors = validation.ok ? {} : { ...validation.errors };
+      if ("error" in resolved) errors.symbol = resolved.error;
+      nextErrors.set(form.id, errors);
+      if (validation.ok && "stock" in resolved) holdings.push(validation.holding);
     }
-    setErrors({});
-    if (!("stock" in resolved) || !validation.ok) return;
+
+    setForms((prev) => prev.map((f) => ({ ...f, errors: nextErrors.get(f.id) ?? {} })));
+    const hasError = [...nextErrors.values()].some((e) => Object.keys(e).length > 0);
+    if (hasError || holdings.length !== forms.length) return;
 
     setLoading(true);
     try {
-      const quote = await priceSource.getQuote(resolved.stock.symbol);
-      if (!quote) {
-        setNotFound(`找不到這檔股票（${resolved.stock.symbol}）`);
+      const quotes = await Promise.all(holdings.map((h) => priceSource.getQuote(h.symbol)));
+      const missing = holdings.filter((_, i) => quotes[i] === null).map((h) => h.symbol);
+      if (missing.length > 0) {
+        setNotFound(`找不到這檔股票（${missing.join("、")}）`);
         return;
       }
-      setOutcome({ quote, result: calculatePnl(validation.holding, quote.price) });
+      const inputs = holdings.map((holding, i) => ({ holding, quote: quotes[i] as Quote }));
+      if (inputs.length === 1) {
+        const { holding, quote } = inputs[0];
+        setOutcome({ kind: "single", quote, result: calculatePnl(holding, quote.price) });
+      } else {
+        setOutcome({ kind: "comparison", comparison: compareHoldings(inputs) });
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  const canAdd = forms.length < MAX_COMPARE_HOLDINGS;
+  const isComparing = forms.length > 1;
 
   return (
     <KeyboardAvoidingView
@@ -133,48 +158,41 @@ export default function CalculateScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.heading} accessibilityRole="header">
-          你買的股票賺了還是虧了？
+          {isComparing ? "哪一檔表現比較好？" : "你買的股票賺了還是虧了？"}
         </Text>
 
-        <StockPicker
-          stocks={stocks}
-          query={query}
-          selected={selected}
-          error={errors.symbol}
-          onChangeQuery={handleQuery}
-          onSelect={handleSelect}
-          onClear={handleClear}
-        />
-        <LabeledInput
-          label="買入價"
-          placeholder="每股價格"
-          keyboardType="decimal-pad"
-          returnKeyType="next"
-          value={buyPrice}
-          onChangeText={(v) => {
-            setBuyPrice(v);
-            clearError("buyPrice");
-          }}
-          onBlur={validateOne("buyPrice")}
-          error={errors.buyPrice}
-          testID="input-buy-price"
-        />
-        <LabeledInput
-          label="數量"
-          placeholder="股數"
-          hint="以股為單位，1 張 = 1000 股"
-          keyboardType="number-pad"
-          returnKeyType="done"
-          value={shares}
-          onChangeText={(v) => {
-            setShares(v);
-            clearError("shares");
-          }}
-          onBlur={validateOne("shares")}
-          onSubmitEditing={calculate}
-          error={errors.shares}
-          testID="input-shares"
-        />
+        {forms.map((form, index) => (
+          <HoldingForm
+            key={form.id}
+            index={index}
+            form={form}
+            stocks={stocks}
+            removable={forms.length > 1}
+            isLast={index === forms.length - 1}
+            onChange={(patch) => updateForm(form.id, patch)}
+            onBlurField={(key) => validateOne(form, key)}
+            onRemove={() => removeForm(form.id)}
+            onSubmit={calculate}
+          />
+        ))}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="新增一檔比較"
+          accessibilityState={{ disabled: !canAdd }}
+          testID="button-add-holding"
+          onPress={addForm}
+          disabled={!canAdd}
+          style={({ pressed }) => [
+            styles.addButton,
+            pressed && styles.buttonPressed,
+            !canAdd && styles.buttonDisabled,
+          ]}
+        >
+          <Text style={styles.addButtonText}>
+            {canAdd ? "＋ 新增一檔比較" : `最多比較 ${MAX_COMPARE_HOLDINGS} 檔`}
+          </Text>
+        </Pressable>
 
         <Pressable
           accessibilityRole="button"
@@ -193,7 +211,7 @@ export default function CalculateScreen() {
           {loading ? (
             <ActivityIndicator color={colors.onAccent} />
           ) : (
-            <Text style={styles.buttonText}>計算</Text>
+            <Text style={styles.buttonText}>{isComparing ? "計算並比較" : "計算"}</Text>
           )}
         </Pressable>
 
@@ -203,7 +221,12 @@ export default function CalculateScreen() {
           </View>
         ) : null}
 
-        {outcome ? <PnlCard quote={outcome.quote} result={outcome.result} /> : null}
+        {outcome?.kind === "single" ? (
+          <PnlCard quote={outcome.quote} result={outcome.result} />
+        ) : null}
+        {outcome?.kind === "comparison" ? (
+          <ComparisonCard comparison={outcome.comparison} />
+        ) : null}
 
         <Text style={styles.disclaimer}>資料僅供參考，不構成投資建議。</Text>
       </ScrollView>
@@ -221,6 +244,18 @@ const styles = StyleSheet.create({
     marginBottom: space.lg,
     lineHeight: fontSize.xl * 1.4,
   },
+  addButton: {
+    minHeight: touchTarget,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderStyle: "dashed",
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: space.md,
+    backgroundColor: colors.card,
+  },
+  addButtonText: { fontFamily: fonts.medium, color: colors.primary, fontSize: fontSize.md },
   button: {
     minHeight: touchTarget,
     backgroundColor: colors.accent,

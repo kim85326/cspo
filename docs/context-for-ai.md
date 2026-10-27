@@ -54,6 +54,7 @@ cspo/
 │   │   ├── types.ts        Holding、Quote、PnlResult、StockInfo
 │   │   ├── pnl.ts          calculatePnl、formatSignedAmount、formatReturnRate、validateHoldingInput
 │   │   ├── stockSearch.ts  searchStocks、resolveStock、normalizeQuery、formatStockLabel
+│   │   ├── compare.ts      compareHoldings（多檔依報酬率排名 + 合計）、MAX_COMPARE_HOLDINGS = 5
 │   │   └── *.test.ts
 │   ├── data/           對外資料來源
 │   │   ├── PriceSource.ts      介面：getQuote(symbol) → Quote | null
@@ -65,12 +66,14 @@ cspo/
 │       ├── theme.ts        colors / space / radius / fonts / fontSize / touchTarget / pnlColors
 │       ├── StockPicker.tsx 股票選擇器（打代號、打名稱、從清單選）
 │       ├── LabeledInput.tsx
-│       └── PnlCard.tsx
-├── e2e/                Maestro 流程（001-profit、001-loss、002-pick-by-name）
+│       ├── HoldingForm.tsx 一檔的輸入區塊（StockPicker + 買入價 + 數量 + 移除鈕）
+│       ├── PnlCard.tsx     單檔結果卡
+│       └── ComparisonCard.tsx 多檔比較結果（排名、表現最好／最差、合計）
+├── e2e/                Maestro 流程（001-profit、001-loss、002-pick-by-name、003-compare-two）
 ├── docs/
 │   ├── architecture.md 架構、分工、迭代規劃（最完整的設計文件）
 │   ├── glossary.md     共同語言與顯示慣例
-│   ├── stories/        001 單筆盈虧、002 股票選擇器（Gherkin AC + 對應測試表）
+│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較（Gherkin AC + 對應測試表）
 │   ├── test-plan.md    手動測試清單、bug 回報格式
 │   └── context-for-ai.md 本檔
 ├── design-system/stock-pnl/MASTER.md
@@ -101,7 +104,8 @@ cspo/
 - **Android APK**：`eas.json` 已備好，`eas build -p android --profile preview` 第一次執行會在 Expo 帳號建專案並產生簽章金鑰（Elaine 正在跑或準備跑）。
 - **第二迭代候選**（由 PO 決定優先順序）：
   - 接證交所真實資料：`https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`（全市場代號、名稱、收盤價，一次拿齊，可同時實作 PriceSource 與 StockDirectory）
-  - 多筆持股清單與總盈虧，資料存手機（Zustand + AsyncStorage）
+  - ~~多檔一起比~~（Story 003 已完成：最多 5 檔、依報酬率排名、合計）
+  - 持股存手機（AsyncStorage，Story 004，另一個 session 在 `persist-holdings` worktree 分支進行中）
   - 手續費 0.1425%（最低 20 元）與交易稅 0.3%
 - **第三迭代候選**：報酬率圖、到價提醒、商店截圖與隱私權政策。
 

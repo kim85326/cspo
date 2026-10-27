@@ -9,6 +9,8 @@ type Props = {
   query: string;
   selected: StockInfo | null;
   error?: string;
+  /** 多個選擇器同時存在時用來區分（測試與 Maestro 用）；預設 input-stock */
+  testID?: string;
   onChangeQuery: (query: string) => void;
   onSelect: (stock: StockInfo) => void;
   onClear: () => void;
@@ -27,6 +29,7 @@ export function StockPicker({
   query,
   selected,
   error,
+  testID = "input-stock",
   onChangeQuery,
   onSelect,
   onClear,
@@ -67,7 +70,7 @@ export function StockPicker({
         <TextInput
           accessibilityLabel={LABEL}
           accessibilityHint="輸入代號或公司名稱，或從下方清單點選"
-          testID="input-stock"
+          testID={testID}
           placeholder="例如 2330 或 台積電"
           placeholderTextColor={colors.mutedForeground}
           value={selected ? formatStockLabel(selected) : query}
@@ -82,7 +85,7 @@ export function StockPicker({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="清除股票"
-            testID="button-clear-stock"
+            testID={`${testID}-clear`}
             onPress={onClear}
             hitSlop={8}
             style={({ pressed }) => [styles.clear, pressed && styles.pressed]}
@@ -99,7 +102,7 @@ export function StockPicker({
       ) : null}
 
       {showList ? (
-        <View style={styles.list} testID="stock-suggestions">
+        <View style={styles.list} testID={`${testID}-suggestions`}>
           <Text style={styles.listHeader}>
             {query.trim() === "" ? "熱門股票" : suggestions.length > 0 ? "符合的股票" : "找不到符合的股票"}
           </Text>
@@ -108,7 +111,7 @@ export function StockPicker({
               key={stock.symbol}
               accessibilityRole="button"
               accessibilityLabel={`選擇 ${stock.name} ${stock.symbol}`}
-              testID={`suggestion-${stock.symbol}`}
+              testID={`${testID}-suggestion-${stock.symbol}`}
               onPress={() => handleSelect(stock)}
               android_ripple={{ color: colors.muted }}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}

@@ -39,21 +39,23 @@ cspo/
 │   │   ├── _layout.tsx       導覽外框
 │   │   └── index.tsx         → screens/CalculateScreen
 │   ├── screens/              畫面本體與畫面測試
-│   │   ├── CalculateScreen.tsx       第一迭代：輸入持股 → 看盈虧
+│   │   ├── CalculateScreen.tsx       輸入一檔或多檔持股 → 看盈虧／比較
 │   │   └── CalculateScreen.test.tsx  React Native Testing Library
 │   ├── domain/               純 TypeScript，不碰 UI、不碰網路 → 單元測試主戰場
 │   │   ├── types.ts          Holding、Quote、PnlResult
 │   │   ├── pnl.ts            盈虧計算、格式化、輸入驗證
 │   │   ├── pnl.test.ts
 │   │   ├── stockSearch.ts    代號／名稱搜尋與解析
-│   │   └── stockSearch.test.ts
+│   │   ├── stockSearch.test.ts
+│   │   ├── compare.ts        多檔比較：依報酬率排名 + 合計
+│   │   └── compare.test.ts
 │   ├── data/                 對外資料來源
 │   │   ├── PriceSource.ts    介面：給代號回現價
 │   │   ├── StockDirectory.ts 介面：有哪些股票可以選
 │   │   ├── stocks.ts         第一迭代固定 40 檔（代號、名稱、假價）
 │   │   ├── fakePriceSource.ts / fakeStockDirectory.ts  用 stocks.ts 實作的假來源
 │   │   └── index.ts          全 app 用哪個來源，只改這裡
-│   └── ui/                   可重用元件與設計 token（StockPicker、LabeledInput、PnlCard、theme）
+│   └── ui/                   可重用元件與設計 token（StockPicker、LabeledInput、HoldingForm、PnlCard、ComparisonCard、theme）
 ├── design-system/stock-pnl/  ui-ux-pro-max 產生的設計系統（MASTER.md 是色彩、字型、間距的來源）
 ├── e2e/                      Maestro 流程（YAML）
 ├── docs/
@@ -159,8 +161,9 @@ appId: host.exp.Exponent
 
 | 迭代 | 目標 | 可驗收的東西 |
 |---|---|---|
-| 1 | 單筆持股算盈虧 | 輸入三個欄位，用固定假價算出盈虧；單元測試、畫面測試與兩條 Maestro 流程（已完成骨架） |
-| 2 | 接真實行情、多筆持股 | 證交所資料；持股清單與總盈虧；資料存在手機，關掉重開還在 |
+| 1 | 單筆持股算盈虧 | 輸入三個欄位，用固定假價算出盈虧；單元測試、畫面測試與兩條 Maestro 流程（已完成） |
+| 1.5 | 多檔比較 | 最多 5 檔一起算，依報酬率排名、合計（Story 003，已完成）；持股存在手機，關掉重開還在（Story 004，進行中） |
+| 2 | 接真實行情 | 證交所資料 |
 | 3 | 打磨與上架準備 | 手續費與稅、報酬率、到價提醒；商店截圖與隱私權政策 |
 
 ## 9. 帳號需求

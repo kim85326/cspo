@@ -21,3 +21,4 @@ npm run e2e
 
 - `tapOn: "股票代號"` 會找畫面上文字或 accessibilityLabel 等於「股票代號」的元件。
 - 畫面上的中文標籤就是 AC 裡的中文，改 AC 時兩邊一起改。
+- 多檔比較時每檔的 label 相同，用 `tapOn: {text: "買入價", index: 1}` 指定第幾檔（index 從 0 起）。見 `003-compare-two.yaml`。

@@ -1,0 +1,35 @@
+# Story 003 / Scenario: 兩檔一賺一虧
+# 兩檔的欄位 label 相同，用 index 區分（0 = 第 1 檔，1 = 第 2 檔）
+appId: host.exp.Exponent
+---
+- launchApp
+- tapOn: "新增一檔比較"
+- tapOn:
+    text: "股票代號或名稱"
+    index: 0
+- inputText: "2317"
+- tapOn:
+    text: "買入價"
+    index: 0
+- inputText: "200"
+- tapOn:
+    text: "數量"
+    index: 0
+- inputText: "1000"
+- tapOn:
+    text: "股票代號或名稱"
+    index: 1
+- inputText: "2330"
+- tapOn:
+    text: "買入價"
+    index: 1
+- inputText: "500"
+- tapOn:
+    text: "數量"
+    index: 1
+- inputText: "1000"
+- tapOn: "計算並比較"
+- assertVisible: "表現最好"
+- assertVisible: "+20,000"
+- assertVisible: "-20,000"
+- assertVisible: "整體不賺不賠"
