@@ -6,6 +6,7 @@
 //
 // 會先用 fingerprint 比對「最新的 preview APK」：原生部分沒變才發 OTA；變了就停下來，請你重打 APK。
 // 同學收到更新的方式：把 app 從最近使用清單滑掉再打開，第二次打開就是新版。
+// 「說明」會寫進這次的 bundle（EXPO_PUBLIC_OTA_MESSAGE），app 底部的版本資訊點開就看得到（Story 018）。
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -31,10 +32,11 @@ if (existsSync(envLocal)) {
   }
 }
 
-const run = (args, inherit = false) =>
+const run = (args, inherit = false, env = process.env) =>
   execFileSync("npx", ["eas-cli", ...args], {
     cwd: ROOT,
     encoding: "utf8",
+    env,
     stdio: inherit ? "inherit" : ["ignore", "pipe", "inherit"],
   });
 
@@ -70,5 +72,10 @@ if (!same) {
 }
 
 console.log("▶ 發佈 OTA 更新");
-run(["update", "--channel", "preview", "--environment", "preview", "-p", "android", "-m", message, "--non-interactive"], true);
+// eas update 在本機打包 JS，EXPO_PUBLIC_* 會在這時被換成字串；app 讀 process.env.EXPO_PUBLIC_OTA_MESSAGE 顯示說明
+run(
+  ["update", "--channel", "preview", "--environment", "preview", "-p", "android", "-m", message, "--non-interactive"],
+  true,
+  { ...process.env, EXPO_PUBLIC_OTA_MESSAGE: message },
+);
 console.log("\n✔ 已發佈。請同學把 app 從最近使用清單滑掉再打開，第二次打開就是新版。");
