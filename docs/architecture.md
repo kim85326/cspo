@@ -219,7 +219,7 @@ appId: host.exp.Exponent
      EXPO_PUBLIC_INSIGHT_API_URL=https://xxxx.ngrok-free.app
      ```
      然後在手機上整個 reload app。
-   - APK：在 EAS 的 preview 環境設同樣三個變數（`EXPO_PUBLIC_` 一律用 plaintext，反正會進 bundle）：
+   - APK：**2026-10-27 PO 決定 Tech Day 範圍不含 AI 解讀，APK 的開關維持關閉，現在不要做這一步。** 之後要開放時，在 EAS 的 preview 環境設同樣三個變數（`EXPO_PUBLIC_` 一律用 plaintext，反正會進 bundle）：
      ```bash
      npx eas-cli env:set --name EXPO_PUBLIC_FEATURE_AI_INSIGHT --value 1 --environment preview --visibility plaintext
      npx eas-cli env:set --name EXPO_PUBLIC_INSIGHT_ACCESS_TOKEN --value <存取碼> --environment preview --visibility plaintext

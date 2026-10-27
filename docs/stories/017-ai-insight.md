@@ -145,6 +145,8 @@ EXPO_PUBLIC_INSIGHT_ACCESS_TOKEN=<和 backend/.env 的 INSIGHT_ACCESS_TOKEN 相�
 
 ## 狀態
 
+**2026-10-27 PO 決定 Tech Day 範圍不含 AI 解讀**：功能開關維持預設關閉，APK 與測試同學的 Expo Go 都看不到；EAS 不設 `EXPO_PUBLIC_FEATURE_AI_INSIGHT`。程式與後端保留，之後要開放再照 architecture.md 第 7 節做。
+
 - [ ] AC 經 PO 確認
 - [x] 實作完成、自動化測試綠燈
 - [x] 用真的 API key 實測一次（2026-10-27，兩檔，200、約 5 秒、輸入 1,235／輸出 254 tokens ≈ US$0.010，沒有禁用字眼）
