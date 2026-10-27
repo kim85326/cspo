@@ -17,6 +17,8 @@ import { features } from "@/config/features";
 import { FAKE_EXTRACTION } from "@/data/fakeHoldingRecognizer";
 import type { StockInfo } from "@/domain/types";
 import { FAKE_INSIGHT } from "@/data/fakeInsightProvider";
+import { CHART_PREFS_KEY } from "@/hooks/useChartPrefs";
+import { BUY_DATE_HINT, CANDLE_EMPTY } from "@/ui/PriceHistoryCard";
 import CalculateScreen from "./CalculateScreen";
 
 jest.mock("expo-router", () => ({
@@ -679,7 +681,7 @@ describe("證券類型與上櫃股票（對應 docs/stories/007）", () => {
   });
 });
 
-describe("K 線圖與買入點（對應 docs/stories/016）", () => {
+describe("走勢圖與買入點（對應 docs/stories/016）", () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
@@ -706,23 +708,68 @@ describe("K 線圖與買入點（對應 docs/stories/016）", () => {
     await pressCalculate();
   }
 
-  test("算完單檔：結果卡下方出現 K 線圖與成本線；沒填日期時提示可以填", async () => {
+  /** 量到寬度後才畫 SVG */
+  async function layoutChart(width = 320) {
+    const chart = screen.getByTestId("candle-chart");
+    await fireEvent(chart, "layout", { nativeEvent: { layout: { width, height: 220 } } });
+    return chart;
+  }
+
+  /** 買入日 2026/10/05 前連續 n 個工作日，收盤都是 close */
+  function daysBefore(n: number, close: number) {
+    const out = [];
+    const d = new Date(Date.UTC(2026, 9, 5));
+    while (out.length < n) {
+      d.setUTCDate(d.getUTCDate() - 1);
+      if (d.getUTCDay() === 0 || d.getUTCDay() === 6) continue;
+      out.unshift({ date: d.toISOString().slice(0, 10), open: close, high: close, low: close, close });
+    }
+    return out;
+  }
+
+  test("算完單檔：走勢卡預設 1 年折線＋成本線；沒填日期時提示可以填", async () => {
     jest.spyOn(candleSource, "getDailyCandles").mockResolvedValue(CANDLES);
     await calculateTsmc();
     expect(await screen.findByText("- - 成本 500")).toBeTruthy();
-    expect(screen.getByText("填「買入日期」就會在圖上標出買入點")).toBeTruthy();
-    expect(screen.getByText("2026/10/02–2026/10/06")).toBeTruthy();
+    expect(screen.getByText(BUY_DATE_HINT)).toBeTruthy();
+    expect(screen.getByLabelText("期間：1 年").props.accessibilityState).toMatchObject({ checked: true });
+    expect(screen.getByLabelText("圖表樣式：折線").props.accessibilityState).toMatchObject({ checked: true });
+    expect(screen.getByText("收盤價")).toBeTruthy();
+    await layoutChart();
+    expect(screen.getByTestId("chart-close-line")).toBeTruthy();
+    expect(screen.getByTestId("chart-pnl-zones")).toBeTruthy();
+  });
+
+  test("第一次看到：自動打開看圖說明；按「知道了」收起，下次不再自動打開", async () => {
+    jest.spyOn(candleSource, "getDailyCandles").mockResolvedValue(CANDLES);
+    await calculateTsmc();
+    expect(await screen.findByTestId("chart-guide")).toBeTruthy();
+    expect(screen.getByText(/紅 K/)).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText("知道了，收起說明"));
+    expect(screen.queryByTestId("chart-guide")).toBeNull();
+    await waitFor(async () =>
+      expect(JSON.parse((await AsyncStorage.getItem(CHART_PREFS_KEY)) ?? "{}")).toMatchObject({ guideSeen: true }),
+    );
+    // 標題列的「怎麼看？」可以再打開
+    await fireEvent.press(screen.getByLabelText("怎麼看這張圖"));
+    expect(screen.getByTestId("chart-guide")).toBeTruthy();
+  });
+
+  test("看過說明的人：不自動打開", async () => {
+    await AsyncStorage.setItem(CHART_PREFS_KEY, JSON.stringify({ guideSeen: true }));
+    jest.spyOn(candleSource, "getDailyCandles").mockResolvedValue(CANDLES);
+    await calculateTsmc();
+    await screen.findByText("- - 成本 500");
+    expect(screen.queryByTestId("chart-guide")).toBeNull();
   });
 
   test("填了買入日期：圖上標買入點，圖例顯示日期", async () => {
     jest.spyOn(candleSource, "getDailyCandles").mockResolvedValue(CANDLES);
     await calculateTsmc("2026/10/05");
-    expect(await screen.findByText("▲ 買入 2026/10/05")).toBeTruthy();
+    expect(await screen.findByText("● 買入 2026/10/05")).toBeTruthy();
 
-    // 量到寬度後才畫 SVG：買入點符號與整張圖的說明都在
-    const chart = screen.getByTestId("candle-chart");
     expect(screen.queryByTestId("candle-buy-marker")).toBeNull();
-    await fireEvent(chart, "layout", { nativeEvent: { layout: { width: 320, height: 240 } } });
+    const chart = await layoutChart();
     expect(screen.getByTestId("candle-buy-marker")).toBeTruthy();
     expect(chart.props.accessibilityLabel).toContain("買入 2026/10/05");
     expect(chart.props.accessibilityLabel).toContain("成本 500");
@@ -731,13 +778,106 @@ describe("K 線圖與買入點（對應 docs/stories/016）", () => {
   test("買入日是週末：標在下一個交易日並說明", async () => {
     jest.spyOn(candleSource, "getDailyCandles").mockResolvedValue(CANDLES);
     await calculateTsmc("2026/10/03");
-    expect(await screen.findByText("▲ 買入 2026/10/03（非交易日，標在 2026/10/05）")).toBeTruthy();
+    expect(await screen.findByText("● 買入 2026/10/03（非交易日，標在 2026/10/05）")).toBeTruthy();
   });
 
   test("買入日早於圖表範圍：說明而不是亂標", async () => {
     jest.spyOn(candleSource, "getDailyCandles").mockResolvedValue(CANDLES);
     await calculateTsmc("2025/01/02");
-    expect(await screen.findByText("買入日 2025/01/02 早於圖表範圍（最多顯示近 6 個月）")).toBeTruthy();
+    expect(await screen.findByText("買入日 2025/01/02 早於圖表範圍（目前顯示近 1 年）")).toBeTruthy();
+  });
+
+  test("買在高點還是低點（P2-09）：一句話結論＋比較區間說明，切期間跟著更新", async () => {
+    // 買入價 500，買入前每天收 600 → 0% 的交易日低於買入價 → 低檔
+    const spy = jest.spyOn(candleSource, "getDailyCandles").mockResolvedValue([...daysBefore(300, 600), ...CANDLES.slice(1)]);
+    await calculateTsmc("2026/10/05");
+    const verdict = await screen.findByTestId("buy-verdict");
+    expect(within(verdict).getByText("你買在近 1 年的低檔，買入價高於 0% 的交易日")).toBeTruthy();
+    expect(within(verdict).getByText(/比較買入日前 1 年（2025\/10\/06–2026\/10\/02）共/)).toBeTruthy();
+    // 要了買入日前 1 年那段的月份
+    expect(spy.mock.calls[0][1]).toContain("2025-10");
+
+    await fireEvent.press(screen.getByLabelText("期間：1 個月"));
+    expect(await screen.findByText("你買在近 1 個月的低檔，買入價高於 0% 的交易日")).toBeTruthy();
+  });
+
+  test("比較區間交易日不到 20 天：不下結論", async () => {
+    jest.spyOn(candleSource, "getDailyCandles").mockResolvedValue(CANDLES);
+    await calculateTsmc("2026/10/05");
+    expect(await screen.findByText("資料不足，無法判斷")).toBeTruthy();
+    expect(screen.queryByText(/你買在/)).toBeNull();
+  });
+
+  test("切成 K 棒、打開均線：圖例跟著換，偏好記在手機", async () => {
+    jest.spyOn(candleSource, "getDailyCandles").mockResolvedValue(CANDLES);
+    await calculateTsmc();
+    await screen.findByText("收盤價");
+    await fireEvent.press(screen.getByLabelText("圖表樣式：K 棒"));
+    expect(screen.getByText("紅 K 漲")).toBeTruthy();
+    expect(screen.getByText("綠 K 跌")).toBeTruthy();
+    expect(screen.queryByText("收盤價")).toBeNull();
+
+    await fireEvent.press(screen.getByLabelText("均線"));
+    expect(screen.getByText("5 日均線")).toBeTruthy();
+    expect(screen.getByText("20 日均線")).toBeTruthy();
+    await layoutChart();
+    expect(screen.getByTestId("chart-moving-averages")).toBeTruthy();
+    await waitFor(async () =>
+      expect(JSON.parse((await AsyncStorage.getItem(CHART_PREFS_KEY)) ?? "{}")).toMatchObject({
+        mode: "candle",
+        showMa: true,
+      }),
+    );
+  });
+
+  test("點圖上某一天：顯示那天的開高低收與漲跌；前後按鈕可換天", async () => {
+    jest.spyOn(candleSource, "getDailyCandles").mockResolvedValue(CANDLES);
+    await calculateTsmc();
+    const detail = await screen.findByTestId("day-detail");
+    // 預設最新一天：10/06 收 520，前一天 525 → ▼5（-0.95%）
+    expect(within(detail).getByText("2026/10/06（最新）")).toBeTruthy();
+    expect(within(detail).getByText("▼5.00（-0.95%）")).toBeTruthy();
+
+    const chart = await layoutChart(320);
+    // 繪圖區寬 320 − 52 = 268，三根各約 89px：x = 10 是第一根
+    await fireEvent(chart, "responderGrant", { nativeEvent: { locationX: 10 } });
+    expect(within(detail).getByText("2026/10/02")).toBeTruthy();
+    expect(within(detail).getByText(/開 505 · 高 515 · 低 495/)).toBeTruthy();
+    expect(screen.getByTestId("chart-crosshair")).toBeTruthy();
+
+    await fireEvent.press(screen.getByLabelText("後一個交易日"));
+    expect(within(detail).getByText("2026/10/05")).toBeTruthy();
+    expect(within(detail).getByText("▲25.00（+5.00%）")).toBeTruthy();
+  });
+
+  test("K 線載入失敗：盈虧照樣顯示，說明原因與技術細節，可重試", async () => {
+    const spy = jest
+      .spyOn(candleSource, "getDailyCandles")
+      .mockRejectedValueOnce(new PriceLoadError("歷史資料載入失敗（FinMind 回應 HTTP 402：超過上限；證交所回應 HTTP 503）"))
+      .mockResolvedValueOnce(CANDLES);
+    await calculateTsmc();
+    expect(await screen.findByText(/查詢次數用完/)).toBeTruthy();
+    expect(screen.getByText(/技術細節：.*HTTP 402/)).toBeTruthy();
+    expect(screen.getByText("+20,000")).toBeTruthy();
+
+    await fireEvent.press(screen.getByLabelText("重新載入 K 線"));
+    expect(await screen.findByText("- - 成本 500")).toBeTruthy();
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  test("查不到股價資料：說明", async () => {
+    jest.spyOn(candleSource, "getDailyCandles").mockResolvedValue([]);
+    await calculateTsmc();
+    expect(await screen.findByText(CANDLE_EMPTY)).toBeTruthy();
+  });
+
+  test("上櫃股票也有走勢圖（Story 019 的 candleSource）", async () => {
+    await renderScreen();
+    await typeStock("6488");
+    await fillPriceAndShares("800", "1000");
+    await pressCalculate();
+    expect(await screen.findByText("- - 成本 800")).toBeTruthy();
+    expect(screen.getByTestId("candle-chart")).toBeTruthy();
   });
 
   test("買入日期用日曆選：選好就收起日曆，欄位顯示日期", async () => {
@@ -755,27 +895,7 @@ describe("K 線圖與買入點（對應 docs/stories/016）", () => {
     await pickBuyDate("2026/10/05");
     await fireEvent.press(screen.getByLabelText("清除買入日期"));
     await pressCalculate();
-    expect(await screen.findByText("填「買入日期」就會在圖上標出買入點")).toBeTruthy();
-  });
-
-  test("K 線載入失敗：盈虧照樣顯示，K 線區塊可重試", async () => {
-    const spy = jest
-      .spyOn(candleSource, "getDailyCandles")
-      .mockRejectedValueOnce(new PriceLoadError())
-      .mockResolvedValueOnce(CANDLES);
-    await calculateTsmc();
-    expect(await screen.findByText("K 線載入失敗，請檢查網路後重試")).toBeTruthy();
-    expect(screen.getByText("+20,000")).toBeTruthy();
-
-    await fireEvent.press(screen.getByLabelText("重新載入 K 線"));
-    expect(await screen.findByText("- - 成本 500")).toBeTruthy();
-    expect(spy).toHaveBeenCalledTimes(2);
-  });
-
-  test("查不到 K 線（例如上櫃股票）：說明原因", async () => {
-    jest.spyOn(candleSource, "getDailyCandles").mockResolvedValue([]);
-    await calculateTsmc();
-    expect(await screen.findByText("查不到這檔股票的 K 線資料（目前只支援上市股票）")).toBeTruthy();
+    expect(await screen.findByText(BUY_DATE_HINT)).toBeTruthy();
   });
 
   test("多檔比較時不顯示 K 線圖", async () => {
@@ -793,7 +913,7 @@ describe("K 線圖與買入點（對應 docs/stories/016）", () => {
   test("買入日期會被記住：按計算後存起來", async () => {
     jest.spyOn(candleSource, "getDailyCandles").mockResolvedValue(CANDLES);
     await calculateTsmc("2026/10/05");
-    await screen.findByText("▲ 買入 2026/10/05");
+    await screen.findByText("● 買入 2026/10/05");
     expect(await holdingStore.load()).toEqual([
       { symbol: "2330", buyPrice: "500", shares: "1000", buyDate: "2026/10/05" },
     ]);

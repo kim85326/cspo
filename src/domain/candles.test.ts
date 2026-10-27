@@ -1,4 +1,17 @@
-import { candleDirection, chartMonths, layoutCandleChart, locateBuyDate, monthsBetween } from "./candles";
+import {
+  candleDirection,
+  chartStart,
+  dayChange,
+  fetchMonths,
+  indexAtX,
+  layoutCandleChart,
+  linePath,
+  locateBuyDate,
+  monthsBetween,
+  movingAverage,
+  periodLabel,
+  shiftMonths,
+} from "./candles";
 import type { Candle } from "./types";
 
 function candle(date: string, open: number, high: number, low: number, close: number): Candle {
@@ -12,34 +25,69 @@ const CANDLES: Candle[] = [
   candle("2026-10-06", 100, 120, 100, 118),
 ];
 
-describe("chartMonths", () => {
-  test("沒填買入日期：近 3 個月", () => {
-    expect(chartMonths("2026-10-27")).toEqual(["2026-08", "2026-09", "2026-10"]);
+describe("shiftMonths", () => {
+  test("往前推、跨年", () => {
+    expect(shiftMonths("2026-02-10", -3)).toBe("2025-11-10");
+    expect(shiftMonths("2026-10-27", -12)).toBe("2025-10-27");
   });
 
-  test("買入日期在近 3 個月內：還是近 3 個月", () => {
-    expect(chartMonths("2026-10-27", "2026-09-15")).toEqual(["2026-08", "2026-09", "2026-10"]);
+  test("月底夾到那個月最後一天（含閏年）", () => {
+    expect(shiftMonths("2026-03-31", -1)).toBe("2026-02-28");
+    expect(shiftMonths("2024-03-31", -1)).toBe("2024-02-29");
+  });
+});
+
+describe("期間與要抓的月份", () => {
+  test("期間名稱", () => {
+    expect([1, 3, 6, 12].map(periodLabel)).toEqual(["1 個月", "3 個月", "6 個月", "1 年"]);
   });
 
-  test("買入日期更早：延伸到買入那個月", () => {
-    expect(chartMonths("2026-10-27", "2026-06-03")).toEqual([
-      "2026-06",
-      "2026-07",
+  test("圖從 N 個月前開始", () => {
+    expect(chartStart("2026-10-27", 3)).toBe("2026-07-27");
+  });
+
+  test("沒填買入日期：近 N 個月再往前多 1 個月（均線暖身）", () => {
+    expect(fetchMonths("2026-10-27", 3)).toEqual(["2026-06", "2026-07", "2026-08", "2026-09", "2026-10"]);
+  });
+
+  test("買入日期在圖內：比較區間跟圖的月份合併、不重複", () => {
+    expect(fetchMonths("2026-10-27", 1, "2026-10-05")).toEqual(["2026-08", "2026-09", "2026-10"]);
+  });
+
+  test("很久以前買的：多抓買入日前 N 個月那一段，中間不抓", () => {
+    expect(fetchMonths("2026-10-27", 1, "2024-03-15")).toEqual([
+      "2024-02",
+      "2024-03",
       "2026-08",
       "2026-09",
       "2026-10",
     ]);
   });
+});
 
-  test("最多 6 個月，跨年也對", () => {
-    expect(chartMonths("2026-02-10", "2024-01-01")).toEqual([
-      "2025-09",
-      "2025-10",
-      "2025-11",
-      "2025-12",
-      "2026-01",
-      "2026-02",
-    ]);
+describe("movingAverage", () => {
+  test("湊不滿天數的位置是 null，之後是前 N 天平均", () => {
+    expect(movingAverage([1, 2, 3, 4, 5], 3)).toEqual([null, null, 2, 3, 4]);
+  });
+
+  test("資料比天數少：全是 null", () => {
+    expect(movingAverage([1, 2], 5)).toEqual([null, null]);
+  });
+});
+
+describe("dayChange", () => {
+  test("跟前一天收盤比", () => {
+    expect(dayChange(105, 100)).toEqual({ change: 5, percent: 5 });
+  });
+
+  test("沒有前一天：null", () => {
+    expect(dayChange(105, undefined)).toBeNull();
+  });
+});
+
+describe("linePath", () => {
+  test("null 的地方斷開，重新起筆", () => {
+    expect(linePath([{ x: 0, y: 1 }, { x: 1, y: 2 }, null, { x: 3, y: 4.04 }])).toBe("M 0 1 L 1 2 M 3 4");
   });
 });
 
@@ -112,18 +160,45 @@ describe("layoutCandleChart", () => {
     expect(layout.costY!).toBeGreaterThan(layout.priceToY(95));
   });
 
+  test("成本離股價太遠：不照比例畫，成本線貼在下緣（或上緣），走勢不會被壓扁", () => {
+    const below = layoutCandleChart(CANDLES, { ...options, costPrice: 20 });
+    expect(below.costOffChart).toBe("below");
+    expect(below.costY).toBe(252 - 40);
+    expect(below.priceToY(95)).toBeGreaterThan(200); // 最低價仍在底部附近，沒被擠到中間
+    const above = layoutCandleChart(CANDLES, { ...options, costPrice: 500 });
+    expect(above.costOffChart).toBe("above");
+    expect(above.costY).toBe(12);
+    expect(layoutCandleChart(CANDLES, { ...options, costPrice: 80 }).costOffChart).toBeNull();
+  });
+
   test("沒給成本價：沒有成本線", () => {
     expect(layoutCandleChart(CANDLES, options).costY).toBeNull();
   });
 
-  test("買入點落在對應 K 棒的最低點", () => {
-    const layout = layoutCandleChart(CANDLES, { ...options, buyDate: "2026-10-03" });
+  test("買入點：買入那天、成本價的高度", () => {
+    const layout = layoutCandleChart(CANDLES, { ...options, buyDate: "2026-10-03", costPrice: 102 });
     expect(layout.buy).toEqual({ kind: "in", index: 2 });
-    expect(layout.buyPoint).toEqual({
-      x: 250,
-      lowY: layout.priceToY(99),
-      candle: CANDLES[2],
-    });
+    expect(layout.buyPoint).toEqual({ x: 250, y: layout.priceToY(102), candle: CANDLES[2] });
+  });
+
+  test("沒給成本價：買入點落在當天最低點", () => {
+    const layout = layoutCandleChart(CANDLES, { ...options, buyDate: "2026-10-05" });
+    expect(layout.buyPoint?.y).toBeCloseTo(layout.priceToY(99));
+  });
+
+  test("均線也包進價格範圍；收盤折線經過每根 K 棒中心", () => {
+    const layout = layoutCandleChart(CANDLES, { ...options, extraPrices: [130, null] });
+    expect(layout.priceToY(130)).toBeGreaterThanOrEqual(12);
+    expect(layout.closePath.startsWith("M 50 ")).toBe(true);
+    expect(layout.closePath.split("L")).toHaveLength(4);
+  });
+
+  test("點圖的 x 換算成第幾天，超出範圍夾到頭尾", () => {
+    const layout = layoutCandleChart(CANDLES, options);
+    expect(indexAtX(layout, 120)).toBe(1);
+    expect(indexAtX(layout, -5)).toBe(0);
+    expect(indexAtX(layout, 999)).toBe(3);
+    expect(indexAtX(layoutCandleChart([], options), 10)).toBeNull();
   });
 
   test("買入日不在圖上：沒有買入點，但回報位置", () => {

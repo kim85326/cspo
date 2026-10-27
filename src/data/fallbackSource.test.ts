@@ -39,6 +39,16 @@ describe("createFallbackCandleSource", () => {
     await expect(source.getDailyCandles("2330", ["2026-10"])).rejects.toBeInstanceOf(PriceLoadError);
   });
 
+  test("全部失敗：訊息列出每個來源的原因（畫面的技術細節用）", async () => {
+    const source = createFallbackCandleSource([
+      candles(new PriceLoadError("FinMind 回應 HTTP 402：超過上限")),
+      candles(new PriceLoadError("證交所載入失敗", { cause: new TypeError("Load failed") })),
+    ]);
+    await expect(source.getDailyCandles("2330", ["2026-10"])).rejects.toThrow(
+      "歷史資料載入失敗（FinMind 回應 HTTP 402：超過上限；證交所載入失敗：Load failed）",
+    );
+  });
+
   test("不是 PriceLoadError（程式錯）：直接往外丟，不換來源", async () => {
     const backup = candles([CANDLE]);
     const source = createFallbackCandleSource([candles(new TypeError("bug")), backup]);

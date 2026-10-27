@@ -1,34 +1,52 @@
 import { useState } from "react";
-import { View } from "react-native";
-import Svg, { G, Line, Path, Rect, Text as SvgText } from "react-native-svg";
+import { type GestureResponderEvent, View } from "react-native";
+import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from "react-native-svg";
 import { formatIsoDate } from "@/domain/buyDate";
-import { layoutCandleChart } from "@/domain/candles";
+import { indexAtX, layoutCandleChart, linePath } from "@/domain/candles";
 import type { Candle } from "@/domain/types";
-import { colors, fonts, pnlColors } from "./theme";
+import type { ChartMode } from "@/hooks/useChartPrefs";
+import { chartColors, colors, fonts, pnlColors } from "./theme";
 
 type Props = {
   candles: Candle[];
-  /** 成本價（買入價）：畫一條虛線 */
+  /** 折線（只連收盤價）或 K 棒 */
+  mode: ChartMode;
+  /** 成本價（買入價）：金色虛線，線上淡紅（賺）、線下淡綠（賠） */
   costPrice?: number;
-  /** 買入日期（ISO）：在那天的 K 棒下方標 ▲ */
+  /** 買入日期（ISO）：在那天、成本價的位置畫一個點 */
   buyDate?: string;
+  /** 均線，長度跟 candles 一樣；不顯示就不給 */
+  movingAverages?: { short: (number | null)[]; long: (number | null)[] };
+  /** 目前選到第幾天（點圖或用前後按鈕切換）；null 不畫十字線 */
+  selectedIndex: number | null;
+  onSelect: (index: number) => void;
   height?: number;
   /** 給螢幕閱讀器的整張圖說明 */
   accessibilityLabel: string;
 };
 
-const AXIS_WIDTH = 56;
+const AXIS_WIDTH = 52;
 const PADDING_TOP = 12;
-const PADDING_BOTTOM = 44;
-/** 買入點用深藍：跟紅 K、綠 K 都分得開 */
-const BUY_COLOR = colors.secondary;
+const PADDING_BOTTOM = 24;
 
 /**
- * 日 K 線圖。座標全部由 domain 的 layoutCandleChart 算，這裡只負責照著畫。
- * 台股慣例紅 K 漲、綠 K 跌；成本虛線用金色；買入點用深藍 ▲ 加「買入」字樣，不靠顏色單獨傳達。
- * 寬度跟著容器（onLayout），量到之前不畫。
+ * 走勢圖（折線／K 棒）。座標全部由 domain 的 layoutCandleChart 算，這裡只負責照著畫。
+ * - 台股慣例紅 K 漲、綠 K 跌；成本線金色虛線；買入點深藍圓點加「買入」字樣，不靠顏色單獨傳達。
+ * - 點一下或按住拖曳，選到那一天（畫十字線，詳細數字由外層顯示）。
+ *   放開手指讓外層 ScrollView 接手（onResponderTerminationRequest），不會卡住上下捲動。
+ * - 寬度跟著容器（onLayout），量到之前不畫。
  */
-export function CandleChart({ candles, costPrice, buyDate, height = 240, accessibilityLabel }: Props) {
+export function CandleChart({
+  candles,
+  mode,
+  costPrice,
+  buyDate,
+  movingAverages,
+  selectedIndex,
+  onSelect,
+  height = 220,
+  accessibilityLabel,
+}: Props) {
   const [width, setWidth] = useState(0);
   const layout =
     width > 0
@@ -40,9 +58,23 @@ export function CandleChart({ candles, costPrice, buyDate, height = 240, accessi
           paddingBottom: PADDING_BOTTOM,
           costPrice,
           buyDate,
+          extraPrices: movingAverages ? [...movingAverages.short, ...movingAverages.long] : undefined,
         })
       : null;
-  const plotBottom = height - PADDING_BOTTOM;
+
+  const select = (event: GestureResponderEvent) => {
+    if (!layout) return;
+    const index = indexAtX(layout, event.nativeEvent.locationX);
+    if (index !== null) onSelect(index);
+  };
+
+  const maPath = (values: (number | null)[]) =>
+    layout
+      ? linePath(values.map((v, i) => (v === null ? null : { x: layout.shapes[i].x, y: layout.priceToY(v) })))
+      : "";
+
+  const selected = layout && selectedIndex !== null ? layout.shapes[selectedIndex] : undefined;
+  const costY = layout?.costY ?? null;
 
   return (
     <View
@@ -52,28 +84,65 @@ export function CandleChart({ candles, costPrice, buyDate, height = 240, accessi
       accessibilityLabel={accessibilityLabel}
       style={{ height }}
       onLayout={(e) => setWidth(Math.floor(e.nativeEvent.layout.width))}
+      onStartShouldSetResponder={() => true}
+      onResponderGrant={select}
+      onResponderMove={select}
+      onResponderTerminationRequest={() => true}
     >
       {layout ? (
-        <Svg width={width} height={height}>
+        <Svg width={width} height={height} pointerEvents="none">
+          {costY !== null ? (
+            <G testID="chart-pnl-zones">
+              <Rect
+                x={0}
+                y={layout.plotTop}
+                width={layout.plotRight}
+                height={clamp(costY - layout.plotTop, 0, layout.plotBottom - layout.plotTop)}
+                fill={pnlColors.up}
+                fillOpacity={chartColors.zoneOpacity}
+              />
+              <Rect
+                x={0}
+                y={clamp(costY, layout.plotTop, layout.plotBottom)}
+                width={layout.plotRight}
+                height={clamp(layout.plotBottom - costY, 0, layout.plotBottom - layout.plotTop)}
+                fill={pnlColors.down}
+                fillOpacity={chartColors.zoneOpacity}
+              />
+              {costY - layout.plotTop > 16 ? (
+                <SvgText x={4} y={layout.plotTop + 12} fontSize={10} fontFamily={fonts.medium} fill={pnlColors.up}>
+                  ↑ 高於成本＝賺
+                </SvgText>
+              ) : null}
+              {layout.plotBottom - costY > 16 ? (
+                <SvgText
+                  x={4}
+                  y={layout.plotBottom - 4}
+                  fontSize={10}
+                  fontFamily={fonts.medium}
+                  fill={pnlColors.down}
+                >
+                  ↓ 低於成本＝賠
+                </SvgText>
+              ) : null}
+            </G>
+          ) : null}
+
           {layout.ticks.map((tick, i) => (
             <G key={`tick-${i}`}>
-              <Line
-                x1={0}
-                x2={layout.plotRight}
-                y1={tick.y}
-                y2={tick.y}
-                stroke={colors.border}
-                strokeWidth={1}
-              />
-              <SvgText
-                x={layout.plotRight + 6}
-                y={tick.y + 4}
-                fontSize={11}
-                fontFamily={fonts.regular}
-                fill={colors.mutedForeground}
-              >
-                {formatPrice(tick.price)}
-              </SvgText>
+              <Line x1={0} x2={layout.plotRight} y1={tick.y} y2={tick.y} stroke={colors.border} strokeWidth={1} />
+              {/* 刻度跟成本標籤太近就不畫，免得疊在一起 */}
+              {costY === null || Math.abs(tick.y - costY) > 12 ? (
+                <SvgText
+                  x={layout.plotRight + 6}
+                  y={tick.y + 4}
+                  fontSize={11}
+                  fontFamily={fonts.regular}
+                  fill={colors.mutedForeground}
+                >
+                  {formatPrice(tick.price)}
+                </SvgText>
+              ) : null}
             </G>
           ))}
 
@@ -81,72 +150,125 @@ export function CandleChart({ candles, costPrice, buyDate, height = 240, accessi
             <Line
               x1={layout.buyPoint.x}
               x2={layout.buyPoint.x}
-              y1={PADDING_TOP}
-              y2={plotBottom}
-              stroke={BUY_COLOR}
-              strokeOpacity={0.35}
+              y1={layout.plotTop}
+              y2={layout.plotBottom}
+              stroke={chartColors.buy}
+              strokeOpacity={0.4}
               strokeDasharray="3 3"
             />
           ) : null}
 
-          {layout.shapes.map((shape) => {
-            const color = pnlColors[shape.direction];
-            return (
-              <G key={shape.candle.date}>
-                <Line
-                  x1={shape.x}
-                  x2={shape.x}
-                  y1={shape.wickTop}
-                  y2={shape.wickBottom}
-                  stroke={color}
-                  strokeWidth={1}
-                />
-                <Rect
-                  x={shape.bodyX}
-                  y={shape.bodyTop}
-                  width={shape.bodyWidth}
-                  height={shape.bodyHeight}
-                  fill={color}
-                />
-              </G>
-            );
-          })}
+          {mode === "line" ? (
+            <Path
+              testID="chart-close-line"
+              d={layout.closePath}
+              stroke={chartColors.line}
+              strokeWidth={2}
+              strokeLinejoin="round"
+              fill="none"
+            />
+          ) : (
+            layout.shapes.map((shape) => {
+              const color = pnlColors[shape.direction];
+              return (
+                <G key={shape.candle.date}>
+                  <Line
+                    x1={shape.x}
+                    x2={shape.x}
+                    y1={shape.wickTop}
+                    y2={shape.wickBottom}
+                    stroke={color}
+                    strokeWidth={1}
+                  />
+                  <Rect x={shape.bodyX} y={shape.bodyTop} width={shape.bodyWidth} height={shape.bodyHeight} fill={color} />
+                </G>
+              );
+            })
+          )}
 
-          {layout.costY !== null && costPrice !== undefined ? (
+          {movingAverages ? (
+            <G testID="chart-moving-averages">
+              <Path d={maPath(movingAverages.short)} stroke={chartColors.ma5} strokeWidth={1.5} fill="none" />
+              <Path
+                d={maPath(movingAverages.long)}
+                stroke={chartColors.ma20}
+                strokeWidth={1.5}
+                strokeDasharray="5 3"
+                fill="none"
+              />
+            </G>
+          ) : null}
+
+          {costY !== null && costPrice !== undefined ? (
             <G>
               <Line
                 x1={0}
                 x2={layout.plotRight}
-                y1={layout.costY}
-                y2={layout.costY}
-                stroke={colors.accent}
+                y1={costY}
+                y2={costY}
+                stroke={chartColors.cost}
                 strokeWidth={1.5}
                 strokeDasharray="6 4"
               />
+              <Rect
+                testID={layout.costOffChart ? "chart-cost-off-chart" : undefined}
+                x={layout.plotRight + 2}
+                y={clamp(costY - 9, 0, height - 18)}
+                width={AXIS_WIDTH - 2}
+                height={18}
+                rx={4}
+                fill={chartColors.cost}
+              />
               <SvgText
                 x={layout.plotRight + 6}
-                y={layout.costY + 4}
+                y={clamp(costY - 9, 0, height - 18) + 13}
                 fontSize={11}
                 fontFamily={fonts.semibold}
-                fill={colors.accent}
+                fill={colors.onAccent}
               >
-                {formatPrice(costPrice)}
+                {`${layout.costOffChart === "above" ? "↑" : layout.costOffChart === "below" ? "↓" : ""}${formatPrice(costPrice)}`}
               </SvgText>
+            </G>
+          ) : null}
+
+          {selected ? (
+            <G testID="chart-crosshair">
+              <Line
+                x1={selected.x}
+                x2={selected.x}
+                y1={layout.plotTop}
+                y2={layout.plotBottom}
+                stroke={chartColors.crosshair}
+                strokeWidth={1}
+              />
+              <Circle
+                cx={selected.x}
+                cy={layout.priceToY(selected.candle.close)}
+                r={4}
+                fill={colors.card}
+                stroke={chartColors.line}
+                strokeWidth={2}
+              />
             </G>
           ) : null}
 
           {layout.buyPoint ? (
             <G testID="candle-buy-marker">
-              <Path
-                d={trianglePath(layout.buyPoint.x, layout.buyPoint.lowY + 4)}
-                fill={BUY_COLOR}
+              <Circle
+                cx={layout.buyPoint.x}
+                cy={layout.buyPoint.y}
+                r={6}
+                fill={chartColors.buy}
+                stroke={colors.card}
+                strokeWidth={2}
               />
               <SvgText
-                x={layout.buyPoint.x}
-                y={layout.buyPoint.lowY + 28}
+                x={clamp(layout.buyPoint.x, 16, layout.plotRight - 16)}
+                // 點靠近上緣就把字放下面
+                y={layout.buyPoint.y - layout.plotTop > 22 ? layout.buyPoint.y - 11 : layout.buyPoint.y + 20}
                 fontSize={11}
                 fontFamily={fonts.semibold}
-                fill={BUY_COLOR}
+                fill={chartColors.buy}
                 textAnchor="middle"
               >
                 買入
@@ -158,13 +280,13 @@ export function CandleChart({ candles, costPrice, buyDate, height = 240, accessi
             <SvgText
               key={`date-${i}`}
               x={label.x}
-              y={height - 4}
+              y={height - 6}
               fontSize={10}
               fontFamily={fonts.regular}
               fill={colors.mutedForeground}
               textAnchor={i === 0 ? "start" : i === layout.dateLabels.length - 1 ? "end" : "middle"}
             >
-              {formatIsoDate(label.date).slice(5)}
+              {formatIsoDate(label.date).slice(2)}
             </SvgText>
           ))}
         </Svg>
@@ -173,9 +295,8 @@ export function CandleChart({ candles, costPrice, buyDate, height = 240, accessi
   );
 }
 
-/** 往上指的三角形，尖端在 (x, tipY) */
-function trianglePath(x: number, tipY: number): string {
-  return `M ${x} ${tipY} L ${x - 6} ${tipY + 11} L ${x + 6} ${tipY + 11} Z`;
+function clamp(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, n));
 }
 
 /** 價格刻度：千分位；100 以下留兩位小數 */

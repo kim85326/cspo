@@ -1,28 +1,68 @@
 import type { Candle, PnlDirection } from "./types";
 
-/** 沒填買入日期（或買入日期很近）時，K 線圖顯示近幾個月 */
-export const DEFAULT_CHART_MONTHS = 3;
-/** 買入日期較早時往前延伸，最多幾個月。證交所日 K 一個月一個請求，太多會被擋 */
-export const MAX_CHART_MONTHS = 6;
+/** 期間切換的選項（月數）：1 個月、3 個月、6 個月、1 年 */
+export const CHART_PERIODS = [1, 3, 6, 12] as const;
+export type ChartPeriod = (typeof CHART_PERIODS)[number];
+/** 預設 1 年：對齊規格書 P2-09「比較區間預設 1 年」，圖與結論用同一個期間 */
+export const DEFAULT_CHART_PERIOD: ChartPeriod = 12;
+/** 均線天數（交易日）：5 日約一週、20 日約一個月 */
+export const MA_SHORT = 5;
+export const MA_LONG = 20;
+
+/** "1 個月"、"3 個月"、"1 年" */
+export function periodLabel(months: number): string {
+  return months % 12 === 0 ? `${months / 12} 年` : `${months} 個月`;
+}
 
 /**
- * K 線圖要抓哪幾個月（"2026-08"，由舊到新）。
- * 預設近 DEFAULT_CHART_MONTHS 個月；買入日期更早就延伸到買入那個月，但不超過 MAX_CHART_MONTHS。
+ * 同一天往前（負數）或往後推 n 個月，月底夾到那個月最後一天：
+ * shiftMonths("2026-03-31", -1) → "2026-02-28"。
  */
-export function chartMonths(todayIso: string, buyDate?: string): string[] {
-  const todayIndex = monthIndex(todayIso);
-  let start = todayIndex - (DEFAULT_CHART_MONTHS - 1);
-  if (buyDate) {
-    const buyIndex = monthIndex(buyDate);
-    if (buyIndex < start) start = Math.max(buyIndex, todayIndex - (MAX_CHART_MONTHS - 1));
+export function shiftMonths(iso: string, n: number): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  const index = year * 12 + (month - 1) + n;
+  const y = Math.floor(index / 12);
+  const m = (index % 12) + 1;
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return `${y}-${String(m).padStart(2, "0")}-${String(Math.min(day, lastDay)).padStart(2, "0")}`;
+}
+
+/** 圖上顯示的範圍：近 N 個月，從 N 個月前的「隔天」到今天（today − N 個月那天不算） */
+export function chartStart(todayIso: string, period: number): string {
+  return shiftMonths(todayIso, -period);
+}
+
+/**
+ * 要跟資料來源要哪幾個月（"2026-08"，由舊到新、不重複）：
+ * 1. 圖上近 N 個月，再往前多 1 個月，讓 20 日均線一開始就有值；
+ * 2. 有買入日期時，加上 P2-09 的比較區間（買入日前 N 個月到買入那個月）。
+ * 兩段可能不相連（例如三年前買的），中間的月份不抓。
+ */
+export function fetchMonths(todayIso: string, period: number, buyDate?: string): string[] {
+  const months = new Set(monthsBetween(shiftMonths(todayIso, -period - 1), todayIso));
+  if (buyDate && buyDate <= todayIso) {
+    for (const m of monthsBetween(shiftMonths(buyDate, -period), buyDate)) months.add(m);
   }
-  const months: string[] = [];
-  for (let i = start; i <= todayIndex; i++) {
-    const year = Math.floor(i / 12);
-    const month = (i % 12) + 1;
-    months.push(`${year}-${String(month).padStart(2, "0")}`);
-  }
-  return months;
+  return [...months].sort();
+}
+
+/**
+ * 簡單移動平均（收盤價）。回傳長度跟 closes 一樣，湊不滿 window 天的位置是 null。
+ */
+export function movingAverage(closes: number[], window: number): (number | null)[] {
+  let sum = 0;
+  return closes.map((close, i) => {
+    sum += close;
+    if (i >= window) sum -= closes[i - window];
+    return i >= window - 1 ? sum / window : null;
+  });
+}
+
+/** 某一天的漲跌：跟前一個交易日的收盤比。沒有前一天回 null */
+export function dayChange(close: number, previousClose: number | undefined): { change: number; percent: number } | null {
+  if (previousClose === undefined || previousClose <= 0) return null;
+  const change = close - previousClose;
+  return { change, percent: (change / previousClose) * 100 };
 }
 
 /** from 到 to（ISO 日期，含頭尾）跨過的月份（"2026-08"，由舊到新）。from 晚於 to 回空陣列 */
@@ -55,6 +95,9 @@ export function candleDirection(candle: Candle): PnlDirection {
   return "flat";
 }
 
+/** 股價本身至少要佔價格範圍的這個比例，不然成本線改貼邊（見 layoutCandleChart） */
+const MIN_DATA_SHARE = 0.4;
+
 export type ChartLayoutOptions = {
   width: number;
   height: number;
@@ -66,6 +109,8 @@ export type ChartLayoutOptions = {
   /** 成本價：畫一條水平線，價格範圍也會把它包進來 */
   costPrice?: number;
   buyDate?: string;
+  /** 其他也要畫進來的價格（均線），價格範圍會把它們包進來；null 略過 */
+  extraPrices?: (number | null)[];
 };
 
 export type CandleShape = {
@@ -85,14 +130,23 @@ export type ChartLayout = {
   /** 價格 → y 座標 */
   priceToY: (price: number) => number;
   plotRight: number;
+  plotTop: number;
+  plotBottom: number;
+  /** 每根 K 棒分到的寬度：點圖時換算是哪一天（indexAtX） */
+  slot: number;
+  /** 收盤價折線（SVG path） */
+  closePath: string;
   /** 價格刻度（最高、中間、最低） */
   ticks: { price: number; y: number }[];
   /** 底部日期標籤（第一天、中間、最後一天） */
   dateLabels: { x: number; date: string }[];
+  /** 成本線的 y；成本在範圍外時貼在上緣或下緣 */
   costY: number | null;
+  /** 成本離股價太遠、沒有照比例畫：在圖的上面（above）或下面（below） */
+  costOffChart: "above" | "below" | null;
   buy: BuyDateLocation | null;
-  /** 買入點要畫在哪（K 棒最低點下方由畫面決定位移） */
-  buyPoint: { x: number; lowY: number; candle: Candle } | null;
+  /** 買入點：買入那天、買入價（成本價）的位置；沒給成本價就落在當天最低點 */
+  buyPoint: { x: number; y: number; candle: Candle } | null;
 };
 
 /** 把 K 棒換算成畫面座標。純函式，畫面只負責照著畫。 */
@@ -106,7 +160,22 @@ export function layoutCandleChart(candles: Candle[], options: ChartLayoutOptions
   const plotHeight = Math.max(1, height - paddingTop - paddingBottom);
 
   const prices = candles.flatMap((c) => [c.high, c.low]);
-  if (costPrice !== undefined) prices.push(costPrice);
+  for (const p of options.extraPrices ?? []) if (p !== null) prices.push(p);
+  // 成本離股價太遠（例如抱了好幾年、漲一倍）：把成本包進來會把走勢壓成一條細線。
+  // 這時成本線貼在上緣或下緣（costOffChart 告訴畫面要加箭頭），範圍只看股價。
+  let costOffChart: "above" | "below" | null = null;
+  if (costPrice !== undefined && prices.length > 0) {
+    const dataMin = Math.min(...prices);
+    const dataMax = Math.max(...prices);
+    const withCost = Math.max(dataMax, costPrice) - Math.min(dataMin, costPrice);
+    if (withCost > 0 && (dataMax - dataMin) / withCost < MIN_DATA_SHARE) {
+      costOffChart = costPrice > dataMax ? "above" : "below";
+    } else {
+      prices.push(costPrice);
+    }
+  } else if (costPrice !== undefined) {
+    prices.push(costPrice);
+  }
   let min = prices.length > 0 ? Math.min(...prices) : 0;
   let max = prices.length > 0 ? Math.max(...prices) : 1;
   const pad = max > min ? (max - min) * 0.06 : Math.max(1, max * 0.05);
@@ -146,21 +215,59 @@ export function layoutCandleChart(candles: Candle[], options: ChartLayoutOptions
   const dateLabels = labelIndexes.map((i) => ({ x: shapes[i].x, date: candles[i].date }));
 
   const buy = buyDate ? locateBuyDate(candles, buyDate) : null;
+  const costY =
+    costPrice === undefined
+      ? null
+      : costOffChart === "above"
+        ? plotTop
+        : costOffChart === "below"
+          ? plotTop + plotHeight
+          : priceToY(costPrice);
   const buyPoint =
     buy?.kind === "in"
-      ? { x: shapes[buy.index].x, lowY: shapes[buy.index].wickBottom, candle: candles[buy.index] }
+      ? { x: shapes[buy.index].x, y: costY ?? shapes[buy.index].wickBottom, candle: candles[buy.index] }
       : null;
 
   return {
     shapes,
     priceToY,
     plotRight,
+    plotTop,
+    plotBottom: plotTop + plotHeight,
+    slot,
+    closePath: linePath(shapes.map((s) => ({ x: s.x, y: priceToY(s.candle.close) }))),
     ticks,
     dateLabels,
-    costY: costPrice !== undefined ? priceToY(costPrice) : null,
+    costY,
+    costOffChart,
     buy,
     buyPoint,
   };
+}
+
+/** 把一串點連成 SVG 折線；null 的地方斷開（均線前幾天沒有值） */
+export function linePath(points: ({ x: number; y: number } | null)[]): string {
+  let path = "";
+  let penDown = false;
+  for (const p of points) {
+    if (p === null) {
+      penDown = false;
+      continue;
+    }
+    path += `${penDown ? "L" : "M"} ${round1(p.x)} ${round1(p.y)} `;
+    penDown = true;
+  }
+  return path.trim();
+}
+
+/** 點在圖上 x 的位置 → 第幾根 K 棒（超出範圍夾到頭尾）。沒有 K 棒回 null */
+export function indexAtX(layout: Pick<ChartLayout, "slot" | "shapes">, x: number): number | null {
+  if (layout.shapes.length === 0 || layout.slot <= 0) return null;
+  return Math.min(layout.shapes.length - 1, Math.max(0, Math.floor(x / layout.slot)));
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
 }
 
 /** "2026-10" → 2026*12 + 9 */
