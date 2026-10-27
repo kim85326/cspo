@@ -40,8 +40,7 @@ cspo/
 │   │   ├── index.tsx         → screens/HomeScreen（首頁總覽，Story 011）
 │   │   ├── calculate.tsx     → screens/CalculateScreen（快速試算）
 │   │   ├── twse+api.ts       API route：網頁版的證交所代理（GET /twse），手機不經過
-│   │   ├── tpex+api.ts       API route：網頁版的櫃買中心代理（GET /tpex），手機不經過
-│   │   └── recognize+api.ts  API route：手機把截圖 POST 來，server 端呼叫 Claude（只在 dev server／部署的 server 跑）
+│   │   └── tpex+api.ts       API route：網頁版的櫃買中心代理（GET /tpex），手機不經過
 │   ├── screens/              畫面本體與畫面測試
 │   │   ├── HomeScreen.tsx            首頁總覽：整體、核心、衛星三組數字與前 5 檔持股
 │   │   ├── CalculateScreen.tsx       快速試算：輸入一檔或多檔持股 → 看盈虧／比較
@@ -55,7 +54,8 @@ cspo/
 │   │   ├── compare.ts        多檔比較：依報酬率排名 + 合計
 │   │   ├── compare.test.ts
 │   │   ├── holdingExtract.ts 截圖匯入：辨識結果對到股票清單、張→股、合併重複、套進欄位（applyExtraction）
-│   │   └── holdingExtract.test.ts
+│   │   ├── holdingExtract.test.ts
+│   │   └── imageMimeType.ts  截圖匯入：依檔案內容／副檔名猜 mimeType（picker 給的不可靠；後端會再看檔頭）
 │   ├── data/                 對外資料來源
 │   │   ├── PriceSource.ts    介面：給代號回現價
 │   │   ├── StockDirectory.ts 介面：有哪些股票可以選
@@ -67,8 +67,7 @@ cspo/
 │   │   ├── asyncStorageLedgerStore.ts / memoryLedgerStore.ts  AsyncStorage `cspo.ledger.v1`（含舊資料自動搬移）／ 測試用記憶體版
 │   │   ├── quickCalcHoldingStore.ts  快速試算記住輸入：自己的 key，只讀記帳本、不寫記帳本
 │   │   ├── HoldingRecognizer.ts  介面：給截圖回辨識結果
-│   │   ├── claudeHoldingRecognizer.ts / fakeHoldingRecognizer.ts  POST 到 /recognize ／ 測試用固定結果
-│   │   ├── recognizeEndpoint.ts  用 expo-constants 的 hostUri 找到 dev server 的 /recognize
+│   │   ├── backendHoldingRecognizer.ts / fakeHoldingRecognizer.ts  POST 到 backend/ 的 /recognize（和 AI 解讀共用網址與存取碼）／ 測試用固定結果
 │   │   ├── twseEndpoint.ts   證交所網址；網頁版改走同源代理 /twse（證交所沒開 CORS）
 │   │   ├── twseParse.ts      證交所回應 → Quote[]（純函式，有單元測試）
 │   │   ├── twseSource.ts     證交所（上市）來源
@@ -78,11 +77,10 @@ cspo/
 │   │   ├── marketSource.ts   上市 + 上櫃合成一個來源，一邊失敗另一邊照用（Story 007）
 │   │   ├── __fixtures__/     真實 API 回應（裁剪過），測試用
 │   │   └── index.ts          依環境決定用假來源還是真的（Jest 一律用假的；EXPO_PUBLIC_USE_FAKE_PRICES／EXPO_PUBLIC_USE_FAKE_RECOGNIZER=1 也可切）
-│   ├── server/               只在 server 端跑的程式（API route 才會載入，不進手機 bundle）
-│   │   └── recognizeHoldings.ts  Claude vision + JSON schema 的 prompt 與呼叫；API key 從 process.env 讀
 │   ├── config/features.ts    功能開關的名稱、打包預設、優先順序（Story 026）
 │   ├── hooks/                畫面共用的 React hook（usePersistedHoldings：啟動時讀回、計算後存；useScreenshotImport：選圖／拍照 → 辨識；useFeatures：功能開關，會跟著遠端更新）
 │   └── ui/                   可重用元件與設計 token（StockPicker、LabeledInput、HoldingForm、ImportSourceSheet、PnlCard、ComparisonCard、theme）
+├── backend/                  本機 AI 後端（AI 解讀 /insight、截圖辨識 /recognize）；API key 只在 backend/.env（第 7 節）
 ├── design-system/stock-pnl/  ui-ux-pro-max 產生的設計系統（MASTER.md 是色彩、字型、間距的來源）
 ├── e2e/                      Maestro 流程（YAML）
 ├── docs/
@@ -181,14 +179,28 @@ appId: host.exp.Exponent
 ## 7. 發版給測試同學
 
 - **每天至少一次**：工程執行 `npx expo start --tunnel`，測試同學用 Expo Go 掃 QR code。tunnel 模式不需要同一個 Wi-Fi（公司網路有裝置隔離，區網模式連不到）。
-- **截圖匯入要先設定 API key**（Story 005）：
-  1. 到 [Anthropic Console](https://console.anthropic.com/) 建一把 API key。
-  2. 專案根目錄 `cp .env.example .env`，填入 `ANTHROPIC_API_KEY=sk-ant-...`。`.env` 已在 `.gitignore`，不會進 git；也不要用 `EXPO_PUBLIC_` 前綴，那種變數會被打包進手機 app。
-  3. 重新執行 `npx expo start --tunnel`（Expo CLI 啟動時才讀 `.env`）。
-  4. 手機上的 app 會把截圖 POST 到 dev server 的 `/recognize`（`src/app/recognize+api.ts`），由 server 端讀 `process.env.ANTHROPIC_API_KEY` 呼叫 Claude（`claude-opus-5-5`，structured outputs 強制回 JSON）。手機端用 `expo-constants` 的 `expoConfig.hostUri` 組出 dev server 網址，所以區網與 tunnel 都能用。
-  5. 沒設 key 時手機會看到「伺服器沒有設定 ANTHROPIC_API_KEY…」的提示，其他功能照常。
-  6. `app.json` 的 `web.output` 設成 `"server"` 才有 API route；正式部署時要有一台 server 跑它，並在 expo-router plugin 設 `origin`（見 https://docs.expo.dev/router/reference/api-routes/）。這次活動只用 dev server。
-  7. 想在沒有 key 的情況下跑畫面：`EXPO_PUBLIC_USE_FAKE_RECOGNIZER=1 npx expo start`，會用固定結果的假辨識器（Jest 一律用假的）。
+- **截圖匯入（Story 005）走本機後端 `backend/`**，和 AI 解讀共用同一台、同一個網址與存取碼（設定見下面「AI 解讀後端：給別人連進來」）。2026-10-27 之前它走 dev server 的 API route（`src/app/recognize+api.ts`），APK 裡沒有 dev server 所以一定失敗；那條 route 已經拿掉，網頁版也改打後端：
+  1. app 把截圖（`quality: 0.6` 壓過的 base64）POST 到 `<EXPO_PUBLIC_INSIGHT_API_URL>/recognize`，帶 `Authorization: Bearer <EXPO_PUBLIC_INSIGHT_ACCESS_TOKEN>`（`src/data/backendHoldingRecognizer.ts`）。後端用 `backend/.env` 的 key 呼叫 Claude（`claude-opus-5-5`、structured outputs，`backend/src/claudeRecognize.ts`），回模型的原始欄位，app 端 `parseExtractionResult` 正規化。
+  2. **圖片格式看檔案內容決定**（`backend/src/recognizeRequest.ts`）：`expo-image-picker` 在 `quality < 1` 時給的 base64 一律是 JPEG，`mimeType` 卻是原檔的 `image/png`／`image/heic`，有時是 `undefined`（[研究 §1.4](research/screenshot-import.md)）。後端看檔頭（JPEG `FF D8 FF`、PNG、GIF、WebP）送正確的 `media_type`，不信任 app 給的值；app 端 `src/domain/imageMimeType.ts` 也依序用檔案內容 → 副檔名 → picker 的值猜一個當提示。app 宣告的格式只能是 JPEG／PNG／WebP／GIF／HEIC（或不給），其他回 415；內容真的是 HEIC（Claude 不收）回 415「請改用螢幕截圖」。
+  3. 大小上限另外設：圖片解碼後 **5 MB**（`INSIGHT_RECOGNIZE_MAX_IMAGE_BYTES`，最大 10 MB），請求內容上限自動換算成 base64 長度；超過回 413「圖片太大」。`/insight` 的 16 KB 上限不變。
+  4. 存取碼、每 IP 頻率、每日上限、同時處理數、CORS 都和 `/insight` 共用**同一份**（整台後端一個預算），見下面「防濫用」。
+  5. 開關仍是 `screenshotImport`，**預設關閉**，用遠端開關切換（見本節「功能開關」）。不開後端想看畫面：`.env.local` 設 `EXPO_PUBLIC_USE_FAKE_RECOGNIZER=1`（Jest 一律用假的）。
+  6. **Tech Day 現場打開截圖匯入**（APK build 5 以後；全部是 JS 改動，OTA 就能送到）：
+     ```bash
+     # 一次性：APK 要知道後端網址與存取碼（打包 OTA 時寫進 bundle）。EAS preview 還沒設過才需要；
+     # 只設這兩個，不設 EXPO_PUBLIC_FEATURE_AI_INSIGHT，AI 解讀照樣維持關閉
+     npx eas-cli env:set --name EXPO_PUBLIC_INSIGHT_ACCESS_TOKEN --value <backend/.env 的 INSIGHT_ACCESS_TOKEN> --environment preview --visibility plaintext
+     npx eas-cli env:set --name EXPO_PUBLIC_INSIGHT_API_URL --value https://xxxx.ngrok-free.app --environment preview --visibility plaintext
+     npm run ota -- "截圖匯入改走本機後端"
+
+     # 現場：先開後端（ngrok 固定網址），確認外面打得到 /health
+     npm run backend:tunnel
+     # 再打開遠端開關；最多等 5 分鐘 CDN 快取，請同學把 app 切到背景再切回來
+     node scripts/feature-flags.mjs set screenshotImport on
+     # 結束：先關開關，再 Ctrl+C 關掉 tunnel
+     node scripts/feature-flags.mjs set screenshotImport off
+     ```
+     開關打開但 tunnel 沒開時，同學按下去會看到「連不上辨識服務：提供服務的電腦可能還沒開（npm run backend:tunnel）…」，其他功能照常。
 - **Android APK**：`npx eas-cli build -p android --profile preview`（設定在 `eas.json`）。在 Expo 雲端打包，完成後給一個下載連結與 QR code，同學直接裝，不需要 Expo Go。免費方案一個月有數次額度，排隊時間從幾分鐘到幾十分鐘不等。第一次執行會在 Expo 帳號建專案並產生 Android 簽章金鑰，之後都沿用。
 - **iOS 真機安裝**：要 Apple 開發者帳號（99 美元／年）走 TestFlight。這次先不需要，Expo Go 就夠。
 - **行情來源**：app 預設接證交所 OpenAPI（上市，`https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`）與櫃買中心 OpenAPI（上櫃，`https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes`），都是最近一個交易日收盤價，免金鑰，手機要能上網。要切回固定假價（demo 固定數字、Maestro 流程、斷網環境）就設環境變數再開 dev server：
@@ -203,7 +215,7 @@ appId: host.exp.Exponent
 
 ### AI 解讀後端：給別人連進來（Story 017）
 
-「AI 解讀」按鈕（[docs/stories/017-ai-insight.md](stories/017-ai-insight.md)）背後是一台跑在**工程同學電腦上**的小後端 `backend/`。Anthropic API key 只放在那台電腦的 `backend/.env`，app 裡沒有、git 裡也沒有。其他人的手機（不同網路、APK、Expo Go、網頁版）透過 **ngrok 的固定網址**連進來：
+「AI 解讀」按鈕（[docs/stories/017-ai-insight.md](stories/017-ai-insight.md)）與「從截圖匯入」的辨識（[Story 005](stories/005-import-from-screenshot.md)，`POST /recognize`）背後是同一台跑在**工程同學電腦上**的小後端 `backend/`。Anthropic API key 只放在那台電腦的 `backend/.env`，app 裡沒有、git 裡也沒有。其他人的手機（不同網路、APK、Expo Go、網頁版）透過 **ngrok 的固定網址**連進來：
 
 ```
 別人的手機 ──https──▶ https://xxxx.ngrok-free.app ──▶ ngrok（你的電腦）──▶ backend/（127.0.0.1:8787）──▶ Claude API
@@ -250,7 +262,7 @@ npm run backend:tunnel
 
 1. 檢查 ngrok 有沒有裝、有沒有設 authtoken；沒有就印出安裝與 `ngrok config add-authtoken` 的步驟後結束（不會替你安裝或註冊）。
 2. 檢查 8787 與 ngrok 的 4040 沒被佔用（另一個 `npm run backend` 或 ngrok 還開著就停下來）。
-3. 印出「即將對外公開什麼」：只有 `GET /health` 與 `POST /insight` 兩條路、目前的次數限制、提醒設 Console 花費上限。
+3. 印出「即將對外公開什麼」：只有 `GET /health`、`POST /insight`、`POST /recognize` 三條路、目前的次數限制、提醒設 Console 花費上限。
 4. 啟動後端，**只聽 `127.0.0.1`**（區網的人不能繞過 ngrok 直接連），並開 `INSIGHT_TRUST_PROXY=1`。`backend/.env` 沒設 key 或存取碼就停下來，不對外公開。
 5. 啟動 `ngrok http 8787`，從 ngrok 本機 API（`http://127.0.0.1:4040/api/endpoints`）讀出公開網址。
 6. 從公開網址打一次 `/health` 確認外面連得到，並對照 `.env.local` 的 `EXPO_PUBLIC_INSIGHT_API_URL`，不一致就印出要設的值與 `eas-cli env:set` 指令。
@@ -267,7 +279,7 @@ APK 的 `EXPO_PUBLIC_INSIGHT_API_URL` 是打包（或發 OTA）時寫死的，�
 
 | 做法 | 一次性設定 | 網址變了多久生效 | 使用者平常要做的事 | 缺點 |
 |---|---|---|---|---|
-| **ngrok 免費 dev domain（採用）** | 註冊 ngrok、`brew install ngrok`、`ngrok config add-authtoken`；EAS 設一次網址並發一次 OTA | 網址不會變 | `npm run backend:tunnel`，用完 Ctrl+C | 要 ngrok 帳號；免費方案每月 20,000 個 HTTP 請求、1 GB 流量（每次解讀約 2～4 KB，Tech Day 用不完）；瀏覽器要帶 `ngrok-skip-browser-warning`（app 已帶） |
+| **ngrok 免費 dev domain（採用）** | 註冊 ngrok、`brew install ngrok`、`ngrok config add-authtoken`；EAS 設一次網址並發一次 OTA | 網址不會變 | `npm run backend:tunnel`，用完 Ctrl+C | 要 ngrok 帳號；免費方案每月 20,000 個 HTTP 請求、1 GB 流量（每次解讀約 2～4 KB、每張截圖約 150～300 KB，Tech Day 幾百次也用不完）；瀏覽器要帶 `ngrok-skip-browser-warning`（app 已帶） |
 | Cloudflare 具名 tunnel | Cloudflare 帳號，而且要有一個加到 Cloudflare 的網域（多半要買）；在 dashboard 建 tunnel、跑它給的安裝指令、設 published application route | 網址不會變 | 啟動 connector | 要網域，設定步驟最多 |
 | Cloudflare quick tunnel ＋ 公開設定檔（例如 repo 專用分支或 `docs/` 下的 JSON，tunnel 腳本啟動後用 `gh` 更新網址，app 每次解讀前先讀） | 免新帳號；app 要多一段讀設定檔的程式 | raw.githubusercontent.com 最多 5 分鐘、GitHub Pages 最多 10 分鐘＋建置約 1 分鐘（2026-10-27 實測 `cache-control: max-age=300`／`600`，加 query string 也不會略過 CDN 快取） | 每次重開 tunnel 後等快取過期，期間 APK 連到舊網址會失敗 | quick tunnel 官方定位是測試用、沒有可用性保證；網址公開在 repo；每次重開都有空窗 |
 | quick tunnel ＋ 換網址就發 OTA | 免新帳號 | 發布 2～3 分鐘＋同學把 app 滑掉重開兩次 | 每次重開 tunnel 都要 `npm run ota` | 只對 build 3 以後的 APK 有效；每次都佔一個 EAS Update；Expo Go／網頁版還要另外改 `.env.local` |
@@ -278,14 +290,15 @@ APK 的 `EXPO_PUBLIC_INSIGHT_API_URL` 是打包（或發 OTA）時寫死的，�
 
 | 關卡 | 預設 | 超過時 | 設定 |
 |---|---|---|---|
-| 只開兩條路 | `GET /health`、`POST /insight`（加上這兩條的 CORS preflight） | 其他路徑 404、方法不對 405 | — |
+| 只開三條路 | `GET /health`、`POST /insight`、`POST /recognize`（加上這三條的 CORS preflight） | 其他路徑 404、方法不對 405 | — |
 | 存取碼 | `Authorization: Bearer <INSIGHT_ACCESS_TOKEN>`，固定時間比對 | 401；後端沒設存取碼一律 503（fail closed） | `INSIGHT_ACCESS_TOKEN` |
-| 每 IP 頻率 | 每分鐘 5 次（猜存取碼也算） | 429 + `Retry-After` | `INSIGHT_RATE_LIMIT_PER_MINUTE` |
-| 全域每日上限 | 每天 100 次 Claude 呼叫（只算真的呼叫，重啟歸零） | 429「今天的 AI 解讀次數已達上限」 | `INSIGHT_DAILY_LIMIT` |
-| 同時處理數 | 3 個 | 429「AI 解讀忙碌中」 | `INSIGHT_MAX_CONCURRENT` |
-| 請求大小 | 16 KB；最多 30 檔、欄位白名單 | 413／400 | `INSIGHT_MAX_BODY_BYTES` |
+| 每 IP 頻率 | 每分鐘 5 次（猜存取碼也算；`/insight`、`/recognize` 合計） | 429 + `Retry-After` | `INSIGHT_RATE_LIMIT_PER_MINUTE` |
+| 全域每日上限 | 每天 100 次 Claude 呼叫（只算真的呼叫，兩條合計，重啟歸零） | 429「今天的 AI 使用次數已達上限」 | `INSIGHT_DAILY_LIMIT` |
+| 同時處理數 | 3 個（兩條合計） | 429「AI 服務忙碌中」 | `INSIGHT_MAX_CONCURRENT` |
+| 請求大小 | `/insight` 16 KB；最多 30 檔、欄位白名單 | 413／400 | `INSIGHT_MAX_BODY_BYTES` |
+| 圖片大小與格式 | `/recognize` 圖片 5 MB；看檔頭只收 JPEG／PNG／WebP／GIF | 413／415 | `INSIGHT_RECOGNIZE_MAX_IMAGE_BYTES` |
 | 輸出上限 | `max_tokens` 2048，設再大也不超過 4096 | — | `INSIGHT_MAX_TOKENS` |
-| API key | 沒設 | 503「AI 解讀後端沒有設定 ANTHROPIC_API_KEY…」 | `ANTHROPIC_API_KEY` |
+| API key | 沒設 | 503「後端沒有設定 ANTHROPIC_API_KEY…」 | `ANTHROPIC_API_KEY` |
 | 網頁版 CORS | 只允許 `INSIGHT_ALLOWED_ORIGINS`（預設 `http://localhost:8081`、`http://127.0.0.1:8081`；可寫 `https://*.exp.direct` 給 Expo tunnel 網頁版） | 不回 CORS header，瀏覽器擋下 | `INSIGHT_ALLOWED_ORIGINS` |
 
 - **來源 IP**：ngrok 轉進來的連線，來源都是 127.0.0.1。`INSIGHT_TRUST_PROXY=1` 時，後端改看 `X-Forwarded-For` 的**最後一個**值（ngrok 文件：ngrok 會把真正的來源 IP 接在最後，前面的值可能是使用者自己塞的）或 Cloudflare 的 `CF-Connecting-IP`。而且只有「連線本身來自本機」才看這兩個 header，從區網直接連進來的人偽造它們沒有用。
@@ -319,6 +332,8 @@ APK 的 `EXPO_PUBLIC_INSIGHT_API_URL` 是打包（或發 OTA）時寫死的，�
 | 單次最壞情況：30 檔＋兩次都用滿 `max_tokens` 2048 | 約 US$0.11 |
 | 每日上限 100 次全部最壞情況 | 約 US$11／天 |
 | Tech Day 正常使用（30～50 人、每人幾次，100～250 次） | 約 US$1～5 |
+| 每張截圖辨識（`effort: "medium"`，2026-10-27 真 key 實測 2 次） | **約 US$0.03**：4,602 tokens 輸入（圖片占大部分）＋ 563～752 輸出，8～10 秒 |
+| 截圖辨識單次最壞情況：5 MB 圖片＋`max_tokens` 4096 | 約 US$0.10；每日上限 100 次（和 AI 解讀合計）全部最壞約 US$10／天 |
 
 **花費上限建議**：Console 專用 workspace 每月上限 US$10～20（硬上限，存取碼外流也最多損失這個數），搭配 `INSIGHT_DAILY_LIMIT`；不用時 Ctrl+C 關掉 tunnel；活動結束刪 key。想再省可把 `backend/src/claudeInsight.ts` 的 `INSIGHT_MODEL` 換成 `claude-haiku-5-5`（約便宜 40 倍），但中文品質與禁用字眼的遵守度要先用幾組真實數字比較過，且要拿掉只有 Opus／Sonnet 支援的 `fallbacks` 參數。
 

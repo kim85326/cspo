@@ -7,23 +7,28 @@ import {
   InsightServerError,
   type CreateMessage,
 } from "./claudeInsight.ts";
-import type { InsightConfig } from "./config.ts";
-import { InvalidInsightRequest, parseInsightRequest } from "./insightRequest.ts";
+import { recognizeHoldings } from "./claudeRecognize.ts";
+import { recognizeMaxBodyBytes, type InsightConfig } from "./config.ts";
+import { InvalidInsightRequest, parseInsightRequest, type InsightInput } from "./insightRequest.ts";
 import { createDailyQuota, createPerMinuteLimiter } from "./rateLimit.ts";
+import { InvalidRecognizeRequest, parseRecognizeRequest, type RecognizeInput } from "./recognizeRequest.ts";
 
 /**
- * 路由（只開這兩條，其他一律 404）：
- * - GET  /health   → 200，回報 key／token 有沒有設（不回值）
- * - POST /insight  → 依序檢查：頻率 → 存取碼 → API key → 大小 → 格式 → 每日上限 → 同時處理數 → 呼叫 Claude
- * - OPTIONS 上面兩條 → CORS preflight（只有網頁版會送）
+ * 路由（只開這三條，其他一律 404）：
+ * - GET  /health     → 200，回報 key／token 有沒有設（不回值）
+ * - POST /insight    → AI 解讀（Story 017）
+ * - POST /recognize  → 截圖匯入的辨識（Story 005）；大小上限另外設（INSIGHT_RECOGNIZE_MAX_IMAGE_BYTES）
+ *   兩條 POST 依序檢查：頻率 → 存取碼 → API key → 大小 → 格式 → 每日上限 → 同時處理數 → 呼叫 Claude，
+ *   而且共用同一份頻率限制、每日上限與同時處理數（整台後端一個預算）。
+ * - OPTIONS 上面三條 → CORS preflight（只有網頁版會送）
  * 錯誤一律回 { error: 中文訊息 }，app 原樣顯示。
  * 會透過 tunnel 公開到網路上，所以每一關都假設呼叫者不可信。
  */
 
 export const MISSING_API_KEY_MESSAGE =
-  "AI 解讀後端沒有設定 ANTHROPIC_API_KEY：請在 backend/.env 填入後重新執行 npm run backend";
+  "後端沒有設定 ANTHROPIC_API_KEY：請在 backend/.env 填入後重新執行 npm run backend";
 export const MISSING_TOKEN_MESSAGE =
-  "AI 解讀後端沒有設定 INSIGHT_ACCESS_TOKEN：請在 backend/.env 填入後重新執行 npm run backend";
+  "後端沒有設定 INSIGHT_ACCESS_TOKEN：請在 backend/.env 填入後重新執行 npm run backend";
 
 export type ServerDeps = {
   /** 沒給就用 config.apiKey 建真的 Claude client；測試給假的 */
@@ -44,7 +49,7 @@ export function createInsightServer(config: InsightConfig, deps: ServerDeps = {}
 
   return createServer((req, res) => {
     handle(req, res).catch((error: unknown) => {
-      log(`[insight] 未處理的錯誤 ${String(error)}`);
+      log(`[backend] 未處理的錯誤 ${String(error)}`);
       if (!res.headersSent) sendJson(res, 500, { error: "後端發生未知錯誤，請重試" });
     });
   });
@@ -52,7 +57,7 @@ export function createInsightServer(config: InsightConfig, deps: ServerDeps = {}
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     res.setHeader("X-Content-Type-Options", "nosniff");
     const path = (req.url ?? "/").split("?")[0];
-    if (path !== "/health" && path !== "/insight") {
+    if (path !== "/health" && path !== "/insight" && path !== "/recognize") {
       sendJson(res, 404, { error: "找不到這個路徑" });
       return;
     }
@@ -102,23 +107,32 @@ export function createInsightServer(config: InsightConfig, deps: ServerDeps = {}
       return;
     }
 
-    // 4. 大小上限
+    // 4. 大小上限（圖片另外設）
+    const isRecognize = path === "/recognize";
     let raw: string;
     try {
-      raw = await readBody(req, config.maxBodyBytes);
+      raw = await readBody(req, isRecognize ? recognizeMaxBodyBytes(config) : config.maxBodyBytes);
     } catch (error) {
       if (error instanceof BodyTooLarge) {
-        sendJson(res, 413, { error: "資料太大" }, true);
+        const mb = (config.recognizeMaxImageBytes / 1024 / 1024).toFixed(0);
+        sendJson(res, 413, { error: isRecognize ? `圖片太大（上限 ${mb} MB），請裁切後再試` : "資料太大" }, true);
         return;
       }
       throw error;
     }
 
     // 5. 格式
-    let input;
+    let job: { kind: "insight"; input: InsightInput } | { kind: "recognize"; input: RecognizeInput };
     try {
-      input = parseInsightRequest(JSON.parse(raw));
+      const json: unknown = JSON.parse(raw);
+      job = isRecognize
+        ? { kind: "recognize", input: parseRecognizeRequest(json, config.recognizeMaxImageBytes) }
+        : { kind: "insight", input: parseInsightRequest(json) };
     } catch (error) {
+      if (error instanceof InvalidRecognizeRequest) {
+        sendJson(res, error.status, { error: error.message });
+        return;
+      }
       const message = error instanceof InvalidInsightRequest ? error.message : "請求格式錯誤";
       sendJson(res, 400, { error: message });
       return;
@@ -126,30 +140,36 @@ export function createInsightServer(config: InsightConfig, deps: ServerDeps = {}
 
     // 6. 每日上限（只算真的要呼叫 Claude 的請求）
     if (!daily.take(now())) {
-      sendJson(res, 429, { error: "今天的 AI 解讀次數已達上限，明天再試" });
+      sendJson(res, 429, { error: "今天的 AI 使用次數已達上限，明天再試" });
       return;
     }
 
     // 7. 同時處理數：一個請求要等 Claude 幾秒，同時湧入太多就先擋
     if (inFlight >= config.maxConcurrent) {
-      sendJson(res, 429, { error: "AI 解讀忙碌中，請稍後再試" });
+      sendJson(res, 429, { error: "AI 服務忙碌中，請稍後再試" });
       return;
     }
 
     // 8. 呼叫 Claude
     inFlight += 1;
+    const tag = `[${job.kind}]`;
+    const onUsage = (usage: { input_tokens: number; output_tokens: number }) =>
+      log(`${tag} usage input=${usage.input_tokens} output=${usage.output_tokens}`);
     try {
       const started = now();
-      const result = await generateInsight(input, {
-        createMessage: getCreateMessage(),
-        maxTokens: config.maxTokens,
-        onUsage: (usage) =>
-          log(`[insight] usage input=${usage.input_tokens} output=${usage.output_tokens}`),
-      });
-      log(
-        `[insight] ok holdings=${input.holdings.length} filtered=${result.filtered} ms=${now() - started}`,
-      );
-      sendJson(res, 200, result);
+      if (job.kind === "recognize") {
+        const result = await recognizeHoldings(job.input, { createMessage: getCreateMessage(), onUsage });
+        log(`${tag} ok type=${job.input.mediaType} holdings=${result.holdings.length} ms=${now() - started}`);
+        sendJson(res, 200, result);
+      } else {
+        const result = await generateInsight(job.input, {
+          createMessage: getCreateMessage(),
+          maxTokens: config.maxTokens,
+          onUsage,
+        });
+        log(`${tag} ok holdings=${job.input.holdings.length} filtered=${result.filtered} ms=${now() - started}`);
+        sendJson(res, 200, result);
+      }
     } catch (error) {
       if (error instanceof InsightServerError) {
         sendJson(res, error.status, { error: error.message });

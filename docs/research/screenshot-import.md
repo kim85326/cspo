@@ -6,6 +6,16 @@
 
 ## 結論先講
 
+> **2026-10-27 更新：已實作，採用的做法和下面推薦的不同。**
+>
+> - **辨識改走本機後端 `backend/` 的 `POST /recognize`**（和 AI 解讀 Story 017 同一台），不部署 EAS Hosting。理由：Elaine 的硬性條件是 **API key 只能留在她的電腦上**；EAS Hosting 要把 key 放進 EAS 的 secret，等於放到 Expo 的伺服器上。本機後端已經有存取碼、每 IP 頻率、每日上限、同時處理數、CORS 與 ngrok 固定網址，直接沿用（§3 的四層防護都有：存取碼、依 `X-Forwarded-For` 最後一個值的頻率限制、5 MB 上限＋看檔頭、Console 花費上限）。
+> - dev server 的 `src/app/recognize+api.ts` 與 `src/server/recognizeHoldings.ts` **已刪除**，網頁版也改打後端：辨識邏輯只留一份（`backend/src/claudeRecognize.ts`），key 也只剩 `backend/.env` 一個地方。
+> - **§1.4 的 mimeType bug 已修**：後端看檔頭判斷格式（`backend/src/recognizeRequest.ts`），不信任 app 的 mimeType；app 端 `src/domain/imageMimeType.ts` 依序用檔案內容 → 副檔名 → picker 的值猜一個當提示，猜不到就不送。
+> - 真 key 實測 2 次（本機後端，port 8797）：`01-lots-cost.q60.jpg` **標成 `image/png` 送出**（重現手機的情況）→ 200，後端認成 `image/jpeg`，3 檔與 `expected.json` 完全一致，10 秒，4,602／563 tokens ≈ **US$0.030**；`03-mixed-en-six.png` → 200，7 列全對，並提示台積電重複，8 秒，4,602／752 tokens ≈ **US$0.033**。符合 §4 的估計。
+> - 開關仍是 `screenshotImport`、預設關閉，用 `node scripts/feature-flags.mjs set screenshotImport on` 遠端打開；Tech Day 現場要先開 `npm run backend:tunnel`。完整步驟見 [architecture.md](../architecture.md) 第 7 節。
+>
+> 以下是實作前的研究原文，保留當紀錄。
+
 | 情境 | 能不能用 | 一句話原因 |
 |---|---|---|
 | (a) 網頁版 dev server | **能**（要有 `.env` 的 key） | 同源打 `/recognize`；網頁選圖的 mimeType 是真的 |
@@ -105,7 +115,7 @@ function getOrigin() {
 
 - **影響範圍**：(b) 和修好網址後的 (c)。網頁版 (a) 不受影響，所以網頁上測過也看不出來。
 - **確定程度**：圖片內容是 JPEG、mimeType 是 PNG，這兩點是讀原始碼確認的。API 是否真的拒收沒有實測（這台電腦沒有 key）。可以用 `node docs/research/screenshot-samples/recognize-samples.mjs --mislabel` 一次驗證。
-- **修法**（不在本次範圍）：server 端看 base64 開頭的魔術位元組判斷真實格式（`/9j/` = JPEG、`iVBOR` = PNG、`R0lG` = GIF、`UklG` = WebP），不信任客戶端的 mimeType。改 `src/server/recognizeHoldings.ts` 一個地方就能同時修好 (b) 和 (c)。
+- **修法**（2026-10-27 已照這個做，搬到 `backend/src/recognizeRequest.ts`）：server 端看 base64 開頭的魔術位元組判斷真實格式（`/9j/` = JPEG、`iVBOR` = PNG、`R0lG` = GIF、`UklG` = WebP），不信任客戶端的 mimeType。改 `src/server/recognizeHoldings.ts` 一個地方就能同時修好 (b) 和 (c)。
 
 ### 1.5 (c) 安裝的 APK：一定失敗
 

@@ -44,7 +44,7 @@
 | 股票清單 | 證交所上市 | 上市 + 上櫃，並標示個股／ETF（已完成） |
 | 儲存 | AsyncStorage `cspo.holdings.v1` | 新的 ledger 結構，舊資料自動搬移 |
 
-**保留不動的部分**：`StockPicker`、`theme.ts`、設計系統、證交所來源、截圖辨識的 server 端（`src/server/`、`recognize+api.ts`）。
+**保留不動的部分**：`StockPicker`、`theme.ts`、設計系統、證交所來源、截圖辨識的後端（`backend/src/claudeRecognize.ts`、`POST /recognize`）。
 
 ---
 

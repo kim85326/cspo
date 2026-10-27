@@ -72,7 +72,7 @@ PO、測試、工程三方都用這份表上的詞。程式裡的名字對應右
 | 截圖匯入 | 把券商 app 的持股畫面截圖（從相簿選或現場拍）交給 AI 辨識，自動填進持股欄位。辨識結果一定要人工核對 | `useScreenshotImport` / `applyExtraction` |
 | 辨識結果 | AI 從截圖讀出的每一檔：代號、名稱、成本價、數量（股或張）與信心；還沒對到股票清單、還沒驗證 | `ExtractedHolding` / `ExtractionResult` |
 | 辨識信心 | AI 對一檔持股看得清不清楚：high 或 low。low、或對不到股票清單的欄位，標籤旁顯示「請確認」 | `ExtractionConfidence` / `ReviewFlags` |
-| 辨識服務 | 收截圖、回辨識結果的地方。手機不直接呼叫 AI，而是送到 dev server 的 `/recognize`，由 server 端用 API key 呼叫 Claude | `HoldingRecognizer` / `src/app/recognize+api.ts` |
+| 辨識服務 | 收截圖、回辨識結果的地方。手機不直接呼叫 AI，而是送到工程同學電腦上的後端 `backend/` 的 `/recognize`（和 AI 解讀同一台），由後端用 API key 呼叫 Claude | `HoldingRecognizer` / `backend/src/claudeRecognize.ts` |
 | AI 解讀 | 算完盈虧後按「AI 解讀」，由 AI 用白話說明這組持股目前的表現：一句話總結、2～4 點觀察、一句風險提醒。只描述數字，不給投資建議 | `InsightSection` / `InsightCard` / `Insight` |
 | AI 解讀後端 | 跑在工程同學電腦上的小服務（`backend/`，`npm run backend` 啟動）。手機把持股數字送過去，它用電腦上的 API key 呼叫 Claude。API key 不會離開那台電腦 | `backend/` / `InsightProvider`（`backendInsightProvider`） |
 | 解讀輸入 | 送給 AI 解讀後端的資料：股票代號、名稱、股數、平均成本、成本、現價、盈虧、報酬率與合計。沒有任何個人資料 | `InsightInput`（`src/domain/insightInput.ts`） |

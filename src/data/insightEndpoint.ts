@@ -5,7 +5,7 @@ import { Platform } from "react-native";
 export const DEFAULT_INSIGHT_PORT = 8787;
 
 /**
- * AI 解讀後端的網址。
+ * AI 後端（backend/）的網址：AI 解讀（/insight）與截圖匯入的辨識（/recognize）共用。
  * 1. 有設 EXPO_PUBLIC_INSIGHT_API_URL 就用它：ngrok 的固定網址（https://xxxx.ngrok-free.app），
  *    給別人連、APK、tunnel 都靠這個；npm run backend:tunnel 啟動時會印出要設的值。
  * 2. 沒設時猜一個，省得在同一台電腦或同一個 Wi-Fi 開發還要設定：

@@ -55,8 +55,7 @@ cspo/
 │   │   ├── holdings/index.tsx → screens/HoldingsScreen（持股明細，Story 010）
 │   │   ├── holdings/[symbol].tsx → screens/HoldingDetailScreen（單一持股、核心／衛星切換，Story 010）
 │   │   ├── twse+api.ts 網頁版同源代理 GET /twse → 證交所（沒開 CORS）
-│   │   ├── tpex+api.ts 網頁版同源代理 GET /tpex → 櫃買中心（沒開 CORS）
-│   │   └── recognize+api.ts 截圖辨識 API route（Story 005）
+│   │   └── tpex+api.ts 網頁版同源代理 GET /tpex → 櫃買中心（沒開 CORS）
 │   ├── screens/        畫面本體與畫面測試
 │   │   ├── HomeScreen.tsx      首頁總覽：整體／核心／衛星、前 5 檔持股、新增交易與快速試算入口（Story 011）
 │   │   ├── CalculateScreen.tsx 快速試算（Story 001～005、016、017）

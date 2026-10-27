@@ -38,7 +38,7 @@ export type CreateMessage = (
 ) => Promise<Anthropic.Beta.Messages.BetaMessage>;
 
 export function createClaudeCreateMessage(apiKey: string): CreateMessage {
-  // 預設 timeout 是 10 分鐘；這個請求很小，60 秒還沒回就讓 app 顯示可重試的錯誤
+  // 預設 timeout 是 10 分鐘；/insight 與 /recognize 都在 60 秒內回，超過就讓 app 顯示可重試的錯誤
   const client = new Anthropic({ apiKey, timeout: 60_000, maxRetries: 1 });
   return (params) => client.beta.messages.create(params);
 }
@@ -171,8 +171,8 @@ export function parseInsightText(text: string): InsightText {
   return { summary, observations, riskNote };
 }
 
-/** SDK 例外 → 給使用者看的中文；英文原文只寫進後端 log，不回給 app */
-function toServerError(error: unknown): InsightServerError {
+/** SDK 例外 → 給使用者看的中文；英文原文只寫進後端 log，不回給 app（/recognize 也共用） */
+export function toServerError(error: unknown): InsightServerError {
   if (error instanceof InsightServerError) return error;
   if (error instanceof Anthropic.AuthenticationError) {
     return new InsightServerError("後端的 ANTHROPIC_API_KEY 無效，請檢查 backend/.env", 503);
@@ -187,9 +187,9 @@ function toServerError(error: unknown): InsightServerError {
     return new InsightServerError("後端連不上 AI 服務，請檢查電腦的網路", 502);
   }
   if (error instanceof Anthropic.APIError) {
-    console.error(`[insight] Claude API 錯誤 ${error.status ?? "?"}: ${error.message}`);
+    console.error(`[claude] Claude API 錯誤 ${error.status ?? "?"}: ${error.message}`);
     return new InsightServerError(`AI 服務錯誤（${error.status ?? "?"}），請稍後再試`, 502);
   }
-  console.error("[insight] 未預期的錯誤", error);
+  console.error("[claude] 未預期的錯誤", error);
   return new InsightServerError("解讀時發生未知錯誤，請重試", 500);
 }

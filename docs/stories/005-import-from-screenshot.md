@@ -7,7 +7,7 @@
 ## 驗收條件
 
 股票清單與現價以 [docs/glossary.md](../glossary.md) 的假價表為準。辨識由 AI 模型完成，**結果一定要人工核對**；辨識信心低的欄位會標「請確認」。
-手機 app 本身不接 AI 服務：截圖送到工程同學電腦上的 dev server，再由 server 端呼叫 AI（API key 只放在電腦的 `.env`）。
+手機 app 本身不接 AI 服務：截圖送到工程同學電腦上的本機後端 `backend/`（和 AI 解讀同一台，`POST /recognize`），再由後端呼叫 AI。API key 只放在那台電腦的 `backend/.env`，APK 與 repo 裡都沒有。APK、Expo Go、網頁版都走同一條路（2026-10-27 起；之前走 dev server 的 API route，APK 一定失敗）。
 
 ```gherkin
 Scenario: 匯入兩檔
@@ -56,7 +56,7 @@ Scenario: 同一檔出現兩次
   Then 合併成一檔：數量 2000、買入價 550（加權平均），並有提示說明已合併
 
 Scenario: 辨識失敗
-  Given 手機連不到 dev server，或 server 沒有設定 API key
+  Given 手機連不到後端（電腦沒開 npm run backend:tunnel），或後端沒有設定 API key
   When 我匯入截圖
   Then 顯示錯誤原因與「重試」按鈕
   And 我原本填的內容都還在
@@ -65,6 +65,16 @@ Scenario: 辨識不到任何持股
   Given 我選了一張不是持股畫面的圖
   When 辨識完成
   Then 提示「截圖裡辨識不到任何持股…」，欄位不變
+
+Scenario: 相簿給的格式標示錯誤
+  Given 我選了一張 PNG 截圖（或 iPhone 的 HEIC 照片），手機壓縮後上傳的其實是 JPEG
+  When 辨識完成
+  Then 照常辨識成功，不會出現「辨識服務錯誤（400）」
+
+Scenario: 圖片太大或不是圖片
+  Given 我選的圖片超過 5 MB，或不是 JPEG／PNG／WebP 圖片
+  When 我匯入
+  Then 顯示「圖片太大…」或「不支援這種圖片格式…」，原本填的內容都還在
 
 Scenario: 沒有相簿或相機權限
   Given 我拒絕了相簿（或相機）權限
@@ -84,20 +94,29 @@ Scenario: 沒有相簿或相機權限
 | 看不清楚的數字（請確認） | 同上 | 同上 | — |
 | 超過 5 檔 | 同上 | 同上 | — |
 | 同一檔出現兩次 | 同上 | — | — |
-| 辨識失敗 | `src/data/claudeHoldingRecognizer.test.ts`、`src/server/recognizeHoldings.test.ts` | 同上 | — |
+| 辨識失敗 | `src/data/backendHoldingRecognizer.test.ts`、`backend/src/server.test.ts`、`backend/src/claudeRecognize.test.ts` | 同上 | — |
+| 格式標示錯誤（看檔案內容） | `src/domain/imageMimeType.test.ts`、`backend/src/recognizeRequest.test.ts` | — | — |
+| 圖片太大或不是圖片 | `backend/src/recognizeRequest.test.ts`、`backend/src/server.test.ts` | — | — |
 | 辨識不到任何持股 | — | 同上 | — |
 | 沒有權限 | — | 同上 | — |
 | 代號全形、帶逗號、只有名稱 | `holdingExtract.test.ts` | — | — |
 
-自動化測試用 `fakeHoldingRecognizer`（固定回兩檔）與假的相簿；真的辨識只在手動驗收時跑，見 [docs/test-plan.md](../test-plan.md) 的 S1～S8。
+自動化測試用 `fakeHoldingRecognizer`（固定回兩檔）與假的相簿；後端測試（`npm run backend:test`）用假的 Claude。真的辨識只在手動驗收時跑，見 [docs/test-plan.md](../test-plan.md) 的 S1～S10。
 
 ## 功能開關
 
-這個功能還在開發中，由 `src/config/features.ts` 的 `screenshotImport` 控制，**預設關閉**，APK 與測試同學的 Expo Go 都看不到「從截圖匯入」按鈕。
+由 `src/config/features.ts` 的 `screenshotImport` 控制，**預設關閉**，可以遠端切換（Story 026），不用重打 APK、不用發 OTA。
 
-工程同學要在自己的 dev server 打開：專案根目錄的 `.env.local`（已被 git 忽略）加一行 `EXPO_PUBLIC_FEATURE_SCREENSHOT_IMPORT=1`，重開 `npx expo start` 後在手機上 reload。
+**Tech Day 現場打開**（細節見 [architecture.md](../architecture.md) 第 7 節）：
 
-上線前要先完成 [docs/research/screenshot-import.md](../research/screenshot-import.md) 的部署與 mimeType 修正，再把預設改成打開。
+1. 一次性：EAS preview 環境要有 `EXPO_PUBLIC_INSIGHT_API_URL`（ngrok 固定網址）與 `EXPO_PUBLIC_INSIGHT_ACCESS_TOKEN`（和 `backend/.env` 相同），然後 `npm run ota` 發一次，build 5 的 APK 才知道後端在哪。只設這兩個，AI 解讀的開關照樣關著。
+2. 現場在工程同學的電腦執行 `npm run backend:tunnel`。
+3. 執行 `node scripts/feature-flags.mjs set screenshotImport on`。最多等 5 分鐘，請同學把 app 切到背景再切回來，就看得到「從截圖匯入」。
+4. 結束時 `node scripts/feature-flags.mjs set screenshotImport off`，再 Ctrl+C 關掉 tunnel。
+
+工程同學要在自己的 dev server 打開：`.env.local` 加 `EXPO_PUBLIC_FEATURE_SCREENSHOT_IMPORT=1`（同電腦網頁版、同 Wi-Fi 的 Expo Go 只要另外開 `npm run backend`；不開後端想看畫面加 `EXPO_PUBLIC_USE_FAKE_RECOGNIZER=1`），重開 `npx expo start` 後在手機上 reload。
+
+不做：截圖匯入改成產生交易（T10），要等交易輸入（T4）與首頁（T6）合併後再做。
 
 ## 狀態
 
