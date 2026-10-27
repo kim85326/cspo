@@ -4,6 +4,7 @@
 //   node docs/research/screenshot-samples/recognize-samples.mjs                 # 打 http://localhost:8081/recognize
 //   node docs/research/screenshot-samples/recognize-samples.mjs --url https://xxx.expo.app/recognize
 //   node docs/research/screenshot-samples/recognize-samples.mjs --mislabel      # JPEG 標成 image/png，重現手機上傳的 mimeType 問題
+//   node docs/research/screenshot-samples/recognize-samples.mjs --token <值>    # 加上存取 token（報告 §3 的設計；也可用環境變數 RECOGNIZE_TOKEN）
 //
 // 每打一張就會花一次 Claude API 的錢（約 US$0.03～0.06，見 ../screenshot-import.md 第 4 節）。
 import { readFile, readdir } from "node:fs/promises";
@@ -15,6 +16,8 @@ const args = process.argv.slice(2);
 const urlIndex = args.indexOf("--url");
 const url = urlIndex >= 0 ? args[urlIndex + 1] : "http://localhost:8081/recognize";
 const mislabel = args.includes("--mislabel");
+const tokenIndex = args.indexOf("--token");
+const token = tokenIndex >= 0 ? args[tokenIndex + 1] : process.env.RECOGNIZE_TOKEN;
 
 const files = mislabel
   ? ["01-lots-cost.q60.jpg"]
@@ -26,7 +29,7 @@ for (const file of files) {
   const started = Date.now();
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(token ? { "x-recognize-token": token } : {}) },
     body: JSON.stringify({ imageBase64, mimeType }),
   });
   const body = await response.text();
