@@ -157,6 +157,29 @@
         color: var(--muted-foreground);
         font-size: 14px;
       }
+      .versions {
+        list-style: none;
+        padding: 0;
+        margin: 8px 0 0;
+      }
+      .versions li {
+        border-top: 1px solid var(--border);
+        padding: 10px 0;
+        margin: 0;
+      }
+      .versions li:first-child {
+        border-top: 0;
+      }
+      .versions a {
+        color: var(--primary);
+        font-weight: 600;
+        text-decoration: underline;
+      }
+      .version-meta {
+        display: block;
+        color: var(--muted-foreground);
+        font-size: 13px;
+      }
       footer {
         text-align: center;
         color: var(--muted-foreground);
@@ -182,7 +205,13 @@
         <p class="meta" id="build-meta"></p>
         <div class="qr" id="qr" aria-label="下載連結 QR code"></div>
         <p class="meta">手機掃這個 QR code 也可以直接下載</p>
-        <p class="meta"><a href="https://github.com/kim85326/cspo/releases">所有版本</a></p>
+      </section>
+
+      <section class="card">
+        <h2>其他版本</h2>
+        <p class="note" style="margin-top: 0">新版有問題時，可以改裝舊版。</p>
+        <ul class="versions" id="versions"></ul>
+        <p class="meta"><a href="https://github.com/kim85326/cspo/releases">在 GitHub 看所有版本與更新說明</a></p>
       </section>
 
       <section class="card">
@@ -193,6 +222,7 @@
           <li>安裝完成後打開「賺了嗎」。</li>
         </ol>
         <p class="note">這是測試版，沒有上架 Play 商店，所以會有未知來源的提示，屬正常情況。</p>
+        <p class="note">換版本時直接安裝新下載的 APK 即可，會覆蓋舊版並保留已存的持股。若安裝失敗，先解除安裝再裝。</p>
       </section>
 
       <section class="card">
@@ -228,9 +258,41 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
       // 換新版 APK 時只改這兩行，然後 commit。
+      // 版本清單：第一筆是最新版（主按鈕與 QR code 用它）。新增版本時在最上面加一筆，然後 commit。
       // 檔案放在 GitHub Releases：https://github.com/kim85326/cspo/releases
-      var APK_URL = "https://github.com/kim85326/cspo/releases/download/v1.0.0-build1/zhuanlema-1.0.0-build1.apk";
-      var BUILD_INFO = "版本 1.0.0 build 1 ・ 2026/10/27 ・ 約 88 MB ・ 含多檔比較";
+      var VERSIONS = [
+        {
+          name: "build 2",
+          date: "2026/10/27",
+          size: "約 88 MB",
+          notes: "新名字與 icon、證交所真實收盤價、記住上次輸入的持股、多檔比較",
+          url: "https://github.com/kim85326/cspo/releases/download/v1.0.0-build2/zhuanlema-1.0.0-build2.apk",
+        },
+        {
+          name: "build 1",
+          date: "2026/10/27",
+          size: "約 88 MB",
+          notes: "單檔盈虧、股票選擇器、多檔比較（現價為固定假價）",
+          url: "https://github.com/kim85326/cspo/releases/download/v1.0.0-build1/zhuanlema-1.0.0-build1.apk",
+        },
+      ];
+      var latest = VERSIONS[0];
+      var APK_URL = latest.url;
+      var BUILD_INFO = "最新版 " + latest.name + " ・ " + latest.date + " ・ " + latest.size + " ・ " + latest.notes;
+
+      var list = document.getElementById("versions");
+      VERSIONS.forEach(function (v, i) {
+        var li = document.createElement("li");
+        var a = document.createElement("a");
+        a.href = v.url;
+        a.textContent = "下載 " + v.name + (i === 0 ? "（最新）" : "");
+        var meta = document.createElement("span");
+        meta.className = "version-meta";
+        meta.textContent = v.date + " ・ " + v.notes;
+        li.appendChild(a);
+        li.appendChild(meta);
+        list.appendChild(li);
+      });
 
       document.getElementById("download").href = APK_URL;
       document.getElementById("build-meta").textContent = BUILD_INFO;
