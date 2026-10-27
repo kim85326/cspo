@@ -688,13 +688,18 @@ describe("K 線圖與買入點（對應 docs/stories/016）", () => {
     { date: "2026-10-06", open: 525, high: 528, low: 510, close: 520 },
   ];
 
+  /** 點「買入日期」打開日曆，選 "2026/10/05" 這一天（測試環境是 iOS 的內嵌日曆） */
+  async function pickBuyDate(date: string) {
+    const [y, m, d] = date.split("/").map(Number);
+    await fireEvent.press(screen.getByLabelText("買入日期"));
+    await fireEvent(screen.getByTestId("input-buy-date-1-picker"), "valueChange", {}, new Date(y, m - 1, d));
+  }
+
   async function calculateTsmc(buyDate?: string) {
     await renderScreen();
     await typeStock("2330");
     await fillPriceAndShares("500", "1000");
-    if (buyDate !== undefined) {
-      await fireEvent.changeText(screen.getByLabelText("買入日期"), buyDate);
-    }
+    if (buyDate !== undefined) await pickBuyDate(buyDate);
     await pressCalculate();
   }
 
@@ -732,10 +737,22 @@ describe("K 線圖與買入點（對應 docs/stories/016）", () => {
     expect(await screen.findByText("買入日 2025/01/02 早於圖表範圍（最多顯示近 6 個月）")).toBeTruthy();
   });
 
-  test("買入日期格式不對：欄位顯示錯誤，不算", async () => {
-    await calculateTsmc("2026105");
-    expect(await screen.findByText("日期請用 2026/10/05 的格式")).toBeTruthy();
-    expect(screen.queryByLabelText("盈虧結果")).toBeNull();
+  test("買入日期用日曆選：選好就收起日曆，欄位顯示日期", async () => {
+    await renderScreen();
+    await pickBuyDate("2026/10/05");
+    expect(screen.getByText("2026/10/05")).toBeTruthy();
+    expect(screen.queryByTestId("input-buy-date-1-picker")).toBeNull();
+  });
+
+  test("清除買入日期：圖上不標買入點", async () => {
+    jest.spyOn(candleSource, "getDailyCandles").mockResolvedValue(CANDLES);
+    await renderScreen();
+    await typeStock("2330");
+    await fillPriceAndShares("500", "1000");
+    await pickBuyDate("2026/10/05");
+    await fireEvent.press(screen.getByLabelText("清除買入日期"));
+    await pressCalculate();
+    expect(await screen.findByText("填「買入日期」就會在圖上標出買入點")).toBeTruthy();
   });
 
   test("K 線載入失敗：盈虧照樣顯示，K 線區塊可重試", async () => {
@@ -780,6 +797,6 @@ describe("K 線圖與買入點（對應 docs/stories/016）", () => {
 
     screen.unmount();
     await renderScreen();
-    expect(await screen.findByDisplayValue("2026/10/05")).toBeTruthy();
+    expect(await screen.findByText("2026/10/05")).toBeTruthy();
   });
 });
