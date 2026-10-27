@@ -1,0 +1,13 @@
+# Story 001 / Scenario: 虧錢
+appId: host.exp.Exponent
+---
+- launchApp
+- tapOn: "股票代號或名稱"
+- inputText: "2330"
+- tapOn: "買入價"
+- inputText: "540"
+- tapOn: "數量"
+- inputText: "500"
+- tapOn: "計算"
+- assertVisible: "虧了"
+- assertVisible: "-10,000"

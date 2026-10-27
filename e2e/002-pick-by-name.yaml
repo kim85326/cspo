@@ -1,0 +1,15 @@
+# Story 002 / Scenario: 打部分公司名稱，從清單點選
+appId: host.exp.Exponent
+---
+- launchApp
+- tapOn: "股票代號或名稱"
+- inputText: "聯"
+- assertVisible: "聯發科"
+- tapOn: "聯發科"
+- assertVisible: "聯發科（2454）"
+- tapOn: "買入價"
+- inputText: "1000"
+- tapOn: "數量"
+- inputText: "100"
+- tapOn: "計算"
+- assertVisible: "+20,000"

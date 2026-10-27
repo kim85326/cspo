@@ -1,0 +1,15 @@
+# Story 001 / Scenario: 賺錢（直接打代號）
+# iOS Expo Go 的 appId 是 host.exp.Exponent，Android 是 host.exp.exponent
+appId: host.exp.Exponent
+---
+- launchApp
+- tapOn: "股票代號或名稱"
+- inputText: "2330"
+- tapOn: "買入價"
+- inputText: "500"
+- tapOn: "數量"
+- inputText: "1000"
+- tapOn: "計算"
+- assertVisible: "賺了"
+- assertVisible: "+20,000"
+- assertVisible: "+4.00%"

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "cspo",
+    "name": "股票盈虧",
     "slug": "cspo",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,10 +16,30 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.elaine0326.cspo"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-font"
+    ],
+    "scheme": "stockpnl",
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "c2ff273c-65d4-48ba-a922-762ee07e82f7"
+      }
     }
   }
 }

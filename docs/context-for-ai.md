@@ -1,0 +1,158 @@
+# 專案上下文交接（給 AI agent 或新加入的人）
+
+最後更新：2026-10-27。這份文件的目的是讓一個沒有任何背景的 AI agent 或新同事，讀完就能接手這個專案繼續做。細節請再讀 `docs/` 下的其他檔案。
+
+---
+
+## 1. 這是什麼
+
+- **活動**：公司 Tech Day 的小組作業，老師出題「做一個投資 app」。
+- **小組定義的核心問題**：「你買的股票賺了還是虧了？」
+- **輸入**：股票（代號或公司名稱）+ 買入價 + 數量（股）
+- **輸出**：盈虧金額、報酬率、賺了／虧了
+- **平台**：iOS 與 Android 雙平台，一份程式碼。
+- **節奏**：2～3 個迭代。目前第一迭代的骨架已完成並 commit。
+
+## 2. 團隊
+
+| 角色 | 人數 | 背景 | 負責 |
+|---|---|---|---|
+| 工程 | 1（Elaine） | 會 Vue / Nuxt / Node / .NET，第一次寫手機 app，大量靠 AI 協作 | 實作、自動化測試、發版 |
+| PO | 3 | 非工程 | 決定做什麼、寫 story 與驗收條件 |
+| 測試 | 數位 | 非工程，手動測試 | 手機驗收、回報 bug |
+
+協作方式：PO 用 Given / When / Then 寫驗收條件在 `docs/stories/`，工程把每條 AC 翻成單元測試、畫面測試與 Maestro 流程，測試同學用 Expo Go 在手機驗收。共同語言在 `docs/glossary.md`。
+
+## 3. 技術棧與理由
+
+| 項目 | 選擇 | 理由 |
+|---|---|---|
+| 框架 | Expo SDK 58（React Native 0.88）+ TypeScript | 一份程式碼出雙平台；Expo Go 讓測試同學免簽章就能在手機上跑 |
+| 導覽 | expo-router（檔案即路由） | 跟 Nuxt pages 同概念，工程好上手 |
+| 狀態 | React useState（第一迭代）；第二迭代預計 Zustand + AsyncStorage | 第一迭代不需要持久化 |
+| 單元／畫面測試 | Jest（jest-expo）+ React Native Testing Library 14 | Expo 官方組合 |
+| 手機端 E2E | Maestro（YAML） | 非工程背景也看得懂，幾乎是 AC 直譯 |
+| CI | GitHub Actions：typecheck + lint + test | |
+| 套件管理 | npm | Expo 文件預設 |
+| 設計系統 | ui-ux-pro-max skill 產生，存在 `design-system/stock-pnl/MASTER.md` | Minimalism & Swiss、深藍主色、金色 CTA、IBM Plex Sans |
+| 打包 | EAS Build（`eas.json` 的 preview profile 出 Android APK） | 不需要本機 Xcode / Android Studio |
+
+為什麼不用 Vue + Capacitor：包成 app 要自己簽章才能裝到測試同學手機，iOS 還要先有 Apple 開發者帳號；Expo Go 省掉這段。
+
+## 4. 專案結構
+
+```
+cspo/
+├── src/
+│   ├── app/            路由（expo-router）。只放轉出，不放邏輯與測試
+│   │   ├── _layout.tsx 載入 IBM Plex Sans 字型、Stack 導覽
+│   │   └── index.tsx   → screens/CalculateScreen
+│   ├── screens/        畫面本體與畫面測試
+│   │   ├── CalculateScreen.tsx
+│   │   └── CalculateScreen.test.tsx
+│   ├── domain/         純 TypeScript，不碰 UI 與網路，單元測試主戰場
+│   │   ├── types.ts        Holding、Quote、PnlResult、StockInfo
+│   │   ├── pnl.ts          calculatePnl、formatSignedAmount、formatReturnRate、validateHoldingInput
+│   │   ├── stockSearch.ts  searchStocks、resolveStock、normalizeQuery、formatStockLabel
+│   │   └── *.test.ts
+│   ├── data/           對外資料來源
+│   │   ├── PriceSource.ts      介面：getQuote(symbol) → Quote | null
+│   │   ├── StockDirectory.ts   介面：getAll() → StockInfo[]
+│   │   ├── stocks.ts           第一迭代固定 40 檔台股／ETF 與假現價
+│   │   ├── fakePriceSource.ts / fakeStockDirectory.ts
+│   │   └── index.ts            全 app 用哪個來源，換資料源只改這裡
+│   └── ui/             可重用元件與設計 token
+│       ├── theme.ts        colors / space / radius / fonts / fontSize / touchTarget / pnlColors
+│       ├── StockPicker.tsx 股票選擇器（打代號、打名稱、從清單選）
+│       ├── LabeledInput.tsx
+│       └── PnlCard.tsx
+├── e2e/                Maestro 流程（001-profit、001-loss、002-pick-by-name）
+├── docs/
+│   ├── architecture.md 架構、分工、迭代規劃（最完整的設計文件）
+│   ├── glossary.md     共同語言與顯示慣例
+│   ├── stories/        001 單筆盈虧、002 股票選擇器（Gherkin AC + 對應測試表）
+│   ├── test-plan.md    手動測試清單、bug 回報格式
+│   └── context-for-ai.md 本檔
+├── design-system/stock-pnl/MASTER.md
+├── eas.json
+└── .github/workflows/ci.yml
+```
+
+## 5. 關鍵設計規則
+
+1. **算錢的邏輯全部放在 `src/domain/`**，不依賴 UI 或網路，所有金額情境用單元測試跑完。
+2. **畫面不寫死色碼與間距**，一律從 `src/ui/theme.ts` 拿。
+3. **台股慣例漲紅跌綠**（跟美股相反），且不靠顏色單獨傳達：另有「賺了／虧了」文字與 ▲▼ 符號。
+4. **自動化測試用固定假價**（`src/data/stocks.ts`），結果可重現；真實行情只在手動驗收時接。
+5. **測試檔不能放在 `src/app/`**，expo-router 會把那裡的每個檔案當成一頁打包。
+6. 畫面裡所有可互動元件都有中文 `accessibilityLabel`，Maestro 與螢幕閱讀器都靠它找元件。
+
+## 6. 目前狀態（2026-10-27）
+
+### 已完成
+- Story 001：輸入一筆持股 → 盈虧。五個情境全部有測試。
+- Story 002：股票選擇器。打代號、打完整名稱、打部分名稱後從清單點選、空白時列熱門股票、多檔符合提示從清單選、✕ 清除、全形數字。
+- 設計系統套用完成。
+- 45 個測試（domain 36 + 畫面 9）、TypeScript、ESLint 全綠。
+- 網頁版在 375px 寬實測過；iPhone 透過 Expo Go tunnel 載入成功。
+- 第一個 commit 在 `iteration-1` 分支。
+
+### 進行中 / 待辦
+- **Android APK**：`eas.json` 已備好，`eas build -p android --profile preview` 第一次執行會在 Expo 帳號建專案並產生簽章金鑰（Elaine 正在跑或準備跑）。
+- **第二迭代候選**（由 PO 決定優先順序）：
+  - 接證交所真實資料：`https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`（全市場代號、名稱、收盤價，一次拿齊，可同時實作 PriceSource 與 StockDirectory）
+  - 多筆持股清單與總盈虧，資料存手機（Zustand + AsyncStorage）
+  - 手續費 0.1425%（最低 20 元）與交易稅 0.3%
+- **第三迭代候選**：報酬率圖、到價提醒、商店截圖與隱私權政策。
+
+### Code review 留下的 Minor（未處理，不影響正確性）
+- `resolveStock` 在候選剛好一檔時自動命中，對代號類查詢可能靜默猜錯（例如打「12」只剩 1216）。建議代號只接受完全相同。
+- `CalculateScreen.validateOne` 用假代號 `"0000"` 借用整組驗證函式，應改成 domain 提供逐欄驗證。
+- 測試命名是中文情境描述，不符公司 convention 的 `it('{expect} when {scenario}')`。Tech Day 專案可自訂，但要決定。
+
+## 7. 怎麼跑
+
+```bash
+cd cspo
+npm install
+npm start -- --tunnel     # 開 dev server；tunnel 模式不需要同一個 Wi-Fi
+npm test                  # Jest
+npm run typecheck
+npm run lint
+npm run check             # 以上三個一起
+npm run e2e               # Maestro（需先裝 maestro 並開模擬器）
+eas build -p android --profile preview   # 雲端打 APK
+```
+
+測試同學：手機裝 Expo Go，掃終端機的 QR code。
+
+## 8. 環境與帳號（Elaine 的 Mac）
+
+- macOS 15.7，Apple Silicon。已裝：Node 24（pnpm 管理）、npm、Bun、Homebrew、Watchman、CocoaPods、OpenJDK 17、Android Studio（尚未跑第一次設定精靈，SDK 未下載）、eas-cli 26（用 pnpm 全域裝）。
+- **Xcode 未安裝**，iOS 模擬器不能用；用真機 + Expo Go。
+- `~/.zshrc` 還沒加 JAVA_HOME / ANDROID_HOME（安全檢查擋住自動寫入，需手動貼）：
+  ```
+  export JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"
+  export ANDROID_HOME="$HOME/Library/Android/sdk"
+  export PATH="$JAVA_HOME/bin:$ANDROID_HOME/emulator:$ANDROID_HOME/platform-tools:$PATH"
+  ```
+- **公司 Wi-Fi 有裝置隔離**：手機連不到電腦的 Metro（區網 IP），一律用 `--tunnel`。Mac 防火牆是關的，不是防火牆問題。
+- Expo CLI 已登入（個人免費帳號）。
+- Apple Developer 與 Google Play Console 帳號都還沒辦，打算用個人名義；這次活動只需要 Expo 帳號。上架是之後的事。
+- 公司的 twsp-dev plugin 有 commit 前強制 code-review 的 hook，Elaine 已手動清掉；plugin 更新後會回來。
+
+## 9. 踩過的坑（別再踩）
+
+- Expo SDK 58 的 API 跟舊版差很多，專案裡的 `AGENTS.md` 要求先查對應版本文件再寫 code。
+- React Native Testing Library 14 的 `render` 與 `fireEvent` 都是非同步，要 `await`。
+- 畫面用了 `useSafeAreaInsets`，測試要包 `SafeAreaProvider` 並給 `initialMetrics`。
+- 網頁版 blur 先於 click 觸發，StockPicker 用 150ms 延遲收清單來避開。
+- npm 全域安裝的 bin 不在 PATH（node 是 pnpm 管的），全域工具改用 `pnpm add -g`。
+- `create-expo-app` 需要空資料夾，`docs/` 要先搬開再搬回。
+
+## 10. 上架前要注意（之後的事）
+
+- 兩家商店都要寫明「僅供參考，非投資建議」（app 內已有這行）。
+- 不做真實下單：Apple 要求交易類 app 由持牌金融機構提交，個人名義會被退。
+- Google Play 個人帳號正式上架前要 12 位測試者連續 14 天的封閉測試。
+- Apple 年費 99 美元，Google 一次性 25 美元。
