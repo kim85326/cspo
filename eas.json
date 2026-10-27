@@ -6,12 +6,17 @@
   "build": {
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
+      "env": {
+        "EAS_GRADLE_CACHE": "1"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "channel": "production"
     }
   },
   "submit": {

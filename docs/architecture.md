@@ -207,6 +207,20 @@ preview APK 從 **92,659,407 bytes（約 88 MB）縮到 25,116,066 bytes（約 2
 - **為什麼排除那三個原生套件**：它們不在 `package.json`，是 npm 依 `expo-router` → `react-native-drawer-layout` 的 peer dependency 自動裝進來的，autolinking 看到就會編進 APK。這個 app 只用 Stack，JS bundle 裡完全沒有載入它們（用 `npx expo export --platform android --source-maps` 的 source map 確認過）。`expo-modules-core` 對 worklets 是選用整合，找不到就跳過。之後如果要用 Drawer、手勢或 Reanimated 動畫，要先把對應套件從 exclude 清單拿掉並 `npx expo install` 進來，否則 release APK 會在執行時找不到原生模組。Expo Go 本來就內建這些模組，不受這個設定影響。
 - **刻意沒做的**：Hermes 與新架構都是 SDK 58 預設，保留。`useLegacyPackaging`（把 `.so` 壓縮進 APK，估計可再省 8–10 MB 下載量，未實測，但安裝後佔用較多空間）與 `enableBundleCompression`（文件註明會拖慢啟動）都沒開。icon 原圖合計約 130 KB，沒有再壓縮的必要。
 
+### 發新版的兩條路（2026-10-27 起）
+
+先判斷這次改了什麼，細節見 [docs/build-speed.md](build-speed.md) 第 4 節：
+
+| 改了什麼 | 指令 | 大約時間 |
+|---|---|---|
+| 只有 JS／畫面／文案／圖片 | `npm run ota -- "改了什麼"` | 2～3 分鐘，同學把 app 滑掉重開兩次就是新版 |
+| 原生：加原生套件、改 `app.json` 的 icon／名稱／權限／plugins、升 SDK | `npx eas-cli build -p android --profile preview`，完成後 `npm run release -- <build ID> "改了什麼"` | 打包約 5～7 分鐘，發版約 1 分鐘 |
+
+- `npm run ota` 會先自動比對 fingerprint，原生有變就拒絕發 OTA 並提示改打 APK；也會擋下 `.env.local` 裡開著的 `EXPO_PUBLIC_*=1`（假價、開發中的功能開關），避免發給所有人。
+- `npm run release` 會下載 EAS 的 APK、建立 GitHub Release（標為最新）、在 `docs/index.html` 的版本清單最上面加一筆，然後 commit + push。舊版本都會留在下載頁，新版有問題可以改裝舊版。
+- OTA 只對「裝了 build 3 以後」的 APK 有效，build 1、2 沒有 expo-updates，收不到更新。
+- `eas.json` 的 preview profile 已開 `EAS_GRADLE_CACHE=1`；`package-lock.json` 沒變時第二次以後的打包會比較快。
+
 ## 8. 迭代規劃建議
 
 | 迭代 | 目標 | 可驗收的東西 |

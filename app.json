@@ -31,7 +31,8 @@
         "expo-image-picker",
         {
           "photosPermission": "用來選擇券商 app 的持股截圖，辨識後自動填進持股欄位。",
-          "cameraPermission": "用來拍下券商 app 的持股畫面，辨識後自動填進持股欄位。"
+          "cameraPermission": "用來拍下券商 app 的持股畫面，辨識後自動填進持股欄位。",
+          "microphonePermission": false
         }
       ],
       [
@@ -60,6 +61,12 @@
       "eas": {
         "projectId": "c2ff273c-65d4-48ba-a922-762ee07e82f7"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c2ff273c-65d4-48ba-a922-762ee07e82f7"
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
     }
   }
 }

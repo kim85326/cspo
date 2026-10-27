@@ -14,6 +14,7 @@
     "expo-linking": "~58.0.14",
     "expo-router": "~58.0.26",
     "expo-status-bar": "~58.0.4",
+    "expo-updates": "~58.0.18",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.0",
@@ -41,7 +42,9 @@
     "test": "jest",
     "test:watch": "jest --watchAll",
     "check": "npm run typecheck && npm run lint && npm test",
-    "e2e": "maestro test e2e/"
+    "e2e": "maestro test e2e/",
+    "release": "node scripts/release-apk.mjs",
+    "ota": "node scripts/ota-update.mjs"
   },
   "private": true,
   "jest": {
