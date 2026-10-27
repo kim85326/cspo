@@ -10,6 +10,7 @@ import {
   RecognizeError,
   stockDirectory,
 } from "@/data";
+import { features } from "@/config/features";
 import { FAKE_EXTRACTION } from "@/data/fakeHoldingRecognizer";
 import CalculateScreen from "./CalculateScreen";
 
@@ -412,8 +413,36 @@ describe("真實行情（證交所）：載入失敗與資料日期", () => {
   });
 });
 
-describe("從截圖匯入（對應 docs/stories/005）", () => {
+describe("截圖匯入的功能開關", () => {
   afterEach(() => {
+    features.screenshotImport = false;
+  });
+
+  test("開關關閉（預設）：看不到「從截圖匯入」，其他功能照常", async () => {
+    features.screenshotImport = false;
+    await renderScreen();
+    expect(screen.queryByLabelText("從截圖匯入")).toBeNull();
+    expect(screen.getByLabelText("新增一檔比較")).toBeTruthy();
+    await typeStock("2330");
+    await fillPriceAndShares("500", "1000");
+    await pressCalculate();
+    expect(await screen.findByText("+20,000")).toBeTruthy();
+  });
+
+  test("開關打開：出現「從截圖匯入」", async () => {
+    features.screenshotImport = true;
+    await renderScreen();
+    expect(screen.getByLabelText("從截圖匯入")).toBeTruthy();
+  });
+});
+
+describe("從截圖匯入（對應 docs/stories/005）", () => {
+  beforeEach(() => {
+    features.screenshotImport = true;
+  });
+
+  afterEach(() => {
+    features.screenshotImport = false;
     jest.restoreAllMocks();
     jest.clearAllMocks();
   });

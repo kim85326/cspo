@@ -91,6 +91,14 @@ Scenario: 沒有相簿或相機權限
 
 自動化測試用 `fakeHoldingRecognizer`（固定回兩檔）與假的相簿；真的辨識只在手動驗收時跑，見 [docs/test-plan.md](../test-plan.md) 的 S1～S8。
 
+## 功能開關
+
+這個功能還在開發中，由 `src/config/features.ts` 的 `screenshotImport` 控制，**預設關閉**，APK 與測試同學的 Expo Go 都看不到「從截圖匯入」按鈕。
+
+工程同學要在自己的 dev server 打開：專案根目錄的 `.env.local`（已被 git 忽略）加一行 `EXPO_PUBLIC_FEATURE_SCREENSHOT_IMPORT=1`，重開 `npx expo start` 後在手機上 reload。
+
+上線前要先完成 [docs/research/screenshot-import.md](../research/screenshot-import.md) 的部署與 mimeType 修正，再把預設改成打開。
+
 ## 狀態
 
 - [ ] AC 經 PO 確認

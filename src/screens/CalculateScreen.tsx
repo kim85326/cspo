@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { features } from "@/config/features";
 import { holdingStore, PriceLoadError, priceSource, stockDirectory } from "@/data";
 import { compareHoldings, MAX_COMPARE_HOLDINGS, type ComparisonResult } from "@/domain/compare";
 import { applyExtraction, type ExtractionResult } from "@/domain/holdingExtract";
@@ -41,7 +42,8 @@ const LOAD_ERROR_MESSAGE = "行情載入失敗，請檢查網路後重試";
 /**
  * 輸入一檔或多檔持股 → 看盈虧；兩檔以上就排名比較。按「計算」成功後把輸入存在手機，重開帶回。
  * 對應 docs/stories/001-single-holding-pnl.md、002-stock-picker.md、003-compare-stocks.md、004-remember-holdings.md、
- * 005-import-from-screenshot.md（從截圖匯入：按鈕在這裡，選圖與辨識在 hooks/useScreenshotImport，套用在 domain/applyExtraction）
+ * 005-import-from-screenshot.md（從截圖匯入：按鈕在這裡，選圖與辨識在 hooks/useScreenshotImport，套用在 domain/applyExtraction；
+ *   目前由 src/config/features.ts 的 screenshotImport 開關控制，預設關閉）
  * 現價來自 src/data 的 priceSource（app 裡是證交所收盤價，測試是假價）；載入失敗顯示「行情載入失敗」。
  * 路由入口在 src/app/index.tsx。
  */
@@ -271,6 +273,8 @@ export default function CalculateScreen() {
   };
 
   const canAdd = forms.length < MAX_COMPARE_HOLDINGS;
+  /** 功能開關：截圖匯入開發中，預設關閉（見 src/config/features.ts） */
+  const showScreenshotImport = features.screenshotImport;
   const isComparing = forms.length > 1;
 
   return (
@@ -322,31 +326,33 @@ export default function CalculateScreen() {
               {canAdd ? "＋ 新增一檔比較" : `最多比較 ${MAX_COMPARE_HOLDINGS} 檔`}
             </Text>
           </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="從截圖匯入"
-            accessibilityState={{ disabled: screenshotImport.recognizing, busy: screenshotImport.recognizing }}
-            testID="button-import-screenshot"
-            onPress={openImportSheet}
-            disabled={screenshotImport.recognizing}
-            style={({ pressed }) => [
-              styles.addButton,
-              pressed && styles.buttonPressed,
-              screenshotImport.recognizing && styles.buttonDisabled,
-            ]}
-          >
-            <Text style={styles.addButtonText}>從截圖匯入</Text>
-          </Pressable>
+          {showScreenshotImport ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="從截圖匯入"
+              accessibilityState={{ disabled: screenshotImport.recognizing, busy: screenshotImport.recognizing }}
+              testID="button-import-screenshot"
+              onPress={openImportSheet}
+              disabled={screenshotImport.recognizing}
+              style={({ pressed }) => [
+                styles.addButton,
+                pressed && styles.buttonPressed,
+                screenshotImport.recognizing && styles.buttonDisabled,
+              ]}
+            >
+              <Text style={styles.addButtonText}>從截圖匯入</Text>
+            </Pressable>
+          ) : null}
         </View>
 
-        {screenshotImport.recognizing ? (
+        {showScreenshotImport && screenshotImport.recognizing ? (
           <View style={styles.importStatus} testID="import-loading" accessibilityLiveRegion="polite">
             <ActivityIndicator color={colors.primary} />
             <Text style={styles.importStatusText}>辨識中…</Text>
           </View>
         ) : null}
 
-        {screenshotImport.error ? (
+        {showScreenshotImport && screenshotImport.error ? (
           <View style={styles.notFound} testID="import-error" accessibilityRole="alert" accessibilityLiveRegion="polite">
             <Text style={styles.notFoundText}>{screenshotImport.error}</Text>
             <View style={styles.importErrorActions}>
@@ -374,7 +380,7 @@ export default function CalculateScreen() {
           </View>
         ) : null}
 
-        {importWarnings.length > 0 ? (
+        {showScreenshotImport && importWarnings.length > 0 ? (
           <View style={styles.importWarnings} testID="import-warnings" accessibilityLiveRegion="polite">
             {importWarnings.map((warning) => (
               <Text key={warning} style={styles.importWarningText}>
@@ -446,7 +452,7 @@ export default function CalculateScreen() {
       </ScrollView>
 
       <ImportSourceSheet
-        visible={importSheetOpen}
+        visible={showScreenshotImport && importSheetOpen}
         onClose={() => setImportSheetOpen(false)}
         onPick={(source) => {
           setImportSheetOpen(false);

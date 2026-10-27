@@ -23,6 +23,7 @@ PO、測試、工程三方都用這份表上的詞。程式裡的名字對應右
 | 合計 | 所有持股的成本、現值、盈虧相加；總報酬率 = 總盈虧 ÷ 總成本（不是各檔報酬率平均） | `ComparisonResult.total` |
 | 已儲存的持股 | 使用者輸入過、存在手機本機的持股（代號、買入價、數量的原始字串，不含算好的結果）。關掉重開會帶回欄位 | `SavedHolding` |
 | 持股儲存 | 讀寫「已儲存的持股」的地方。存的是陣列，一次可以多筆；資料只在手機本機 | `HoldingStore` |
+| 功能開關 | 開發中的功能先藏起來，預設關閉；工程同學用環境變數在自己的 dev server 打開。目前只有「從截圖匯入」 | `features`（`src/config/features.ts`） |
 | 截圖匯入 | 把券商 app 的持股畫面截圖（從相簿選或現場拍）交給 AI 辨識，自動填進持股欄位。辨識結果一定要人工核對 | `useScreenshotImport` / `applyExtraction` |
 | 辨識結果 | AI 從截圖讀出的每一檔：代號、名稱、成本價、數量（股或張）與信心；還沒對到股票清單、還沒驗證 | `ExtractedHolding` / `ExtractionResult` |
 | 辨識信心 | AI 對一檔持股看得清不清楚：high 或 low。low、或對不到股票清單的欄位，標籤旁顯示「請確認」 | `ExtractionConfidence` / `ReviewFlags` |
