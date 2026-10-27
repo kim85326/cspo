@@ -14,10 +14,10 @@ import { fakePriceSource } from "./fakePriceSource";
 import { fakeStockDirectory } from "./fakeStockDirectory";
 import type { HoldingRecognizer } from "./HoldingRecognizer";
 import type { HoldingStore } from "./HoldingStore";
-import { createLedgerHoldingStore } from "./ledgerHoldingStore";
 import { createLedgerRepository, type LedgerRepository } from "./ledgerRepository";
 import type { LedgerStore } from "./LedgerStore";
 import { createMarketSource } from "./marketSource";
+import { createQuickCalcHoldingStore } from "./quickCalcHoldingStore";
 import { createOfficialActionSource, createOfficialCandleSource, type MarketOf } from "./officialSources";
 import type { InsightProvider } from "./InsightProvider";
 import type { PriceSource } from "./PriceSource";
@@ -79,11 +79,11 @@ export const corporateActionSource: CorporateActionSource = useFakeSources
 /**
  * 記帳本（Story 008）：AsyncStorage 的 cspo.ledger.v1；第一次讀寫時自動把舊版 cspo.holdings.v1 搬過來。
  * - ledgerRepository：畫面讀寫記帳本都走這個（或 useLedger hook），不要直接用 ledgerStore。
- * - holdingStore：給 CalculateScreen 的過渡轉接，底下也是同一個 ledgerRepository。
+ * - holdingStore：快速試算（CalculateScreen）記住輸入用，存在自己的 key，只讀記帳本、不寫記帳本（Story 011）。
  */
 export const ledgerStore: LedgerStore = asyncStorageLedgerStore;
 export const ledgerRepository: LedgerRepository = createLedgerRepository(ledgerStore);
-export const holdingStore: HoldingStore = createLedgerHoldingStore(ledgerRepository);
+export const holdingStore: HoldingStore = createQuickCalcHoldingStore(ledgerRepository);
 export const holdingRecognizer: HoldingRecognizer = useFakeRecognizer
   ? fakeHoldingRecognizer
   : claudeHoldingRecognizer;

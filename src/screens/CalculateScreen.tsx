@@ -44,14 +44,15 @@ type Outcome =
 const LOAD_ERROR_MESSAGE = "行情載入失敗，請檢查網路後重試";
 
 /**
- * 輸入一檔或多檔持股 → 看盈虧；兩檔以上就排名比較。按「計算」成功後把輸入存在手機，重開帶回。
+ * 快速試算：輸入一檔或多檔持股 → 看盈虧；兩檔以上就排名比較。按「計算」成功後把輸入存在手機，重開帶回。
+ * 輸入存在快速試算自己的地方，不會寫進記帳本（見 data/quickCalcHoldingStore、docs/stories/011 決策紀錄 1）。
  * 對應 docs/stories/001-single-holding-pnl.md、002-stock-picker.md、003-compare-stocks.md、004-remember-holdings.md、
  * 005-import-from-screenshot.md（從截圖匯入：按鈕在這裡，選圖與辨識在 hooks/useScreenshotImport，套用在 domain/applyExtraction；
  *   目前由功能開關 screenshotImport 控制（useFeatures，見 src/config/features.ts），預設關閉）、
  * 016-candle-chart.md（單檔結果下方的日 K 線圖與買入點，見 ui/PriceHistoryCard）
  * 017-ai-insight.md（AI 解讀：ui/InsightCard 的 InsightSection，由 aiInsight 開關控制，預設關閉）
  * 現價來自 src/data 的 priceSource（app 裡是證交所收盤價，測試是假價）；載入失敗顯示「行情載入失敗」。
- * 路由入口在 src/app/index.tsx。
+ * 路由入口在 src/app/calculate.tsx（Story 011 首頁總覽上線後，從首頁底部「快速試算」進來）。
  */
 export default function CalculateScreen() {
   const insets = useSafeAreaInsets();
@@ -298,7 +299,7 @@ export default function CalculateScreen() {
       style={styles.flex}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <Stack.Screen options={{ title: "賺了嗎" }} />
+      <Stack.Screen options={{ title: "快速試算" }} />
       <ScrollView
         style={styles.flex}
         contentContainerStyle={[styles.content, { paddingBottom: space.xl + insets.bottom }]}

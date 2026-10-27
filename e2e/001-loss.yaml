@@ -8,6 +8,10 @@ appId: host.exp.Exponent
       visible: "我已了解並同意"
     commands:
       - tapOn: "我已了解並同意"
+# Story 011：試算畫面搬到首頁底部的「快速試算」；有持股時在畫面下方，先捲過去
+- scrollUntilVisible:
+    element: "快速試算"
+- tapOn: "快速試算"
 - tapOn: "股票代號或名稱"
 - inputText: "2330"
 - tapOn: "買入價"

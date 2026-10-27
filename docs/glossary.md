@@ -38,8 +38,11 @@ PO、測試、工程三方都用這份表上的詞。程式裡的名字對應右
 | 比較 | 舊版首頁的功能：兩檔以上的持股一起算，依報酬率排名；第一名標「表現最好」、最後一名標「表現最差」。之後由持股明細的排序取代（Story 010、011） | `compareHoldings` / `ComparisonResult` |
 | 排名 | 比較結果裡的名次，從 1 開始。報酬率高者在前；相同則盈虧金額大者在前；再相同照輸入順序 | `ComparisonRow.rank` |
 | 合計 | 所有持股的成本、現值、盈虧相加；總報酬率 = 總盈虧 ÷ 總成本（不是各檔報酬率平均） | `ComparisonResult.total` |
-| 已儲存的持股 | 舊版首頁的欄位內容（代號、買入價、數量、買入日期的原始字串）。舊版存在 `cspo.holdings.v1`；Story 008 起由記帳本的買入交易轉出來帶回欄位，T6 換掉首頁後移除 | `SavedHolding` |
-| 持股儲存 | 首頁讀寫「已儲存的持股」的介面。Story 008 起底下是記帳本（過渡轉接 `createLedgerHoldingStore`） | `HoldingStore` |
+| 已儲存的持股 | 快速試算（舊版首頁）的欄位內容（代號、買入價、數量、買入日期的原始字串）。舊版存在 `cspo.holdings.v1`；Story 011 起快速試算存自己的 `cspo.quickCalc.v1`，第一次打開用記帳本的買入交易當初始值 | `SavedHolding` |
+| 持股儲存 | 快速試算讀寫「已儲存的持股」的介面。Story 011 起只讀記帳本、不寫記帳本（`createQuickCalcHoldingStore`） | `HoldingStore` |
+| 首頁總覽 | 打開 app 的第一頁：整體、核心（ETF）、衛星（個股）三組的累計投入、目前市值、總報酬與報酬率、已實現、未實現、已領股利，下面列市值最大的 5 檔持股。沒有交易時顯示「新增第一筆交易」（Story 011） | `HomeScreen` / `buildOverview` |
+| 快速試算 | 舊版首頁（輸入代號、買入價、數量直接算盈虧、多檔比較、K 線、AI 解讀），不記帳。Story 011 起搬到 `/calculate`，從首頁底部進去；要不要拿掉待 PO 決定 | `CalculateScreen` |
+| 價格日期 | 首頁上方的「價格：2026/10/22 收盤價」。各檔日期不同時取最舊的一天 | `oldestPriceDate` |
 | 交易 | 一筆買入或賣出：代號、日期、成交價、股數、手續費、證交稅。持股由交易重算出來 | `Transaction` |
 | 股利 | 現金股利（實際入帳金額）或股票股利（配發股數） | `Dividend` |
 | 記帳本 | 全部交易、股利、持股設定與手續費設定，存在手機本機（`cspo.ledger.v1`）的就是這一份 | `Ledger` / `LedgerStore` |

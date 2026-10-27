@@ -37,12 +37,14 @@ cspo/
 ├── src/
 │   ├── app/                  路由（expo-router，一檔一頁；只放轉出，不放邏輯與測試）
 │   │   ├── _layout.tsx       導覽外框
-│   │   ├── index.tsx         → screens/CalculateScreen
+│   │   ├── index.tsx         → screens/HomeScreen（首頁總覽，Story 011）
+│   │   ├── calculate.tsx     → screens/CalculateScreen（快速試算）
 │   │   ├── twse+api.ts       API route：網頁版的證交所代理（GET /twse），手機不經過
 │   │   ├── tpex+api.ts       API route：網頁版的櫃買中心代理（GET /tpex），手機不經過
 │   │   └── recognize+api.ts  API route：手機把截圖 POST 來，server 端呼叫 Claude（只在 dev server／部署的 server 跑）
 │   ├── screens/              畫面本體與畫面測試
-│   │   ├── CalculateScreen.tsx       輸入一檔或多檔持股 → 看盈虧／比較
+│   │   ├── HomeScreen.tsx            首頁總覽：整體、核心、衛星三組數字與前 5 檔持股
+│   │   ├── CalculateScreen.tsx       快速試算：輸入一檔或多檔持股 → 看盈虧／比較
 │   │   └── CalculateScreen.test.tsx  React Native Testing Library
 │   ├── domain/               純 TypeScript，不碰 UI、不碰網路 → 單元測試主戰場
 │   │   ├── types.ts          Holding、Quote、PnlResult
@@ -63,7 +65,7 @@ cspo/
 │   │   ├── asyncStorageHoldingStore.ts / memoryHoldingStore.ts  舊版 AsyncStorage 實作（現在只讀舊資料搬移）／ 測試用記憶體版
 │   │   ├── LedgerStore.ts    介面：記帳本整份存在手機本機（Story 008）
 │   │   ├── asyncStorageLedgerStore.ts / memoryLedgerStore.ts  AsyncStorage `cspo.ledger.v1`（含舊資料自動搬移）／ 測試用記憶體版
-│   │   ├── ledgerHoldingStore.ts  過渡轉接：CalculateScreen 透過 HoldingStore 讀寫記帳本
+│   │   ├── quickCalcHoldingStore.ts  快速試算記住輸入：自己的 key，只讀記帳本、不寫記帳本
 │   │   ├── HoldingRecognizer.ts  介面：給截圖回辨識結果
 │   │   ├── claudeHoldingRecognizer.ts / fakeHoldingRecognizer.ts  POST 到 /recognize ／ 測試用固定結果
 │   │   ├── recognizeEndpoint.ts  用 expo-constants 的 hostUri 找到 dev server 的 /recognize
