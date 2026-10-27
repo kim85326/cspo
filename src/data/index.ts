@@ -1,5 +1,6 @@
 import { asyncStorageHoldingStore } from "./asyncStorageHoldingStore";
 import type { CandleSource } from "./CandleSource";
+import { backendInsightProvider } from "./backendInsightProvider";
 import { claudeHoldingRecognizer } from "./claudeHoldingRecognizer";
 import type { CorporateActionSource } from "./CorporateActionSource";
 import { fakeCandleSource } from "./fakeCandleSource";
@@ -8,12 +9,14 @@ import { createFallbackActionSource, createFallbackCandleSource } from "./fallba
 import { finmindSource } from "./finmindSource";
 import { createCachedActionSource, createCachedCandleSource } from "./historyCache";
 import { fakeHoldingRecognizer } from "./fakeHoldingRecognizer";
+import { fakeInsightProvider } from "./fakeInsightProvider";
 import { fakePriceSource } from "./fakePriceSource";
 import { fakeStockDirectory } from "./fakeStockDirectory";
 import type { HoldingRecognizer } from "./HoldingRecognizer";
 import type { HoldingStore } from "./HoldingStore";
 import { createMarketSource } from "./marketSource";
 import { createOfficialActionSource, createOfficialCandleSource, type MarketOf } from "./officialSources";
+import type { InsightProvider } from "./InsightProvider";
 import type { PriceSource } from "./PriceSource";
 import type { StockDirectory } from "./StockDirectory";
 import { tpexCandleSource } from "./tpexCandleSource";
@@ -22,10 +25,15 @@ import { twseCandleSource } from "./twseCandleSource";
 import { twseSource } from "./twseSource";
 
 export { RecognizeError } from "./HoldingRecognizer";
+export { InsightError } from "./InsightProvider";
 
 /** Jest 裡（或設 EXPO_PUBLIC_USE_FAKE_RECOGNIZER=1）用假辨識，結果固定、不打 API。 */
 const useFakeRecognizer =
   process.env.JEST_WORKER_ID !== undefined || process.env.EXPO_PUBLIC_USE_FAKE_RECOGNIZER === "1";
+
+/** Jest 裡（或設 EXPO_PUBLIC_USE_FAKE_INSIGHT=1）用假的 AI 解讀，結果固定、不打後端。 */
+const useFakeInsight =
+  process.env.JEST_WORKER_ID !== undefined || process.env.EXPO_PUBLIC_USE_FAKE_INSIGHT === "1";
 
 /**
  * 全 app 共用的資料來源。換資料源只改這裡。
@@ -69,5 +77,9 @@ export const holdingStore: HoldingStore = asyncStorageHoldingStore;
 export const holdingRecognizer: HoldingRecognizer = useFakeRecognizer
   ? fakeHoldingRecognizer
   : claudeHoldingRecognizer;
+/** AI 解讀（Story 017）：打工程同學電腦上的 backend/，見 docs/architecture.md 第 7 節 */
+export const insightProvider: InsightProvider = useFakeInsight
+  ? fakeInsightProvider
+  : backendInsightProvider;
 
 export { PriceLoadError } from "./PriceSource";

@@ -13,4 +13,10 @@
 export const features = {
   /** Story 005：從券商截圖匯入持股。APK 版連不到辨識服務，上線方式見 docs/research/screenshot-import.md */
   screenshotImport: process.env.EXPO_PUBLIC_FEATURE_SCREENSHOT_IMPORT === "1",
+  /**
+   * Story 017：算完盈虧後的「AI 解讀」按鈕。要搭配電腦上的 backend/（npm run backend），
+   * 設定與連線方式見 docs/architecture.md 第 7 節「AI 解讀後端」。
+   * PO 決定 Tech Day 範圍不含這個功能：預設關閉，EAS 不設這個變數，APK 看不到。
+   */
+  aiInsight: process.env.EXPO_PUBLIC_FEATURE_AI_INSIGHT === "1",
 };

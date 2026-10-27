@@ -16,6 +16,7 @@ import { features } from "@/config/features";
 import { holdingStore, PriceLoadError, priceSource, stockDirectory } from "@/data";
 import { compareHoldings, MAX_COMPARE_HOLDINGS, type ComparisonResult } from "@/domain/compare";
 import { applyExtraction, type ExtractionResult } from "@/domain/holdingExtract";
+import { insightInputFromQuotes } from "@/domain/insightInput";
 import { calculatePnl, validateHoldingInput } from "@/domain/pnl";
 import { resolveStock, searchStocks } from "@/domain/stockSearch";
 import type { Holding, PnlResult, Quote, SavedHolding, StockInfo } from "@/domain/types";
@@ -29,6 +30,7 @@ import {
   type HoldingFormState,
 } from "@/ui/HoldingForm";
 import { ImportSourceSheet } from "@/ui/ImportSourceSheet";
+import { InsightSection } from "@/ui/InsightCard";
 import { PnlCard } from "@/ui/PnlCard";
 import { PriceHistoryCard } from "@/ui/PriceHistoryCard";
 import { colors, fonts, fontSize, radius, space, touchTarget } from "@/ui/theme";
@@ -47,6 +49,7 @@ const LOAD_ERROR_MESSAGE = "行情載入失敗，請檢查網路後重試";
  * 005-import-from-screenshot.md（從截圖匯入：按鈕在這裡，選圖與辨識在 hooks/useScreenshotImport，套用在 domain/applyExtraction；
  *   目前由 src/config/features.ts 的 screenshotImport 開關控制，預設關閉）、
  * 016-candle-chart.md（單檔結果下方的日 K 線圖與買入點，見 ui/PriceHistoryCard）
+ * 017-ai-insight.md（AI 解讀：ui/InsightCard 的 InsightSection，由 aiInsight 開關控制，預設關閉）
  * 現價來自 src/data 的 priceSource（app 裡是證交所收盤價，測試是假價）；載入失敗顯示「行情載入失敗」。
  * 路由入口在 src/app/index.tsx。
  */
@@ -453,6 +456,12 @@ export default function CalculateScreen() {
         ) : null}
         {outcome?.kind === "comparison" ? (
           <ComparisonCard comparison={outcome.comparison} />
+        ) : null}
+        {/* Story 017：AI 解讀，開關預設關閉 */}
+        {features.aiInsight && outcome ? (
+          <InsightSection
+            input={insightInputFromQuotes(outcome.kind === "single" ? [outcome] : outcome.comparison.rows)}
+          />
         ) : null}
 
         {saved.length > 0 ? (

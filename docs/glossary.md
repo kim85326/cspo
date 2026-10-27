@@ -52,11 +52,18 @@ PO、測試、工程三方都用這份表上的詞。程式裡的名字對應右
 | 持有天數 | 從這一段持有的第一筆買入日算到今天；賣光再買就從新的第一筆算 | `Position.holdingDays` |
 | 核心／衛星 | 核心部位預設是全部 ETF，衛星部位預設是全部個股；使用者可以逐檔切換 | `Bucket`（`core` / `satellite`）/ `HoldingSetting` |
 | 整體／核心／衛星加總 | 三組各自的累計投入、市值、已實現、未實現、股利、總報酬。有持股缺少價格時，市值與未實現不算那一檔，總報酬顯示 — | `summarize` / `GroupSummary` |
-| 功能開關 | 開發中的功能先藏起來，預設關閉；工程同學用環境變數在自己的 dev server 打開。目前只有「從截圖匯入」 | `features`（`src/config/features.ts`） |
+| 功能開關 | 開發中的功能先藏起來，預設關閉；工程同學用環境變數在自己的 dev server 打開。例如「從截圖匯入」、「AI 解讀」 | `features`（`src/config/features.ts`） |
 | 截圖匯入 | 把券商 app 的持股畫面截圖（從相簿選或現場拍）交給 AI 辨識，自動填進持股欄位。辨識結果一定要人工核對 | `useScreenshotImport` / `applyExtraction` |
 | 辨識結果 | AI 從截圖讀出的每一檔：代號、名稱、成本價、數量（股或張）與信心；還沒對到股票清單、還沒驗證 | `ExtractedHolding` / `ExtractionResult` |
 | 辨識信心 | AI 對一檔持股看得清不清楚：high 或 low。low、或對不到股票清單的欄位，標籤旁顯示「請確認」 | `ExtractionConfidence` / `ReviewFlags` |
 | 辨識服務 | 收截圖、回辨識結果的地方。手機不直接呼叫 AI，而是送到 dev server 的 `/recognize`，由 server 端用 API key 呼叫 Claude | `HoldingRecognizer` / `src/app/recognize+api.ts` |
+| AI 解讀 | 算完盈虧後按「AI 解讀」，由 AI 用白話說明這組持股目前的表現：一句話總結、2～4 點觀察、一句風險提醒。只描述數字，不給投資建議 | `InsightSection` / `InsightCard` / `Insight` |
+| AI 解讀後端 | 跑在工程同學電腦上的小服務（`backend/`，`npm run backend` 啟動）。手機把持股數字送過去，它用電腦上的 API key 呼叫 Claude。API key 不會離開那台電腦 | `backend/` / `InsightProvider`（`backendInsightProvider`） |
+| 解讀輸入 | 送給 AI 解讀後端的資料：股票代號、名稱、股數、平均成本、成本、現價、盈虧、報酬率與合計。沒有任何個人資料 | `InsightInput`（`src/domain/insightInput.ts`） |
+| 存取碼（AI 解讀） | app 呼叫 AI 解讀後端時帶的共享密碼。會被打包進 app，所以只能擋路人，不是真正的秘密 | `EXPO_PUBLIC_INSIGHT_ACCESS_TOKEN` / `INSIGHT_ACCESS_TOKEN` |
+| 對外公開（AI 解讀） | 用 `npm run backend:tunnel` 透過 ngrok 讓其他網路的手機連到工程同學電腦上的後端。ngrok 免費帳號給一個固定網址（`xxxx.ngrok-free.app`），設進 app 一次就好；Ctrl+C 關掉後別人就連不到 | `backend/src/tunnel.ts` / `EXPO_PUBLIC_INSIGHT_API_URL` |
+| 每日上限（AI 解讀） | 後端每天最多呼叫 AI 幾次（所有人合計，預設 100），超過顯示「今天的 AI 解讀次數已達上限」 | `INSIGHT_DAILY_LIMIT` |
+| 禁用字眼 | AI 解讀不能出現的詞（建議、應該、買進、賣出、加碼、減碼、停損、目標價等）。命中就請 AI 重寫；再命中就刪掉那幾句並標示「部分內容…已移除」 | `BANNED_TERMS`（`backend/src/contentFilter.ts`） |
 
 ## 顯示慣例
 
@@ -69,6 +76,12 @@ PO、測試、工程三方都用這份表上的詞。程式裡的名字對應右
 - 截圖裡寫「張」的數量一律換算成股（1 張 = 1000 股）。
 - 同一檔出現兩次會合併：股數相加、成本價取加權平均，並提示已合併。
 - 空白的持股欄位會被辨識結果覆蓋；使用者已經填的保留在原位，辨識結果接在後面；總數仍然最多 5 檔。
+
+## 顯示慣例（AI 解讀）
+
+- 解讀卡固定附「僅為數據解讀，不構成投資建議」。
+- 解讀不存檔；重新按「計算」後舊的解讀消失，要再按一次。
+- 錯誤（後端沒開、連不到、沒設 key、太頻繁）顯示原因，按鈕變成「重試 AI 解讀」，盈虧結果保留。
 
 ## 顯示慣例（比較）
 

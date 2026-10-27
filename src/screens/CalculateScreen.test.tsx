@@ -6,6 +6,8 @@ import {
   candleSource,
   holdingRecognizer,
   holdingStore,
+  InsightError,
+  insightProvider,
   PriceLoadError,
   priceSource,
   RecognizeError,
@@ -14,6 +16,7 @@ import {
 import { features } from "@/config/features";
 import { FAKE_EXTRACTION } from "@/data/fakeHoldingRecognizer";
 import type { StockInfo } from "@/domain/types";
+import { FAKE_INSIGHT } from "@/data/fakeInsightProvider";
 import CalculateScreen from "./CalculateScreen";
 
 jest.mock("expo-router", () => ({
@@ -787,17 +790,22 @@ describe("K 線圖與買入點（對應 docs/stories/016）", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  test("買入日期會被記住：重開 app 帶回欄位", async () => {
+  test("買入日期會被記住：按計算後存起來", async () => {
     jest.spyOn(candleSource, "getDailyCandles").mockResolvedValue(CANDLES);
     await calculateTsmc("2026/10/05");
     await screen.findByText("▲ 買入 2026/10/05");
     expect(await holdingStore.load()).toEqual([
       { symbol: "2330", buyPrice: "500", shares: "1000", buyDate: "2026/10/05" },
     ]);
+  });
 
-    screen.unmount();
+  test("重開 app：存過的買入日期帶回欄位", async () => {
+    await holdingStore.save([{ symbol: "2330", buyPrice: "500", shares: "1000", buyDate: "2026/10/05" }]);
     await renderScreen();
     expect(await screen.findByText("2026/10/05")).toBeTruthy();
+  });
+});
+
 describe("版本資訊（對應 docs/stories/018）", () => {
   test("最底部看得到版本，點開看得到詳細資訊與複製按鈕", async () => {
     await renderScreen();
@@ -809,5 +817,120 @@ describe("版本資訊（對應 docs/stories/018）", () => {
     expect(screen.getByTestId("version-details")).toBeTruthy();
     expect(screen.getByText("執行環境")).toBeTruthy();
     expect(screen.getByLabelText("複製版本資訊")).toBeTruthy();
+  });
+});
+
+describe("AI 解讀（對應 docs/stories/017）", () => {
+  afterEach(() => {
+    features.aiInsight = false;
+    jest.restoreAllMocks();
+  });
+
+  async function calculateTsmcProfit() {
+    await renderScreen();
+    await typeStock("2330");
+    await fillPriceAndShares("500", "1000");
+    await pressCalculate();
+    expect(await screen.findByText("+20,000")).toBeTruthy();
+  }
+
+  test("開關關閉（預設）：算完也看不到「AI 解讀」按鈕", async () => {
+    features.aiInsight = false;
+    await calculateTsmcProfit();
+    expect(screen.queryByLabelText("AI 解讀")).toBeNull();
+    expect(screen.queryByTestId("insight-card")).toBeNull();
+  });
+
+  test("開關打開：還沒算之前沒有按鈕，算完才出現", async () => {
+    features.aiInsight = true;
+    await renderScreen();
+    expect(screen.queryByLabelText("AI 解讀")).toBeNull();
+    await typeStock("2330");
+    await fillPriceAndShares("500", "1000");
+    await pressCalculate();
+    expect(await screen.findByLabelText("AI 解讀")).toBeTruthy();
+  });
+
+  test("按下「AI 解讀」：顯示解讀中，完成後顯示總結、觀察、風險提醒與免責聲明", async () => {
+    features.aiInsight = true;
+    let resolve: (value: typeof FAKE_INSIGHT) => void = () => {};
+    const spy = jest
+      .spyOn(insightProvider, "getInsight")
+      .mockReturnValueOnce(new Promise((r) => (resolve = r)));
+    await calculateTsmcProfit();
+
+    await fireEvent.press(screen.getByLabelText("AI 解讀"));
+    expect(screen.getByTestId("insight-loading")).toBeTruthy();
+    expect(screen.getByText("AI 解讀中…")).toBeTruthy();
+
+    await act(async () => resolve(structuredClone(FAKE_INSIGHT)));
+    expect(await screen.findByTestId("insight-card")).toBeTruthy();
+    expect(screen.getByText(FAKE_INSIGHT.summary)).toBeTruthy();
+    for (const text of FAKE_INSIGHT.observations) expect(screen.getByText(text)).toBeTruthy();
+    expect(screen.getByText(FAKE_INSIGHT.riskNote)).toBeTruthy();
+    expect(screen.getByText("僅為數據解讀，不構成投資建議")).toBeTruthy();
+
+    // 送出去的只有數字與代號、名稱
+    const input = spy.mock.calls[0][0];
+    expect(input.holdings).toEqual([
+      { symbol: "2330", name: "台積電", shares: 1000, avgCost: 500, cost: 500_000, price: 520, pnl: 20_000, returnRate: 0.04 },
+    ]);
+    expect(input.total.pnl).toBe(20_000);
+  });
+
+  test("多檔比較：把每一檔與合計一起送去解讀", async () => {
+    features.aiInsight = true;
+    const spy = jest.spyOn(insightProvider, "getInsight");
+    await renderScreen();
+    await fireEvent.press(screen.getByLabelText("新增一檔比較"));
+    await fillHolding(1, "2317", "200", "1000");
+    await fillHolding(2, "2330", "500", "1000");
+    await pressCalculate();
+    await fireEvent.press(await screen.findByLabelText("AI 解讀"));
+
+    expect(await screen.findByTestId("insight-card")).toBeTruthy();
+    const input = spy.mock.calls[0][0];
+    expect(input.holdings.map((h) => h.symbol)).toEqual(["2330", "2317"]);
+    expect(input.total).toEqual({ cost: 700_000, marketValue: 700_000, pnl: 0, returnRate: 0 });
+  });
+
+  test("後端沒開或連不到：顯示原因，按「重試 AI 解讀」成功後顯示解讀卡", async () => {
+    features.aiInsight = true;
+    jest
+      .spyOn(insightProvider, "getInsight")
+      .mockRejectedValueOnce(new InsightError("連不上 AI 解讀服務：提供服務的電腦可能還沒開（npm run backend:tunnel），請稍後再試"));
+    await calculateTsmcProfit();
+
+    await fireEvent.press(screen.getByLabelText("AI 解讀"));
+    expect(await screen.findByText(/連不上 AI 解讀服務/)).toBeTruthy();
+    expect(screen.queryByTestId("insight-card")).toBeNull();
+    // 盈虧結果還在
+    expect(screen.getByText("+20,000")).toBeTruthy();
+
+    await fireEvent.press(screen.getByLabelText("重試 AI 解讀"));
+    expect(await screen.findByTestId("insight-card")).toBeTruthy();
+    expect(screen.queryByTestId("insight-error")).toBeNull();
+  });
+
+  test("太頻繁（429）：顯示後端給的訊息並可重試", async () => {
+    features.aiInsight = true;
+    jest
+      .spyOn(insightProvider, "getInsight")
+      .mockRejectedValueOnce(new InsightError("使用太頻繁，請 42 秒後再試"));
+    await calculateTsmcProfit();
+    await fireEvent.press(screen.getByLabelText("AI 解讀"));
+    expect(await screen.findByText("使用太頻繁，請 42 秒後再試")).toBeTruthy();
+    expect(screen.getByLabelText("重試 AI 解讀")).toBeTruthy();
+  });
+
+  test("重新計算：舊的解讀消失，要再按一次", async () => {
+    features.aiInsight = true;
+    await calculateTsmcProfit();
+    await fireEvent.press(screen.getByLabelText("AI 解讀"));
+    expect(await screen.findByTestId("insight-card")).toBeTruthy();
+
+    await pressCalculate();
+    expect(await screen.findByLabelText("AI 解讀")).toBeTruthy();
+    expect(screen.queryByTestId("insight-card")).toBeNull();
   });
 });
