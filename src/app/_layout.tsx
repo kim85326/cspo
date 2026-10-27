@@ -7,6 +7,7 @@ import { useFonts } from "expo-font";
 import { SplashScreen, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { FeatureFlagsProvider } from "@/hooks/useFeatures";
 import { ProStatusProvider } from "@/hooks/useProStatus";
 import { DisclaimerGate } from "@/ui/DisclaimerGate";
 import { SettingsHeaderButton } from "@/ui/SettingsHeaderButton";
@@ -29,22 +30,25 @@ export default function RootLayout() {
 
   if (!fontsLoaded && !fontError) return null;
 
+  // FeatureFlagsProvider：功能開關，啟動與回到前景時抓遠端（Story 026）；
   // ProStatusProvider：Pro 狀態全 app 共用（Story 020）；DisclaimerGate：首次開啟的免責聲明（Story 013）
   return (
-    <ProStatusProvider>
-      <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerTitleAlign: "center",
-          headerShadowVisible: false,
-          headerStyle: { backgroundColor: colors.background },
-          headerTitleStyle: { fontFamily: fonts.semibold, color: colors.foreground },
-          contentStyle: { backgroundColor: colors.background },
-        }}
-      >
-        <Stack.Screen name="index" options={{ headerRight: () => <SettingsHeaderButton /> }} />
-      </Stack>
-      <DisclaimerGate />
-    </ProStatusProvider>
+    <FeatureFlagsProvider>
+      <ProStatusProvider>
+        <StatusBar style="dark" />
+        <Stack
+          screenOptions={{
+            headerTitleAlign: "center",
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: colors.background },
+            headerTitleStyle: { fontFamily: fonts.semibold, color: colors.foreground },
+            contentStyle: { backgroundColor: colors.background },
+          }}
+        >
+          <Stack.Screen name="index" options={{ headerRight: () => <SettingsHeaderButton /> }} />
+        </Stack>
+        <DisclaimerGate />
+      </ProStatusProvider>
+    </FeatureFlagsProvider>
   );
 }

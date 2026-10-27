@@ -75,7 +75,8 @@ cspo/
 │   │   └── index.ts          依環境決定用假來源還是真的（Jest 一律用假的；EXPO_PUBLIC_USE_FAKE_PRICES／EXPO_PUBLIC_USE_FAKE_RECOGNIZER=1 也可切）
 │   ├── server/               只在 server 端跑的程式（API route 才會載入，不進手機 bundle）
 │   │   └── recognizeHoldings.ts  Claude vision + JSON schema 的 prompt 與呼叫；API key 從 process.env 讀
-│   ├── hooks/                畫面共用的 React hook（usePersistedHoldings：啟動時讀回、計算後存；useScreenshotImport：選圖／拍照 → 辨識）
+│   ├── config/features.ts    功能開關的名稱、打包預設、優先順序（Story 026）
+│   ├── hooks/                畫面共用的 React hook（usePersistedHoldings：啟動時讀回、計算後存；useScreenshotImport：選圖／拍照 → 辨識；useFeatures：功能開關，會跟著遠端更新）
 │   └── ui/                   可重用元件與設計 token（StockPicker、LabeledInput、HoldingForm、ImportSourceSheet、PnlCard、ComparisonCard、theme）
 ├── design-system/stock-pnl/  ui-ux-pro-max 產生的設計系統（MASTER.md 是色彩、字型、間距的來源）
 ├── e2e/                      Maestro 流程（YAML）
@@ -295,7 +296,7 @@ APK 的 `EXPO_PUBLIC_INSIGHT_API_URL` 是打包（或發 OTA）時寫死的，�
 
 | 變數（app，`.env.local` 或 EAS） | 說明 |
 |---|---|
-| `EXPO_PUBLIC_FEATURE_AI_INSIGHT=1` | 功能開關，預設關閉 |
+| `EXPO_PUBLIC_FEATURE_AI_INSIGHT=1` | 功能開關，預設關閉；APK 改用遠端切換（見本節「功能開關」） |
 | `EXPO_PUBLIC_INSIGHT_ACCESS_TOKEN` | 和後端的 `INSIGHT_ACCESS_TOKEN` 相同（不是秘密，見上） |
 | `EXPO_PUBLIC_INSIGHT_API_URL` | ngrok 固定網址。沒設時網頁版用 `http://<網頁主機>:8787`、Expo Go 區網用 dev server 的 IP；Expo tunnel 與 APK 猜不到，畫面提示要設 |
 | `EXPO_PUBLIC_USE_FAKE_INSIGHT=1` | 不開後端也能看畫面（固定內容的假解讀）；Jest 一律用假的 |
@@ -347,6 +348,22 @@ preview APK 從 **92,659,407 bytes（約 88 MB）縮到 25,116,066 bytes（約 2
 - `npm run release` 會下載 EAS 的 APK、建立 GitHub Release（標為最新）、在 `docs/index.html` 的版本清單最上面加一筆，然後 commit + push。舊版本都會留在下載頁，新版有問題可以改裝舊版。
 - OTA 只對「裝了 build 3 以後」的 APK 有效，build 1、2 沒有 expo-updates，收不到更新。Story 018 加了 `expo-application`、`expo-clipboard` 兩個原生模組，合併後要先打一次 APK（build 4），之後的 OTA 只送得到 build 4 以後。
 - `eas.json` 的 preview profile 已開 `EAS_GRADLE_CACHE=1`；`package-lock.json` 沒變時第二次以後的打包會比較快。
+
+### 功能開關：不重打 APK、不發 OTA 就能切換（Story 026）
+
+```bash
+npm run flags -- list                 # 看遠端目前的值
+npm run flags -- set aiInsight on     # 或 off；名稱：screenshotImport、aiInsight、proPlan
+npm run flags -- set aiInsight on --dry-run   # 只印出會寫什麼
+```
+
+- 設定檔是 GitHub `kim85326/cspo` 的 **`feature-flags` 分支**裡的 `feature-flags.json`（例如 `{"aiInsight": true}`）。`npm run flags` 用已經登入的 `gh` 寫入；第一次 `set` 會建立這個獨立分支（只有這一個檔，不碰 iteration-1）。
+- app 從 `https://raw.githubusercontent.com/kim85326/cspo/feature-flags/feature-flags.json` 讀：**啟動時**與**每次回到前景**各抓一次，抓到就存進 AsyncStorage。
+- **raw.githubusercontent.com 的 CDN 快取最多 5 分鐘**：改完要等最多 5 分鐘，再請同學把 app 切到背景再切回來。
+- 優先順序：開發時 `.env.local` 明確設的 `EXPO_PUBLIC_FEATURE_*`（`1`／`0`，只在 dev server）> 遠端 > 上次存的 > 打包預設（APK 一律關閉）。抓失敗、逾時（5 秒）、格式不對都當作沒抓到；只接受認得的名稱、值是 true／false。
+- 開關只控制畫面看不看得到，**不是保護**：repo 是公開的，任何人都讀得到這份設定。秘密與花費要靠後端（AI 解讀的存取碼、每日上限）。
+- 畫面用 `useFeatures()` 讀（`src/hooks/useFeatures.tsx`），遠端更新時會重新 render；新增開關要同時改 `src/config/features.ts` 與 `scripts/feature-flags.mjs` 的 `FEATURE_NAMES`（有測試比對）。
+- 這個機制本身是純 JS，沒有加原生套件，用 OTA 就能送到 build 5 以後的 APK。
 
 ### 版本號規則（Story 018，2026-10-27 起）
 
@@ -403,6 +420,7 @@ npm run e2e          # Maestro（需先開模擬器）
 npm run backend        # AI 解讀後端，只給自己電腦／同 Wi-Fi 用（見第 7 節「AI 解讀後端」）
 npm run backend:tunnel # AI 解讀後端 + ngrok，讓別人從外面連進來
 npm run backend:test   # 後端的型別檢查 + 測試
+npm run flags -- list  # 遠端功能開關；set <名稱> on|off 切換（見第 7 節「功能開關」）
 ```
 
 ## 11. Bug 回報格式（GitHub Issue 範本）

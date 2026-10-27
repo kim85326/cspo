@@ -49,6 +49,7 @@
     "e2e": "maestro test e2e/",
     "release": "node scripts/release-apk.mjs",
     "ota": "node scripts/ota-update.mjs",
+    "flags": "node scripts/feature-flags.mjs",
     "backend": "npm --prefix backend install --no-fund --no-audit --silent && npm --prefix backend start",
     "backend:tunnel": "npm --prefix backend install --no-fund --no-audit --silent && npm --prefix backend run tunnel",
     "backend:test": "npm --prefix backend install --no-fund --no-audit --silent && npm --prefix backend run check"
