@@ -38,7 +38,8 @@ cspo/
 │   ├── app/                  路由（expo-router，一檔一頁；只放轉出，不放邏輯與測試）
 │   │   ├── _layout.tsx       導覽外框
 │   │   ├── index.tsx         → screens/CalculateScreen
-│   │   └── twse+api.ts       API route：網頁版的證交所代理（GET /twse），手機不經過
+│   │   ├── twse+api.ts       API route：網頁版的證交所代理（GET /twse），手機不經過
+│   │   └── recognize+api.ts  API route：手機把截圖 POST 來，server 端呼叫 Claude（只在 dev server／部署的 server 跑）
 │   ├── screens/              畫面本體與畫面測試
 │   │   ├── CalculateScreen.tsx       輸入一檔或多檔持股 → 看盈虧／比較
 │   │   └── CalculateScreen.test.tsx  React Native Testing Library
@@ -49,7 +50,9 @@ cspo/
 │   │   ├── stockSearch.ts    代號／名稱搜尋與解析
 │   │   ├── stockSearch.test.ts
 │   │   ├── compare.ts        多檔比較：依報酬率排名 + 合計
-│   │   └── compare.test.ts
+│   │   ├── compare.test.ts
+│   │   ├── holdingExtract.ts 截圖匯入：辨識結果對到股票清單、張→股、合併重複、套進欄位（applyExtraction）
+│   │   └── holdingExtract.test.ts
 │   ├── data/                 對外資料來源
 │   │   ├── PriceSource.ts    介面：給代號回現價
 │   │   ├── StockDirectory.ts 介面：有哪些股票可以選
@@ -57,12 +60,17 @@ cspo/
 │   │   ├── fakePriceSource.ts / fakeStockDirectory.ts  用 stocks.ts 實作的假來源
 │   │   ├── HoldingStore.ts   介面：把輸入過的持股存在手機本機
 │   │   ├── asyncStorageHoldingStore.ts / memoryHoldingStore.ts  AsyncStorage 實作 ／ 測試用記憶體版
+│   │   ├── HoldingRecognizer.ts  介面：給截圖回辨識結果
+│   │   ├── claudeHoldingRecognizer.ts / fakeHoldingRecognizer.ts  POST 到 /recognize ／ 測試用固定結果
+│   │   ├── recognizeEndpoint.ts  用 expo-constants 的 hostUri 找到 dev server 的 /recognize
 │   │   ├── twseEndpoint.ts   證交所網址；網頁版改走同源代理 /twse（證交所沒開 CORS）
 │   │   ├── twseParse.ts      證交所回應 → Quote[]（純函式，有單元測試）
 │   │   ├── twseSource.ts     證交所 OpenAPI 來源：抓全市場、5 分鐘快取，同時是 PriceSource 與 StockDirectory
-│   │   └── index.ts          依環境決定用假來源還是證交所（Jest 與 EXPO_PUBLIC_USE_FAKE_PRICES=1 用假的）
-│   ├── hooks/                畫面共用的 React hook（usePersistedHoldings：啟動時讀回、計算後存）
-│   └── ui/                   可重用元件與設計 token（StockPicker、LabeledInput、HoldingForm、PnlCard、ComparisonCard、theme）
+│   │   └── index.ts          依環境決定用假來源還是真的（Jest 一律用假的；EXPO_PUBLIC_USE_FAKE_PRICES／EXPO_PUBLIC_USE_FAKE_RECOGNIZER=1 也可切）
+│   ├── server/               只在 server 端跑的程式（API route 才會載入，不進手機 bundle）
+│   │   └── recognizeHoldings.ts  Claude vision + JSON schema 的 prompt 與呼叫；API key 從 process.env 讀
+│   ├── hooks/                畫面共用的 React hook（usePersistedHoldings：啟動時讀回、計算後存；useScreenshotImport：選圖／拍照 → 辨識）
+│   └── ui/                   可重用元件與設計 token（StockPicker、LabeledInput、HoldingForm、ImportSourceSheet、PnlCard、ComparisonCard、theme）
 ├── design-system/stock-pnl/  ui-ux-pro-max 產生的設計系統（MASTER.md 是色彩、字型、間距的來源）
 ├── e2e/                      Maestro 流程（YAML）
 ├── docs/
@@ -161,6 +169,14 @@ appId: host.exp.Exponent
 ## 7. 發版給測試同學
 
 - **每天至少一次**：工程執行 `npx expo start --tunnel`，測試同學用 Expo Go 掃 QR code。tunnel 模式不需要同一個 Wi-Fi（公司網路有裝置隔離，區網模式連不到）。
+- **截圖匯入要先設定 API key**（Story 005）：
+  1. 到 [Anthropic Console](https://console.anthropic.com/) 建一把 API key。
+  2. 專案根目錄 `cp .env.example .env`，填入 `ANTHROPIC_API_KEY=sk-ant-...`。`.env` 已在 `.gitignore`，不會進 git；也不要用 `EXPO_PUBLIC_` 前綴，那種變數會被打包進手機 app。
+  3. 重新執行 `npx expo start --tunnel`（Expo CLI 啟動時才讀 `.env`）。
+  4. 手機上的 app 會把截圖 POST 到 dev server 的 `/recognize`（`src/app/recognize+api.ts`），由 server 端讀 `process.env.ANTHROPIC_API_KEY` 呼叫 Claude（`claude-opus-5-5`，structured outputs 強制回 JSON）。手機端用 `expo-constants` 的 `expoConfig.hostUri` 組出 dev server 網址，所以區網與 tunnel 都能用。
+  5. 沒設 key 時手機會看到「伺服器沒有設定 ANTHROPIC_API_KEY…」的提示，其他功能照常。
+  6. `app.json` 的 `web.output` 設成 `"server"` 才有 API route；正式部署時要有一台 server 跑它，並在 expo-router plugin 設 `origin`（見 https://docs.expo.dev/router/reference/api-routes/）。這次活動只用 dev server。
+  7. 想在沒有 key 的情況下跑畫面：`EXPO_PUBLIC_USE_FAKE_RECOGNIZER=1 npx expo start`，會用固定結果的假辨識器（Jest 一律用假的）。
 - **Android APK**：`npx eas-cli build -p android --profile preview`（設定在 `eas.json`）。在 Expo 雲端打包，完成後給一個下載連結與 QR code，同學直接裝，不需要 Expo Go。免費方案一個月有數次額度，排隊時間從幾分鐘到幾十分鐘不等。第一次執行會在 Expo 帳號建專案並產生 Android 簽章金鑰，之後都沿用。
 - **iOS 真機安裝**：要 Apple 開發者帳號（99 美元／年）走 TestFlight。這次先不需要，Expo Go 就夠。
 - **行情來源**：app 預設接證交所 OpenAPI（`https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL`，前一交易日收盤價，免金鑰，手機要能上網）。要切回固定假價（demo 固定數字、Maestro 流程、斷網環境）就設環境變數再開 dev server：
@@ -177,7 +193,7 @@ appId: host.exp.Exponent
 | 迭代 | 目標 | 可驗收的東西 |
 |---|---|---|
 | 1 | 單筆持股算盈虧 | 輸入三個欄位，用固定假價算出盈虧；單元測試、畫面測試與兩條 Maestro 流程（已完成） |
-| 1.5 | 多檔比較、記住持股 | 最多 5 檔一起算，依報酬率排名、合計（Story 003，已完成）；持股存在手機，關掉重開還在（Story 004，已完成） |
+| 1.5 | 多檔比較、記住持股、截圖匯入 | 最多 5 檔一起算，依報酬率排名、合計（Story 003，已完成）；持股存在手機，關掉重開還在（Story 004，已完成）；從券商截圖匯入持股（Story 005，已完成） |
 | 2 | 接真實行情 | 證交所資料（已完成：收盤價、全市場清單、資料日期、斷網提示） |
 | 3 | 打磨與上架準備 | 手續費與稅、報酬率、到價提醒；商店截圖與隱私權政策 |
 

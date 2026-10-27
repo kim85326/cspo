@@ -11,6 +11,8 @@ export const colors = {
   secondary: "#1E3A8A",
   accent: "#A16207",
   onAccent: "#FFFFFF",
+  /** 金色的淺底：提示標籤（例如「請確認」）用 */
+  accentSurface: "#FEF3C7",
   background: "#F8FAFC",
   foreground: "#020617",
   card: "#FFFFFF",

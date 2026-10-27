@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import type { HoldingDraft, ReviewFlags } from "@/domain/holdingExtract";
 import type { HoldingInput } from "@/domain/pnl";
 import type { StockInfo } from "@/domain/types";
 import { LabeledInput } from "./LabeledInput";
@@ -7,15 +8,16 @@ import { colors, fonts, fontSize, radius, space } from "./theme";
 
 export type HoldingFormErrors = Partial<Record<keyof HoldingInput, string>>;
 
-/** 一檔股票的輸入狀態（畫面層用，驗證通過後才變成 domain 的 Holding） */
-export type HoldingFormState = {
-  id: number;
-  query: string;
-  selected: StockInfo | null;
-  buyPrice: string;
-  shares: string;
+/**
+ * 一檔股票的輸入狀態（畫面層用，驗證通過後才變成 domain 的 Holding）。
+ * 欄位本體是 domain 的 HoldingDraft（截圖匯入會直接產生它），這裡多了 errors。
+ * review：截圖匯入後信心低的欄位，標籤旁顯示「請確認」；使用者一改就消掉。
+ */
+export type HoldingFormState = HoldingDraft & {
   errors: HoldingFormErrors;
 };
+
+export const REVIEW_BADGE = "請確認";
 
 type Props = {
   index: number;
@@ -57,6 +59,10 @@ export function HoldingForm({
   const clearError = (key: keyof HoldingInput) => {
     if (form.errors[key]) onChange({ errors: { ...form.errors, [key]: undefined } });
   };
+  const review: ReviewFlags = form.review ?? {};
+  const badge = (key: keyof ReviewFlags) => (review[key] ? REVIEW_BADGE : undefined);
+  const clearReview = (key: keyof ReviewFlags): Partial<HoldingFormState> =>
+    review[key] ? { review: { ...review, [key]: false } } : {};
 
   return (
     <View style={styles.card} testID={`holding-form-${n}`} accessibilityLabel={`第 ${n} 檔`}>
@@ -82,14 +88,20 @@ export function HoldingForm({
         selected={form.selected}
         loading={stocksLoading}
         error={form.errors.symbol}
+        badge={badge("stock")}
         testID={`input-stock-${n}`}
         onChangeQuery={(query) =>
           onChange({ query, selected: null, errors: { ...form.errors, symbol: undefined } })
         }
         onSelect={(stock) =>
-          onChange({ selected: stock, query: "", errors: { ...form.errors, symbol: undefined } })
+          onChange({
+            selected: stock,
+            query: "",
+            errors: { ...form.errors, symbol: undefined },
+            ...clearReview("stock"),
+          })
         }
-        onClear={() => onChange({ selected: null, query: "" })}
+        onClear={() => onChange({ selected: null, query: "", ...clearReview("stock") })}
       />
       <LabeledInput
         label="買入價"
@@ -98,11 +110,12 @@ export function HoldingForm({
         returnKeyType="next"
         value={form.buyPrice}
         onChangeText={(buyPrice) => {
-          onChange({ buyPrice });
+          onChange({ buyPrice, ...clearReview("buyPrice") });
           clearError("buyPrice");
         }}
         onBlur={() => onBlurField("buyPrice")}
         error={form.errors.buyPrice}
+        badge={badge("buyPrice")}
         testID={`input-buy-price-${n}`}
       />
       <LabeledInput
@@ -113,12 +126,13 @@ export function HoldingForm({
         returnKeyType={isLast ? "done" : "next"}
         value={form.shares}
         onChangeText={(shares) => {
-          onChange({ shares });
+          onChange({ shares, ...clearReview("shares") });
           clearError("shares");
         }}
         onBlur={() => onBlurField("shares")}
         onSubmitEditing={isLast ? onSubmit : undefined}
         error={form.errors.shares}
+        badge={badge("shares")}
         testID={`input-shares-${n}`}
       />
     </View>

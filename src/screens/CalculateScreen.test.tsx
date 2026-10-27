@@ -1,11 +1,36 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import * as ImagePicker from "expo-image-picker";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { holdingStore, PriceLoadError, priceSource, stockDirectory } from "@/data";
+import {
+  holdingRecognizer,
+  holdingStore,
+  PriceLoadError,
+  priceSource,
+  RecognizeError,
+  stockDirectory,
+} from "@/data";
+import { FAKE_EXTRACTION } from "@/data/fakeHoldingRecognizer";
 import CalculateScreen from "./CalculateScreen";
 
 jest.mock("expo-router", () => ({
   Stack: { Screen: () => null },
+}));
+
+// 相簿與相機是原生功能，Jest 裡換成假的：預設有權限、選到一張 PNG。
+// 個別測試可用 mocked(...).mockResolvedValueOnce 改成拒絕權限或取消。
+jest.mock("expo-image-picker", () => ({
+  PermissionStatus: { GRANTED: "granted", DENIED: "denied", UNDETERMINED: "undetermined" },
+  requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true })),
+  requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true })),
+  launchImageLibraryAsync: jest.fn(async () => ({
+    canceled: false,
+    assets: [{ uri: "file:///holdings.png", base64: "aGk=", mimeType: "image/png", width: 1, height: 1 }],
+  })),
+  launchCameraAsync: jest.fn(async () => ({
+    canceled: false,
+    assets: [{ uri: "file:///camera.jpg", base64: "aGk=", mimeType: "image/jpeg", width: 1, height: 1 }],
+  })),
 }));
 
 // holdingStore 走 AsyncStorage（jest.setup.js 已換成記憶體 mock）。
@@ -384,5 +409,163 @@ describe("真實行情（證交所）：載入失敗與資料日期", () => {
     await pressCalculate();
     expect(await screen.findByText("+385,000")).toBeTruthy();
     expect(screen.getByText("收盤價 2026/10/22")).toBeTruthy();
+  });
+});
+
+describe("從截圖匯入（對應 docs/stories/005）", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+  });
+
+  async function importFromLibrary() {
+    await fireEvent.press(screen.getByLabelText("從截圖匯入"));
+    await fireEvent.press(await screen.findByLabelText("從相簿選"));
+  }
+
+  test("匯入兩檔：表單出現兩檔已填好（鴻海 1 張換算成 1000 股），按計算看到比較結果", async () => {
+    await renderScreen();
+    await importFromLibrary();
+
+    expect(await screen.findByDisplayValue("台積電（2330）")).toBeTruthy();
+    expect(screen.getByDisplayValue("鴻海（2317）")).toBeTruthy();
+    expect(screen.getAllByLabelText("股票代號或名稱")).toHaveLength(2);
+    expect(screen.getByDisplayValue("500")).toBeTruthy();
+    expect(screen.getByDisplayValue("200")).toBeTruthy();
+    expect(screen.getAllByDisplayValue("1000")).toHaveLength(2);
+    expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ base64: true, mediaTypes: ["images"] }),
+    );
+    // 信心 high 又對到股票：沒有「請確認」
+    expect(screen.queryByText("請確認")).toBeNull();
+
+    await pressCalculate();
+    expect(await screen.findByLabelText("比較結果")).toBeTruthy();
+    expect(screen.getByLabelText("第 1 名 台積電 2330")).toBeTruthy();
+    expect(screen.getByText("+20,000")).toBeTruthy();
+    expect(screen.getByText("-20,000")).toBeTruthy();
+  });
+
+  test("拍照也能匯入", async () => {
+    await renderScreen();
+    await fireEvent.press(screen.getByLabelText("從截圖匯入"));
+    await fireEvent.press(await screen.findByLabelText("拍照"));
+    expect(await screen.findByDisplayValue("台積電（2330）")).toBeTruthy();
+    expect(ImagePicker.launchCameraAsync).toHaveBeenCalled();
+  });
+
+  test("辨識中顯示「辨識中…」，按鈕不能再按", async () => {
+    let finish: (value: typeof FAKE_EXTRACTION) => void = () => {};
+    jest.spyOn(holdingRecognizer, "recognize").mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    await renderScreen();
+    await importFromLibrary();
+
+    expect(await screen.findByText("辨識中…")).toBeTruthy();
+    expect(screen.getByLabelText("從截圖匯入")).toBeDisabled();
+
+    await act(async () => {
+      finish(FAKE_EXTRACTION);
+    });
+    expect(await screen.findByDisplayValue("台積電（2330）")).toBeTruthy();
+    expect(screen.queryByText("辨識中…")).toBeNull();
+  });
+
+  test("辨識失敗：顯示可重試的錯誤，原本輸入還在；重試成功後填入", async () => {
+    const spy = jest
+      .spyOn(holdingRecognizer, "recognize")
+      .mockRejectedValueOnce(new RecognizeError("連不上辨識服務"));
+    await renderScreen();
+    await fillHolding(1, "2454", "1000", "100");
+    await importFromLibrary();
+
+    expect(await screen.findByText("連不上辨識服務")).toBeTruthy();
+    expect(screen.getByDisplayValue("2454")).toBeTruthy();
+    expect(screen.getByDisplayValue("1000")).toBeTruthy();
+    expect(screen.getByDisplayValue("100")).toBeTruthy();
+    expect(screen.getAllByLabelText("股票代號或名稱")).toHaveLength(1);
+
+    spy.mockRestore(); // 回到假辨識器的固定結果
+    await fireEvent.press(screen.getByLabelText("重試辨識"));
+    expect(await screen.findByDisplayValue("台積電（2330）")).toBeTruthy();
+    expect(screen.queryByText("連不上辨識服務")).toBeNull();
+    // 已填的 2454 保留在第 1 檔，匯入的接在後面
+    expect(screen.getAllByLabelText("股票代號或名稱")).toHaveLength(3);
+    expect(screen.getByDisplayValue("2454")).toBeTruthy();
+  });
+
+  test("辨識不到任何持股：顯示錯誤，欄位不變", async () => {
+    jest.spyOn(holdingRecognizer, "recognize").mockResolvedValueOnce({ holdings: [], warnings: ["這不是持股畫面"] });
+    await renderScreen();
+    await importFromLibrary();
+    expect(await screen.findByText(/辨識不到任何持股/)).toBeTruthy();
+    expect(screen.getByText(/這不是持股畫面/)).toBeTruthy();
+    expect(screen.getAllByLabelText("股票代號或名稱")).toHaveLength(1);
+  });
+
+  test("對不到的股票把名稱放進欄位並標「請確認」；low confidence 的欄位也標", async () => {
+    jest.spyOn(holdingRecognizer, "recognize").mockResolvedValueOnce({
+      holdings: [
+        { name: "不存在公司", buyPrice: "10", shares: "100", confidence: "high" },
+        { symbol: "2330", buyPrice: "500", shares: "1000", confidence: "low" },
+      ],
+      warnings: [],
+    });
+    await renderScreen();
+    await importFromLibrary();
+
+    expect(await screen.findByDisplayValue("不存在公司")).toBeTruthy();
+    expect(screen.getByLabelText("股票代號或名稱 請確認")).toBeTruthy();
+    expect(screen.getByLabelText("買入價 請確認")).toBeTruthy();
+    expect(screen.getByLabelText("數量 請確認")).toBeTruthy();
+
+    // 使用者改了買入價，那一欄的「請確認」就消失
+    await fireEvent.changeText(screen.getAllByLabelText("買入價")[1], "510");
+    expect(screen.queryByLabelText("買入價 請確認")).toBeNull();
+    expect(screen.getByLabelText("數量 請確認")).toBeTruthy();
+  });
+
+  test("截圖超過 5 檔：只匯入 5 檔並提示", async () => {
+    jest.spyOn(holdingRecognizer, "recognize").mockResolvedValueOnce({
+      holdings: ["2330", "2317", "2454", "2303", "0050", "2603"].map((symbol) => ({
+        symbol,
+        buyPrice: "10",
+        shares: "1000",
+        confidence: "high" as const,
+      })),
+      warnings: [],
+    });
+    await renderScreen();
+    await importFromLibrary();
+    expect(await screen.findByText("截圖有 6 檔，只匯入前 5 檔")).toBeTruthy();
+    expect(screen.getAllByLabelText("股票代號或名稱")).toHaveLength(5);
+  });
+
+  test("相簿權限被拒：提示去設定開啟，不開相簿", async () => {
+    jest
+      .mocked(ImagePicker.requestMediaLibraryPermissionsAsync)
+      .mockResolvedValueOnce({
+        granted: false,
+        canAskAgain: false,
+        status: ImagePicker.PermissionStatus.DENIED,
+        expires: "never",
+        accessPrivileges: "none",
+      });
+    await renderScreen();
+    await importFromLibrary();
+    expect(await screen.findByText(/沒有相簿權限/)).toBeTruthy();
+    expect(ImagePicker.launchImageLibraryAsync).not.toHaveBeenCalled();
+  });
+
+  test("選圖時取消：什麼都不發生", async () => {
+    jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce({ canceled: true, assets: null });
+    await renderScreen();
+    await importFromLibrary();
+    await waitFor(() => expect(screen.queryByLabelText("從相簿選")).toBeNull());
+    expect(screen.getAllByLabelText("股票代號或名稱")).toHaveLength(1);
+    expect(screen.queryByTestId("import-error")).toBeNull();
   });
 });

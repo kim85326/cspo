@@ -11,6 +11,8 @@ type Props = {
   /** 股票清單還在載入（接證交所時第一次會等一下）；清單空白時顯示「載入中」 */
   loading?: boolean;
   error?: string;
+  /** 顯示在標籤右邊的小提示，例如截圖匯入後的「請確認」 */
+  badge?: string;
   /** 多個選擇器同時存在時用來區分（測試與 Maestro 用）；預設 input-stock */
   testID?: string;
   onChangeQuery: (query: string) => void;
@@ -32,6 +34,7 @@ export function StockPicker({
   selected,
   loading = false,
   error,
+  badge,
   testID = "input-stock",
   onChangeQuery,
   onSelect,
@@ -76,7 +79,14 @@ export function StockPicker({
 
   return (
     <View style={styles.wrapper}>
-      <Text style={styles.label}>{LABEL}</Text>
+      <View style={styles.labelRow}>
+        <Text style={styles.label}>{LABEL}</Text>
+        {badge ? (
+          <Text style={styles.badge} accessibilityLabel={`${LABEL} ${badge}`}>
+            {badge}
+          </Text>
+        ) : null}
+      </View>
       <View style={styles.inputRow}>
         <TextInput
           accessibilityLabel={LABEL}
@@ -137,11 +147,21 @@ export function StockPicker({
 
 const styles = StyleSheet.create({
   wrapper: { marginBottom: space.md },
+  labelRow: { flexDirection: "row", alignItems: "center", marginBottom: space.xs + 2 },
   label: {
     fontFamily: fonts.medium,
     fontSize: fontSize.sm,
     color: colors.mutedForeground,
-    marginBottom: space.xs + 2,
+  },
+  badge: {
+    marginLeft: space.sm,
+    paddingHorizontal: space.sm,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    backgroundColor: colors.accentSurface,
+    color: colors.accent,
+    fontFamily: fonts.medium,
+    fontSize: fontSize.xs,
   },
   inputRow: { position: "relative", justifyContent: "center" },
   input: {

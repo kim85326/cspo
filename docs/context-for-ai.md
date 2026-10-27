@@ -109,6 +109,7 @@ cspo/
   - ~~接證交所真實資料~~：已完成（`src/data/twseSource.ts`）。回應欄位 `Date`（民國年 1151022）、`Code`、`Name`、`ClosingPrice`（字串，無成交時是空字串），約 1,380 列；無成交的列會被濾掉。`Quote.asOf` 帶資料日期，結果卡顯示「收盤價 2026/10/22」；斷網顯示「行情載入失敗，請檢查網路後重試」，再按「計算」會重試。
   - ~~多檔一起比~~（Story 003 已完成：最多 5 檔、依報酬率排名、合計）
   - ~~持股存手機~~（Story 004 已完成：AsyncStorage，存幾檔帶回幾檔，一鍵清除）
+  - ~~從券商截圖匯入持股~~（Story 005：expo-image-picker + Expo Router API route `/recognize` + Claude vision；API key 放 `.env`，見 architecture.md 第 7 節）
   - 手續費 0.1425%（最低 20 元）與交易稅 0.3%
 - **第三迭代候選**：報酬率圖、到價提醒、商店截圖與隱私權政策。
 
