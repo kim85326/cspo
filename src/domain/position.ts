@@ -237,6 +237,6 @@ function compareEvents(a: ReplayEvent, b: ReplayEvent): number {
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /** 兩個 YYYY-MM-DD 之間差幾個日曆天 */
-function daysBetween(from: string, to: string): number {
+export function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / MS_PER_DAY);
 }
