@@ -63,6 +63,8 @@ export type HoldingDraft = {
   selected: StockInfo | null;
   buyPrice: string;
   shares: string;
+  /** 買入日期原始字串，選填（截圖匯入不會填） */
+  buyDate?: string;
   review?: ReviewFlags;
 };
 

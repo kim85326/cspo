@@ -24,14 +24,17 @@ export const asyncStorageHoldingStore: HoldingStore = {
   },
 };
 
-/** 只接受「每筆三個欄位都是字串」的陣列；整份格式不對回空陣列，個別壞掉的筆數略過。 */
+/**
+ * 只接受「每筆三個欄位都是字串」的陣列；整份格式不對回空陣列，個別壞掉的筆數略過。
+ * buyDate 是後來加的選填欄位：舊資料沒有它照樣讀得回來；不是字串就當沒填。
+ */
 export function parseSavedHoldings(value: unknown): SavedHolding[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(isSavedHolding).map(({ symbol, buyPrice, shares }) => ({
-    symbol,
-    buyPrice,
-    shares,
-  }));
+  return value.filter(isSavedHolding).map(({ symbol, buyPrice, shares, buyDate }) =>
+    typeof buyDate === "string" && buyDate !== ""
+      ? { symbol, buyPrice, shares, buyDate }
+      : { symbol, buyPrice, shares },
+  );
 }
 
 function isSavedHolding(value: unknown): value is SavedHolding {

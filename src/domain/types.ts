@@ -3,6 +3,17 @@ export type Holding = {
   symbol: string;
   buyPrice: number;
   shares: number;
+  /** 買入日期（ISO："2026-10-05"），選填；有填才在 K 線圖標買入點 */
+  buyDate?: string;
+};
+
+/** 一天的 K 棒（日 K）。date 為 ISO："2026-10-05" */
+export type Candle = {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
 };
 
 /** 一檔股票的現價 */
@@ -50,4 +61,6 @@ export type SavedHolding = {
   symbol: string;
   buyPrice: string;
   shares: string;
+  /** 舊版存的資料沒有這欄 */
+  buyDate?: string;
 };
