@@ -50,8 +50,7 @@ cspo/
 │   │   ├── settings.tsx → screens/SettingsScreen（免責聲明；Pro 區塊與 Demo 開關由 proPlan 功能開關控制）
 │   │   ├── pro.tsx     → screens/ProScreen（Pro 方案介紹，proPlan 功能開關關閉時導回首頁）
 │   │   ├── twse+api.ts 網頁版同源代理 GET /twse → 證交所（沒開 CORS）
-│   │   ├── tpex+api.ts 網頁版同源代理 GET /tpex → 櫃買中心（沒開 CORS）
-│   │   └── recognize+api.ts 截圖辨識 API route（Story 005）
+│   │   └── tpex+api.ts 網頁版同源代理 GET /tpex → 櫃買中心（沒開 CORS）
 │   ├── screens/        畫面本體與畫面測試
 │   │   ├── CalculateScreen.tsx
 │   │   ├── SettingsScreen.tsx  設定頁（Story 013、020）

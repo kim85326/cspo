@@ -83,7 +83,7 @@ app 的現價來自證交所 OpenAPI 的「每日收盤行情」，是前一個�
 
 ## 截圖匯入（Story 005）
 
-需要工程同學的電腦先設定好 `.env` 的 `ANTHROPIC_API_KEY`，並用 `npx expo start --tunnel` 開 dev server；手機上的 app 會把截圖送到那台電腦辨識。
+截圖會送到工程同學電腦上的後端 `backend/` 辨識（和 AI 解讀同一台）。測試前工程同學要：`backend/.env` 設好 `ANTHROPIC_API_KEY` 與 `INSIGHT_ACCESS_TOKEN`、執行 `npm run backend:tunnel`、再用 `node scripts/feature-flags.mjs set screenshotImport on` 打開開關（APK 要先收到帶後端網址與存取碼的 OTA，見 [architecture.md](architecture.md) 第 7 節）。開關打開後最多等 5 分鐘，把 app 切到背景再切回來就看得到按鈕。
 辨識是 AI 做的，**每次都要對照原始截圖人工核對**：股票、買入價、數量三個欄位都要看。
 
 | # | 檢查項目 | iPhone | Android | 備註 |
@@ -94,8 +94,10 @@ app 的現價來自證交所 OpenAPI 的「每日收盤行情」，是前一個�
 | S4 | 用自己券商 app 的持股截圖匯入：每一檔的股票、買入價、數量都和截圖一致；「張」有換算成股 | | | 把對錯的欄位記在 Issue，附截圖 |
 | S5 | 辨識信心低或對不到的欄位標「請確認」；改過該欄位後標記消失 | | | |
 | S6 | 辨識中顯示「辨識中…」且按鈕不能連按；大張截圖幾秒內完成 | | | 超過 30 秒請回報 |
-| S7 | 關掉電腦的 dev server（或 `.env` 沒設 key）再匯入：顯示清楚的錯誤與「重試」，原本填的內容還在 | | | |
+| S7 | 關掉電腦的 `npm run backend:tunnel` 再匯入：顯示「連不上辨識服務：提供服務的電腦可能還沒開…」與「重試」，原本填的內容還在；重新打開 tunnel 後按「重試辨識」能成功 | | | |
 | S8 | 截圖超過 5 檔：只匯入前 5 檔，看到提示；截圖不是持股畫面：提示辨識不到任何持股 | | | |
+| S9 | **Android APK（build 5 以後，收到 OTA）**：從相簿選一張手機螢幕截圖（PNG）匯入能成功，不會出現「辨識服務錯誤（400）」。iPhone 選一張相機拍的 HEIC 照片也要能送出（內容辨識不到持股沒關係，不能是格式錯誤） | | | 之前 mimeType 標錯會被拒收 |
+| S10 | 開關關閉（`node scripts/feature-flags.mjs set screenshotImport off`，等 5 分鐘、切背景再回來）：看不到「從截圖匯入」按鈕 | | | |
 
 ## 股價走勢圖與買入點（Story 016）
 

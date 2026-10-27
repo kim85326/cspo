@@ -1,7 +1,7 @@
 import { asyncStorageLedgerStore } from "./asyncStorageLedgerStore";
 import type { CandleSource } from "./CandleSource";
 import { backendInsightProvider } from "./backendInsightProvider";
-import { claudeHoldingRecognizer } from "./claudeHoldingRecognizer";
+import { backendHoldingRecognizer } from "./backendHoldingRecognizer";
 import type { CorporateActionSource } from "./CorporateActionSource";
 import { fakeCandleSource } from "./fakeCandleSource";
 import { fakeCorporateActionSource } from "./fakeCorporateActionSource";
@@ -86,7 +86,7 @@ export const ledgerRepository: LedgerRepository = createLedgerRepository(ledgerS
 export const holdingStore: HoldingStore = createLedgerHoldingStore(ledgerRepository);
 export const holdingRecognizer: HoldingRecognizer = useFakeRecognizer
   ? fakeHoldingRecognizer
-  : claudeHoldingRecognizer;
+  : backendHoldingRecognizer;
 /** AI 解讀（Story 017）：打工程同學電腦上的 backend/，見 docs/architecture.md 第 7 節 */
 export const insightProvider: InsightProvider = useFakeInsight
   ? fakeInsightProvider

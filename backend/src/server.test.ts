@@ -9,7 +9,7 @@ import {
   MISSING_TOKEN_MESSAGE,
   originAllowed,
 } from "./server.ts";
-import { CLEAN_REPLY, fakeClaude, sampleInput } from "./testHelpers.ts";
+import { CLEAN_REPLY, fakeClaude, fakeImageBase64, RECOGNIZE_REPLY, sampleInput } from "./testHelpers.ts";
 
 const TOKEN = "test-token-123";
 
@@ -35,6 +35,18 @@ async function start(
 
 function postInsight(base: string, body: unknown = sampleInput(), headers: Record<string, string> = {}) {
   return fetch(`${base}/insight`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}`, ...headers },
+    body: typeof body === "string" ? body : JSON.stringify(body),
+  });
+}
+
+function postRecognize(
+  base: string,
+  body: unknown = { imageBase64: fakeImageBase64("jpeg"), mimeType: "image/png" },
+  headers: Record<string, string> = {},
+) {
+  return fetch(`${base}/recognize`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}`, ...headers },
     body: typeof body === "string" ? body : JSON.stringify(body),
@@ -152,7 +164,75 @@ describe("POST /insight", () => {
   });
 });
 
-describe("only /health and /insight are exposed", () => {
+describe("POST /recognize", () => {
+  it("returns the model's holdings, sending the type sniffed from the content", async () => {
+    const claude = fakeClaude([RECOGNIZE_REPLY]);
+    const base = await start({}, claude.createMessage);
+    const response = await postRecognize(base);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), RECOGNIZE_REPLY);
+    assert.match(JSON.stringify(claude.calls[0].messages), /"media_type":"image\/jpeg"/);
+  });
+
+  it("requires the same access token, and fails closed without the token or the API key", async () => {
+    const claude = fakeClaude([RECOGNIZE_REPLY]);
+    const base = await start({}, claude.createMessage);
+    assert.equal((await postRecognize(base, undefined, { Authorization: "Bearer nope" })).status, 401);
+    assert.equal((await postRecognize(await start({ INSIGHT_ACCESS_TOKEN: "" }))).status, 503);
+    const noKey = await postRecognize(await start({ ANTHROPIC_API_KEY: "" }));
+    assert.equal(noKey.status, 503);
+    assert.equal((await noKey.json()).error, MISSING_API_KEY_MESSAGE);
+    assert.equal(claude.calls.length, 0);
+  });
+
+  it("accepts images far larger than the /insight body limit, up to its own limit", async () => {
+    const base = await start({ INSIGHT_MAX_BODY_BYTES: "1024", INSIGHT_RECOGNIZE_MAX_IMAGE_BYTES: "204800" }, fakeClaude([RECOGNIZE_REPLY]).createMessage);
+    const ok = await postRecognize(base, { imageBase64: fakeImageBase64("png", 200_000), mimeType: "image/png" });
+    assert.equal(ok.status, 200);
+    const tooBig = await postRecognize(base, { imageBase64: fakeImageBase64("png", 300_000), mimeType: "image/png" });
+    assert.equal(tooBig.status, 413);
+    assert.match((await tooBig.json()).error, /圖片太大/);
+  });
+
+  it("defaults the image limit to 5 MB", () => {
+    assert.equal(loadConfig({}).recognizeMaxImageBytes, 5 * 1024 * 1024);
+  });
+
+  it("returns 415 for content that is not a supported image, without calling Claude", async () => {
+    const claude = fakeClaude([RECOGNIZE_REPLY]);
+    const base = await start({}, claude.createMessage);
+    const pdf = await postRecognize(base, { imageBase64: fakeImageBase64("pdf"), mimeType: "image/png" });
+    assert.equal(pdf.status, 415);
+    const declared = await postRecognize(base, { imageBase64: fakeImageBase64("png"), mimeType: "text/html" });
+    assert.equal(declared.status, 415);
+    assert.equal((await postRecognize(base, { mimeType: "image/png" })).status, 400);
+    assert.equal(claude.calls.length, 0);
+  });
+
+  it("shares the per-minute and daily limits with /insight", async () => {
+    const perMinute = await start({ INSIGHT_RATE_LIMIT_PER_MINUTE: "1" });
+    assert.equal((await postInsight(perMinute)).status, 200);
+    assert.equal((await postRecognize(perMinute)).status, 429);
+
+    const daily = await start({ INSIGHT_DAILY_LIMIT: "1" }, fakeClaude([RECOGNIZE_REPLY]).createMessage);
+    assert.equal((await postRecognize(daily)).status, 200);
+    const limited = await postInsight(daily);
+    assert.equal(limited.status, 429);
+    assert.match((await limited.json()).error, /今天/);
+  });
+
+  it("answers the CORS preflight", async () => {
+    const base = await start();
+    const response = await fetch(`${base}/recognize`, {
+      method: "OPTIONS",
+      headers: { Origin: "http://localhost:8081", "Access-Control-Request-Method": "POST" },
+    });
+    assert.equal(response.status, 204);
+    assert.equal(response.headers.get("access-control-allow-origin"), "http://localhost:8081");
+  });
+});
+
+describe("only /health, /insight and /recognize are exposed", () => {
   it("returns 404 for any other path, including preflight", async () => {
     const base = await start();
     assert.equal((await fetch(`${base}/nope`)).status, 404);
@@ -166,6 +246,7 @@ describe("only /health and /insight are exposed", () => {
     const base = await start();
     assert.equal((await fetch(`${base}/health`, { method: "POST" })).status, 405);
     assert.equal((await fetch(`${base}/insight`)).status, 405);
+    assert.equal((await fetch(`${base}/recognize`)).status, 405);
   });
 });
 

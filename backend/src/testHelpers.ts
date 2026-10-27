@@ -64,3 +64,28 @@ export function fakeClaude(replies: Array<object | Error | string>) {
   };
   return { createMessage, calls };
 }
+
+/** 截圖辨識測試用的圖片：只有檔頭是真的（後端只看檔頭判斷格式），後面補 0 */
+export const IMAGE_HEADERS = {
+  jpeg: [0xff, 0xd8, 0xff, 0xe0],
+  png: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+  gif: [...Buffer.from("GIF89a")],
+  webp: [...Buffer.from("RIFF"), 0, 0, 0, 0, ...Buffer.from("WEBP")],
+  heic: [0, 0, 0, 0x18, ...Buffer.from("ftypheic")],
+  pdf: [...Buffer.from("%PDF-1.7")],
+} as const;
+
+export function fakeImageBase64(kind: keyof typeof IMAGE_HEADERS, totalBytes = 64): string {
+  const bytes = Buffer.alloc(Math.max(totalBytes, IMAGE_HEADERS[kind].length));
+  Buffer.from(IMAGE_HEADERS[kind]).copy(bytes);
+  return bytes.toString("base64");
+}
+
+/** 模型對一張兩檔截圖的回覆（structured outputs 的原始欄位） */
+export const RECOGNIZE_REPLY = {
+  holdings: [
+    { symbol: "2330", name: "台積電", buyPrice: 512.5, quantity: 2, quantityUnit: "lots", confidence: "high" },
+    { symbol: null, name: "鴻海", buyPrice: 180, quantity: 500, quantityUnit: "shares", confidence: "low" },
+  ],
+  warnings: ["第二列的代號被遮住"],
+};

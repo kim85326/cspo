@@ -3,9 +3,9 @@
  * 數字設定都有預設值與上限，填錯就用預設，不讓一個打錯字的設定變成無限制。
  */
 export type InsightConfig = {
-  /** Anthropic API key；空字串代表沒設，/insight 回 503 */
+  /** Anthropic API key；空字串代表沒設，/insight、/recognize 回 503 */
   apiKey: string;
-  /** app 帶來的共享存取碼；空字串代表沒設，/insight 回 503（fail closed） */
+  /** app 帶來的共享存取碼；空字串代表沒設，/insight、/recognize 回 503（fail closed） */
   accessToken: string;
   port: number;
   host: string;
@@ -14,12 +14,19 @@ export type InsightConfig = {
   rateLimitPerMinute: number;
   dailyLimit: number;
   maxBodyBytes: number;
+  /** /recognize 的圖片大小上限（解碼後的 bytes）；請求內容上限依此換算成 base64 長度 */
+  recognizeMaxImageBytes: number;
   maxTokens: number;
   /** 同時最多幾個請求在等 Claude，超過回 429 */
   maxConcurrent: number;
   /** 走 tunnel 時才開：本機轉進來的連線改用 CF-Connecting-IP／X-Forwarded-For 當來源 IP */
   trustProxy: boolean;
 };
+
+/** /recognize 的請求內容上限：base64 是原檔的 4/3 倍，再留 JSON 欄位的空間 */
+export function recognizeMaxBodyBytes(config: InsightConfig): number {
+  return Math.ceil(config.recognizeMaxImageBytes / 3) * 4 + 1024;
+}
 
 /** max_tokens 的硬上限：設定值再大也不會超過，限制單次最壞花費 */
 export const MAX_TOKENS_CEILING = 4096;
@@ -38,6 +45,7 @@ export function loadConfig(env: Record<string, string | undefined>): InsightConf
     rateLimitPerMinute: intSetting(env.INSIGHT_RATE_LIMIT_PER_MINUTE, 5, 1, 120),
     dailyLimit: intSetting(env.INSIGHT_DAILY_LIMIT, 100, 1, 10_000),
     maxBodyBytes: intSetting(env.INSIGHT_MAX_BODY_BYTES, 16_384, 1_024, 262_144),
+    recognizeMaxImageBytes: intSetting(env.INSIGHT_RECOGNIZE_MAX_IMAGE_BYTES, 5 * 1024 * 1024, 102_400, 10 * 1024 * 1024),
     maxTokens: intSetting(env.INSIGHT_MAX_TOKENS, 2048, 512, MAX_TOKENS_CEILING),
     maxConcurrent: intSetting(env.INSIGHT_MAX_CONCURRENT, 3, 1, 20),
     trustProxy: env.INSIGHT_TRUST_PROXY === "1",

@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from "react";
 import { holdingRecognizer } from "@/data";
 import { RecognizeError, type HoldingRecognizer } from "@/data/HoldingRecognizer";
 import type { ExtractionResult } from "@/domain/holdingExtract";
+import { guessImageMimeType } from "@/domain/imageMimeType";
 
 export type ImportSource = "library" | "camera";
 
@@ -57,7 +58,7 @@ export function useScreenshotImport(
           return;
         }
         setRecognizing(true);
-        const result = await recognizer.recognize(asset.base64, asset.mimeType ?? "image/jpeg");
+        const result = await recognizer.recognize(asset.base64, guessImageMimeType(asset));
         if (result.holdings.length === 0) {
           setError([IMPORT_MESSAGES.empty, ...result.warnings].join("\n"));
           return;

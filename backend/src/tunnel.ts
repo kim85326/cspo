@@ -94,10 +94,12 @@ async function main(): Promise<void> {
 
   console.log(`[tunnel] ${String(version.stdout).trim()}`);
   console.log(`[tunnel] 即將對外公開：
-  - 這台電腦的 AI 解讀後端（${local}）會透過 ngrok 變成一個公開的 https 網址，任何知道網址的人都連得到
-  - 只有 GET /health（回報 key／存取碼有沒有設，不含值）與 POST /insight（要存取碼）兩條路，其他一律 404
-  - 每次 /insight 都會用你的 Anthropic API key 花錢；限制：每 IP 每分鐘 ${config.rateLimitPerMinute} 次、
-    全部每天 ${config.dailyLimit} 次、同時 ${config.maxConcurrent} 個、max_tokens ${config.maxTokens}
+  - 這台電腦的後端（${local}）會透過 ngrok 變成一個公開的 https 網址，任何知道網址的人都連得到
+  - 只有 GET /health（回報 key／存取碼有沒有設，不含值）、POST /insight（AI 解讀）與
+    POST /recognize（截圖辨識）三條路，兩條 POST 都要存取碼，其他一律 404
+  - 每次 /insight、/recognize 都會用你的 Anthropic API key 花錢；兩條合計限制：每 IP 每分鐘 ${config.rateLimitPerMinute} 次、
+    全部每天 ${config.dailyLimit} 次、同時 ${config.maxConcurrent} 個；/insight max_tokens ${config.maxTokens}、
+    /recognize 圖片上限 ${(config.recognizeMaxImageBytes / 1024 / 1024).toFixed(0)} MB
   - 請確認已在 Anthropic Console 為這把 key 設每月花費上限（docs/architecture.md 第 7 節）
 `);
 

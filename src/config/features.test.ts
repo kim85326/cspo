@@ -1,3 +1,5 @@
+// 這個測試用 node:fs 讀 scripts/feature-flags.mjs；app 的 tsconfig 只載入 jest 的型別
+/// <reference types="node" />
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { FEATURE_NAMES, parseFlags, resolveFeatures, type Features } from "./features";
