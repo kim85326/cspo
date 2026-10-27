@@ -31,6 +31,7 @@ import {
 import { ImportSourceSheet } from "@/ui/ImportSourceSheet";
 import { PnlCard } from "@/ui/PnlCard";
 import { colors, fonts, fontSize, radius, space, touchTarget } from "@/ui/theme";
+import { VersionBadge } from "@/ui/VersionBadge";
 
 type Outcome =
   | { kind: "single"; quote: Quote; result: PnlResult }
@@ -449,6 +450,7 @@ export default function CalculateScreen() {
         ) : null}
 
         <Text style={styles.disclaimer}>資料僅供參考，不構成投資建議。</Text>
+        <VersionBadge />
       </ScrollView>
 
       <ImportSourceSheet

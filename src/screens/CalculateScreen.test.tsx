@@ -674,3 +674,17 @@ describe("證券類型與上櫃股票（對應 docs/stories/007）", () => {
     expect(await screen.findAllByLabelText(/^選擇 /)).toHaveLength(20);
   });
 });
+
+describe("版本資訊（對應 docs/stories/018）", () => {
+  test("最底部看得到版本，點開看得到詳細資訊與複製按鈕", async () => {
+    await renderScreen();
+    // Jest 跑的是 dev 模式，所以標示「開發版」；版本號由 jest-expo 的原生模組 mock 決定，不在這裡驗
+    const badge = screen.getByLabelText("版本資訊");
+    expect(within(badge).getByText(/^開發版（.+） · v/)).toBeTruthy();
+
+    await fireEvent.press(badge);
+    expect(screen.getByTestId("version-details")).toBeTruthy();
+    expect(screen.getByText("執行環境")).toBeTruthy();
+    expect(screen.getByLabelText("複製版本資訊")).toBeTruthy();
+  });
+});

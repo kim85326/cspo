@@ -224,8 +224,31 @@ preview APK 從 **92,659,407 bytes（約 88 MB）縮到 25,116,066 bytes（約 2
 
 - `npm run ota` 會先自動比對 fingerprint，原生有變就拒絕發 OTA 並提示改打 APK；也會擋下 `.env.local` 裡開著的 `EXPO_PUBLIC_*=1`（假價、開發中的功能開關），避免發給所有人。
 - `npm run release` 會下載 EAS 的 APK、建立 GitHub Release（標為最新）、在 `docs/index.html` 的版本清單最上面加一筆，然後 commit + push。舊版本都會留在下載頁，新版有問題可以改裝舊版。
-- OTA 只對「裝了 build 3 以後」的 APK 有效，build 1、2 沒有 expo-updates，收不到更新。
+- OTA 只對「裝了 build 3 以後」的 APK 有效，build 1、2 沒有 expo-updates，收不到更新。Story 018 加了 `expo-application`、`expo-clipboard` 兩個原生模組，合併後要先打一次 APK（build 4），之後的 OTA 只送得到 build 4 以後。
 - `eas.json` 的 preview profile 已開 `EAS_GRADLE_CACHE=1`；`package-lock.json` 沒變時第二次以後的打包會比較快。
+
+### 版本號規則（Story 018，2026-10-27 起）
+
+app 最底部（免責聲明下面）有一行版本資訊，點開可複製，測試同學回報 bug 時貼上。各部分的來源：
+
+| 顯示 | 意思 | 從哪裡來 |
+|---|---|---|
+| `v1.0.0` | app 版本 | APK：安裝檔的版本名稱（`expo-application` 的 `nativeApplicationVersion`，即打包當下 `app.json` 的 `version`）；Expo Go／網頁版：`app.json` 的 `version`（`Constants.expoConfig.version`） |
+| `build 4` | 哪一個 APK，**和下載頁的名稱一樣** | Android versionCode（`expo-application` 的 `nativeBuildVersion`） |
+| `OTA 10/27 16:05` | 跑的是 OTA 更新，以及它的發佈時間（手機當地時間） | `expo-updates` 的 `isEmbeddedLaunch`（false = OTA）、`createdAt` |
+| 開發版（Expo Go）／開發版（網頁版） | 跑在 dev server 上 | `__DEV__`、`Constants.executionEnvironment`（`storeClient` = Expo Go）、`Platform.OS` |
+
+點開後另外有 runtime version、channel、update ID、OTA 說明（`npm run ota -- "說明"` 的說明，發佈時寫進 bundle 的 `EXPO_PUBLIC_OTA_MESSAGE`；拿不到時顯示 update ID 前 8 碼）。文字整理在 `src/domain/versionInfo.ts`，元件是 `src/ui/VersionBadge.tsx`。
+
+**build N = Android versionCode**：
+
+- `eas.json` 的 preview profile 開了 `autoIncrement`，`appVersionSource` 是 `remote`：versionCode 存在 EAS 上，每打一次 APK 自動 +1，不用改 `app.json`。
+- `npm run release` 直接用這個 APK 的 versionCode 當「build N」（下載頁名稱、GitHub tag `v1.0.0-buildN`）。versionCode 不大於下載頁上最大的 N 時會拒絕發版並提示怎麼修。
+- build 1～3 是這個規則之前打的，versionCode 都是 1；EAS 上的 versionCode 目前也是 1。**下一次打 APK 之前要先執行一次** `npx eas-cli build:version:set -p android`，輸入 `3`，下一個 APK 才會是 build 4。只要做這一次。
+- `app.json` 的 `version`（1.0.0）是給人看的版本名稱，改它是手動的事；改了要重打 APK（OTA 不會改到安裝檔的版本名稱，畫面以安裝檔為準）。
+- 版本號（`version`、versionCode）與 `eas.json` 都不算進 fingerprint，所以 autoIncrement 不會讓 OTA 對不上。
+
+**舊版會顯示什麼**：版本資訊用到 `expo-application` 與 `expo-clipboard` 兩個原生模組，fingerprint 因此改變，build 1～3 都收不到這個畫面（`npm run ota` 會因 fingerprint 不同而拒絕發），要裝 build 4 以後才看得到。若有 versionCode 1 的 APK 跑到這段 JS，會顯示「build 1～3」；拿不到 versionCode 顯示「build 未知」。
 
 ## 8. 迭代規劃建議
 

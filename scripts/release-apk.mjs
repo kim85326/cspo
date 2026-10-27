@@ -5,7 +5,9 @@
 //   npm run release -- <EAS build ID> "<這版改了什麼>"
 //   例：npm run release -- 71d5a8c3-3e2c-4afa-a375-c3029d03f6e3 "APK 瘦身到 24 MB、加 OTA 更新"
 //
-// 版本名稱自動取下一號（build 1、build 2 → build 3），GitHub tag 是 v<app 版本>-build<N>。
+// 版本名稱「build N」的 N 就是這個 APK 的 Android versionCode（eas.json preview profile 開了 autoIncrement，
+// 每打一次 +1），app 底部的版本資訊顯示的也是它（Story 018），所以下載頁和手機上看到的一定一致。
+// GitHub tag 是 v<app 版本>-build<N>。build 1～3 是這個規則之前發的，versionCode 都是 1。
 // 需要：已登入的 gh（gh auth status）與 eas-cli（npx eas-cli whoami）。
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -49,7 +51,16 @@ const commit = build.gitCommitHash;
 
 const html = readFileSync(INDEX, "utf8");
 const used = [...html.matchAll(/name: "build (\d+)"/g)].map((m) => Number(m[1]));
-const n = (used.length ? Math.max(...used) : 0) + 1;
+const maxUsed = used.length ? Math.max(...used) : 0;
+const n = Number(build.appBuildVersion);
+if (!Number.isInteger(n) || n <= maxUsed) {
+  fail(
+    `這個 APK 的 versionCode 是 ${build.appBuildVersion}，但下載頁已經有 build ${maxUsed}：` +
+      `app 底部會顯示「build ${build.appBuildVersion}」，和下載頁對不起來。\n` +
+      `  先把 EAS 上的 versionCode 設成 ${maxUsed}：npx eas-cli build:version:set -p android\n` +
+      `  再重打 APK（preview profile 會自動 +1 變成 build ${maxUsed + 1}）。`,
+  );
+}
 const tag = `v${appVersion}-build${n}`;
 const fileName = `zhuanlema-${appVersion}-build${n}.apk`;
 

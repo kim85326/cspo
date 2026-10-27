@@ -65,6 +65,7 @@ cspo/
 │   │   ├── portfolio.ts    summarize（整體、核心、衛星三組加總）、bucketOf、defaultBucket
 │   │   ├── ledgerValidation.ts validateLedgerChange（新增／修改／刪除後重播，賣超就拒絕並說是哪一筆）、validateLedger、欄位檢查
 │   │   ├── ledgerTestData.ts   測試共用資料（product-spec 3.7 範例、makeTx、makeDividend），只給 *.test.ts 用
+│   │   ├── versionInfo.ts  describeVersion：版本原始值 → 底部那行小字與詳細資訊（Story 018）
 │   │   └── *.test.ts
 │   ├── data/           對外資料來源
 │   │   ├── PriceSource.ts      介面：getQuote(symbol) → Quote | null
@@ -81,6 +82,7 @@ cspo/
 │   │   ├── directoryOrder.ts   orderForDirectory：熱門清單在前、其餘依代號、重複代號留第一筆
 │   │   ├── marketSource.ts     把上市 + 上櫃合成一個來源；一邊失敗另一邊照用，兩邊都失敗才丟 PriceLoadError
 │   │   ├── __fixtures__/       真實 API 回應（裁剪過），測試用：tpexMainboardQuotes.json
+│   │   ├── appVersionSource.ts 讀 expo-application／expo-constants／expo-updates 的版本原始值（Story 018）
 │   │   └── index.ts            Jest 或 EXPO_PUBLIC_USE_FAKE_PRICES=1 用假來源，否則 marketSource（證交所 + 櫃買中心）
 │   └── ui/             可重用元件與設計 token
 │       ├── theme.ts        colors / space / radius / fonts / fontSize / touchTarget / pnlColors
@@ -88,12 +90,13 @@ cspo/
 │       ├── LabeledInput.tsx
 │       ├── HoldingForm.tsx 一檔的輸入區塊（StockPicker + 買入價 + 數量 + 移除鈕）
 │       ├── PnlCard.tsx     單檔結果卡
-│       └── ComparisonCard.tsx 多檔比較結果（排名、表現最好／最差、合計）
+│       ├── ComparisonCard.tsx 多檔比較結果（排名、表現最好／最差、合計）
+│       └── VersionBadge.tsx 畫面最底部的版本資訊，點開看詳細、可複製（Story 018）
 ├── e2e/                Maestro 流程（001-profit、001-loss、002-pick-by-name、003-compare-two）
 ├── docs/
 │   ├── architecture.md 架構、分工、迭代規劃（最完整的設計文件）
 │   ├── glossary.md     共同語言與顯示慣例
-│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、007 證券類型與上櫃（Gherkin AC + 對應測試表 + 決策紀錄）
+│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、007 證券類型與上櫃、018 版本資訊（Gherkin AC + 對應測試表 + 決策紀錄）
 │   ├── test-plan.md    手動測試清單、bug 回報格式
 │   └── context-for-ai.md 本檔
 ├── design-system/stock-pnl/MASTER.md
