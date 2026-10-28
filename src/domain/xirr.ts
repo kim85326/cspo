@@ -1,3 +1,4 @@
+import { fxRateOf, toTwd } from "./currency";
 import type { Bucket, Dividend, HoldingSetting, Transaction } from "./ledgerTypes";
 import { bucketOf } from "./portfolio";
 import { daysBetween, type Position } from "./position";
@@ -119,12 +120,12 @@ export function positionCashFlows(
     const amount = t.price * t.shares;
     flows.push({
       date: t.tradeDate,
-      amount: t.side === "buy" ? -(amount + t.fee) : amount - t.fee - t.tax,
+      amount: toTwd(t.side === "buy" ? -(amount + t.fee) : amount - t.fee - t.tax, fxRateOf(t)),
     });
   }
   for (const d of dividends) {
     if (d.symbol !== position.symbol || d.type !== "cash" || d.status !== "received") continue;
-    flows.push({ date: d.payDate ?? d.exDate, amount: d.cashAmount ?? 0 });
+    flows.push({ date: d.payDate ?? d.exDate, amount: toTwd(d.cashAmount ?? 0, fxRateOf(d)) });
   }
 
   if (position.shares > 0) {

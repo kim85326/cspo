@@ -1,4 +1,5 @@
 import { linePath, monthsBetween, shiftMonths } from "./candles";
+import { symbolCurrency, toTwd, twdOnlyFxRate, type FxRateLookup } from "./currency";
 import type { Dividend, Ledger, Transaction } from "./ledgerTypes";
 import { LedgerReplayError, replaySymbol } from "./position";
 
@@ -10,6 +11,7 @@ import { LedgerReplayError, replaySymbol } from "./position";
  * - 持股：當天（含）以前的交易，加上當天（含）以前除權息的股票股利。
  * - 市值 = 持股 × 當天收盤價；那檔當天沒成交（停牌、資料缺一天）用之前最近一天的收盤價。
  * - 累計投入 = 當天以前所有買入的成交金額 + 手續費（規格 1.5；賣出不會減少）。
+ * - 金額都是台幣（規格 3.8）：投入用每筆自己的 fxRate，外幣市值用當天的匯率（fxRateOn）。
  */
 
 /** 期間：近 1 個月、近 1 年、全部 */
@@ -89,6 +91,8 @@ export type AssetHistoryOptions = {
    * 讓走勢最後一天的值等於首頁總市值（P2-07 AC）。沒有的代號用最近的收盤價。
    */
   latestPrices?: Readonly<Record<string, number>>;
+  /** 外幣持股每天的匯率 [多幣別預留]。沒給只認得台幣；外幣那天查不到匯率，跟查不到收盤價一樣跳過 */
+  fxRateOn?: FxRateLookup;
 };
 
 /**
@@ -103,6 +107,7 @@ export function buildAssetHistory(
   options: AssetHistoryOptions,
 ): AssetHistoryPoint[] {
   const { from, to, latestPrices } = options;
+  const fxRateOn = options.fxRateOn ?? twdOnlyFxRate;
   const symbols = [...new Set(ledger.transactions.map((t) => t.symbol))];
 
   const dateSet = new Set<string>();
@@ -128,11 +133,12 @@ export function buildAssetHistory(
       invested += state.invested;
       if (state.shares === 0) continue;
       const price = (useLatest ? latestPrices[symbol] : undefined) ?? closeOnOrBefore(closes[symbol], date);
-      if (price === null) {
+      const fxRate = fxRateOn(symbolCurrency(symbol, ledger.transactions), date);
+      if (price === null || fxRate === null) {
         complete = false;
         break;
       }
-      marketValue += state.shares * price;
+      marketValue += toTwd(state.shares * price, fxRate);
     }
     if (complete && invested > 0) points.push({ date, marketValue, invested });
   }

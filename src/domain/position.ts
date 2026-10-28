@@ -1,9 +1,11 @@
+import { currentFxRate, fxRateOf, symbolCurrency, toTwd } from "./currency";
 import { calcFee, calcTax, DEFAULT_USER_SETTINGS, defaultTaxRate } from "./fees";
 import type { Dividend, SecurityType, Transaction, UserSettings } from "./ledgerTypes";
 
 /**
  * 一檔證券由交易與股利算出來的狀態（規格 3.3–3.6）。
  * 金額保留完整精度，只在顯示時四捨五入。null 代表「沒有值」，畫面顯示 —，不要當成 0。
+ * 金額一律是台幣（規格 3.8）：每筆紀錄依自己的 fxRate 換算，市值依今天的匯率換算。參考價是該證券幣別的原始價格。
  */
 export type Position = {
   symbol: string;
@@ -43,8 +45,13 @@ export type PositionOptions = {
   type: SecurityType;
   /** 證交稅率，用來估未實現損益的賣出費用；預設依類型 */
   taxRate?: number;
-  /** 參考價；沒有就算不出市值與未實現損益 */
+  /** 參考價（該證券的幣別）；沒有就算不出市值與未實現損益 */
   price?: number | null;
+  /**
+   * 今天的匯率（1 單位外幣 = 多少台幣），換算市值用 [多幣別預留]。
+   * 台幣證券固定為 1、忽略這個值；外幣證券沒給就當成沒有價格。
+   */
+  fxRate?: number | null;
   /** 用來估賣出手續費；已存交易的手續費不會用這個重算 */
   settings?: UserSettings;
   /** 今天 YYYY-MM-DD，算持有天數用 */
@@ -56,7 +63,7 @@ export type ReplayProblem =
   | { kind: "oversell"; transaction: Transaction; held: number }
   | { kind: "stockDividendWithoutShares"; dividend: Dividend };
 
-/** 重播到最後的狀態（不含價格相關的數字） */
+/** 重播到最後的狀態（不含價格相關的數字）。金額都已換成台幣 */
 export type ReplayState = {
   shares: number;
   costBasis: number;
@@ -99,7 +106,7 @@ export function replaySymbol(
     realizedPnl: 0,
     cashDividends: received
       .filter((d) => d.type === "cash")
-      .reduce((sum, d) => sum + (d.cashAmount ?? 0), 0),
+      .reduce((sum, d) => sum + toTwd(d.cashAmount ?? 0, fxRateOf(d)), 0),
     holdingSince: null,
   };
 
@@ -115,19 +122,21 @@ export function replaySymbol(
 
     const t = event.transaction;
     const amount = t.price * t.shares;
+    // 外幣交易用這筆自己的匯率換成台幣（規格 3.8）；台幣 fxRate = 1，算式跟以前一樣
+    const fxRate = fxRateOf(t);
     if (t.side === "buy") {
       // 持股歸零後再買，是新的一段持有
       if (state.shares === 0) state.holdingSince = t.tradeDate;
       state.shares += t.shares;
-      state.costBasis += amount + t.fee;
-      state.invested += amount + t.fee;
+      state.costBasis += toTwd(amount + t.fee, fxRate);
+      state.invested += toTwd(amount + t.fee, fxRate);
       continue;
     }
 
     if (t.shares > state.shares) {
       return { state, problem: { kind: "oversell", transaction: t, held: state.shares } };
     }
-    const net = amount - t.fee - t.tax;
+    const net = toTwd(amount - t.fee - t.tax, fxRate);
     // 等於「平均成本 × 賣出股數」，但少一次除法誤差；賣光時整個成本歸零，不留浮點殘值
     const soldCost =
       t.shares === state.shares ? state.costBasis : (state.costBasis * t.shares) / state.shares;
@@ -162,6 +171,7 @@ export function computePosition(
   if (problem) throw new LedgerReplayError(problem);
 
   const price = options.price ?? null;
+  const fxRate = currentFxRate(symbolCurrency(symbol, transactions, dividends), options.fxRate);
   const base = {
     symbol,
     type: options.type,
@@ -189,7 +199,7 @@ export function computePosition(
     };
   }
 
-  if (price === null) {
+  if (price === null || fxRate === null) {
     return {
       ...base,
       marketValue: null,
@@ -202,9 +212,13 @@ export function computePosition(
 
   const settings = options.settings ?? DEFAULT_USER_SETTINGS;
   const taxRate = options.taxRate ?? defaultTaxRate(options.type);
-  const marketValue = price * state.shares;
-  const estimatedSellCosts =
-    calcFee(marketValue, state.shares, settings) + calcTax(marketValue, taxRate);
+  // 手續費、證交稅用原幣別的成交金額算，再換成台幣（美股的費用規則等 8.2 再定）
+  const nativeValue = price * state.shares;
+  const marketValue = toTwd(nativeValue, fxRate);
+  const estimatedSellCosts = toTwd(
+    calcFee(nativeValue, state.shares, settings) + calcTax(nativeValue, taxRate),
+    fxRate,
+  );
   const unrealizedPnl = marketValue - estimatedSellCosts - state.costBasis;
   const totalReturn = state.realizedPnl + unrealizedPnl + state.cashDividends;
   return {

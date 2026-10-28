@@ -1,3 +1,4 @@
+import { CURRENCIES, currencyOf } from "./currency";
 import type { Dividend, Ledger, Transaction } from "./ledgerTypes";
 import { replaySymbol, type ReplayProblem } from "./position";
 
@@ -47,6 +48,8 @@ export function validateLedgerChange(
   if (!applied.ok) return applied;
 
   for (const symbol of applied.symbols) {
+    const currencyError = validateSymbolCurrency(symbol, applied.ledger);
+    if (currencyError) return { ok: false, error: currencyError };
     const { problem } = replaySymbol(symbol, applied.ledger.transactions, applied.ledger.dividends);
     if (problem) return { ok: false, error: describeProblem(problem, changedId(change)) };
   }
@@ -60,8 +63,36 @@ export function validateLedger(ledger: Ledger): LedgerError | null {
     ...ledger.dividends.map((d) => d.symbol),
   ]);
   for (const symbol of symbols) {
+    const currencyError = validateSymbolCurrency(symbol, ledger);
+    if (currencyError) return currencyError;
     const { problem } = replaySymbol(symbol, ledger.transactions, ledger.dividends);
     if (problem) return describeProblem(problem, null);
+  }
+  return null;
+}
+
+/**
+ * 同一檔證券的交易與股利只能有一種幣別（規格 3.8，Story 029）：持有成本、平均成本都是同一個幣別的股數相加，
+ * 混用會讓「平均成本」失去意義。沒填幣別視為 TWD。
+ */
+function validateSymbolCurrency(symbol: string, ledger: Pick<Ledger, "transactions" | "dividends">): LedgerError | null {
+  const currencies = new Set([
+    ...ledger.transactions.filter((t) => t.symbol === symbol).map(currencyOf),
+    ...ledger.dividends.filter((d) => d.symbol === symbol).map(currencyOf),
+  ]);
+  return currencies.size > 1 ? invalid("currency", "同一檔證券的交易與股利只能使用一種幣別") : null;
+}
+
+/** 選填的多幣別欄位：有填就要是認得的幣別、大於 0 的匯率（Story 029） */
+function validateMultiCurrency(record: Pick<Transaction | Dividend, "currency" | "fxRate">): LedgerError | null {
+  if (record.currency !== undefined && !CURRENCIES.includes(record.currency)) {
+    return invalid("currency", "不支援的幣別");
+  }
+  if (record.fxRate !== undefined && (!Number.isFinite(record.fxRate) || record.fxRate <= 0)) {
+    return invalid("fxRate", "匯率必須大於 0");
+  }
+  if (currencyOf(record) === "TWD" && record.fxRate !== undefined && record.fxRate !== 1) {
+    return invalid("fxRate", "台幣的匯率固定為 1");
   }
   return null;
 }
@@ -75,7 +106,7 @@ export function validateTransaction(t: Transaction, today: string): LedgerError 
   if (!Number.isFinite(t.fee) || t.fee < 0) return invalid("fee", "手續費不可小於 0");
   if (!Number.isFinite(t.tax) || t.tax < 0) return invalid("tax", "證交稅不可小於 0");
   if (t.side === "buy" && t.tax !== 0) return invalid("tax", "買入沒有證交稅");
-  return null;
+  return validateMultiCurrency(t);
 }
 
 /** 單筆股利的欄位檢查（M-03） */
@@ -90,7 +121,10 @@ export function validateDividend(d: Dividend): LedgerError | null {
       return invalid("stockShares", "配發股數必須是大於 0 的整數");
     }
   }
-  return null;
+  if (d.withholdingTax !== undefined && (!Number.isFinite(d.withholdingTax) || d.withholdingTax < 0)) {
+    return invalid("withholdingTax", "預扣稅額不可小於 0");
+  }
+  return validateMultiCurrency(d);
 }
 
 function validateChangeFields(change: LedgerChange, today: string): LedgerError | null {

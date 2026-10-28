@@ -1,6 +1,7 @@
 import type { AdjustedClose } from "./adjustedPrice";
 import { closeOnOrBefore, type DailyClose } from "./assetHistory";
 import { shiftMonths } from "./candles";
+import { fxRateOf, symbolCurrency, toTwd, twdOnlyFxRate, type FxRateLookup } from "./currency";
 import { formatAmount } from "./holdings";
 import type { Bucket, Dividend, Transaction } from "./ledgerTypes";
 import { replaySymbol } from "./position";
@@ -66,13 +67,15 @@ export function benchmarkStart(
 /**
  * 期間內的現金流（交易日在 start 當天或之後、today 當天或之前）。
  * 買入：+(成交金額 + 手續費)；賣出：−(成交金額 − 手續費 − 證交稅)。和 XIRR 的現金流同一套金額，只是正負號相反。
+ * 金額依每筆自己的 fxRate 換成台幣（規格 3.8）。
  */
 export function benchmarkFlows(transactions: readonly Transaction[], start: string, today: string): BenchmarkFlow[] {
   return transactions
     .filter((t) => t.tradeDate >= start && t.tradeDate <= today)
     .map((t) => {
       const gross = t.price * t.shares;
-      return { date: t.tradeDate, amount: t.side === "buy" ? gross + t.fee : -(gross - t.fee - t.tax) };
+      const amount = t.side === "buy" ? gross + t.fee : -(gross - t.fee - t.tax);
+      return { date: t.tradeDate, amount: toTwd(amount, fxRateOf(t)) };
     })
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }
@@ -101,12 +104,18 @@ export function openingValue(
   shares: Readonly<Record<string, number>>,
   closes: Readonly<Record<string, readonly DailyClose[]>>,
   start: string,
+  /** 外幣持股換台幣用：代號的幣別與期初那天的匯率（規格 3.8）。預設全部是台幣 */
+  fx: { transactions: readonly Pick<Transaction, "symbol" | "currency">[]; rateOn: FxRateLookup } = {
+    transactions: [],
+    rateOn: twdOnlyFxRate,
+  },
 ): number | null {
   let total = 0;
   for (const [symbol, count] of Object.entries(shares)) {
     const price = closeOnOrBefore(closes[symbol], start);
-    if (price === null) return null;
-    total += count * price;
+    const fxRate = fx.rateOn(symbolCurrency(symbol, fx.transactions), start);
+    if (price === null || fxRate === null) return null;
+    total += toTwd(count * price, fxRate);
   }
   return total;
 }
@@ -179,7 +188,7 @@ export function actualValue(
   for (const d of dividends) {
     if (d.type !== "cash" || d.status !== "received") continue;
     const date = d.payDate ?? d.exDate;
-    if (date >= start && date <= today) cash += d.cashAmount ?? 0;
+    if (date >= start && date <= today) cash += toTwd(d.cashAmount ?? 0, fxRateOf(d));
   }
   return marketValue + cash;
 }
@@ -247,6 +256,8 @@ export type BenchmarkDuelInput = {
   adjCloses: readonly AdjustedClose[];
   /** 期初持股的收盤價（期間是「全部」或期初沒有持股時不需要） */
   openingCloses: Readonly<Record<string, readonly DailyClose[]>>;
+  /** 外幣期初持股的匯率 [多幣別預留]；沒給只認得台幣 */
+  fxRateOn?: FxRateLookup;
 };
 
 export type BenchmarkDuelResult =
@@ -258,7 +269,10 @@ export type BenchmarkDuelResult =
 /** 把上面幾步串起來：期初市值 → 現金流 → 模擬 → 和實際比較 → 白話結論 */
 export function buildBenchmarkDuel(input: BenchmarkDuelInput): BenchmarkDuelResult {
   const { benchmark, transactions, dividends, marketValue, start, today, adjCloses, openingCloses } = input;
-  const opening = openingValue(sharesBefore(transactions, dividends, start), openingCloses, start);
+  const opening = openingValue(sharesBefore(transactions, dividends, start), openingCloses, start, {
+    transactions,
+    rateOn: input.fxRateOn ?? twdOnlyFxRate,
+  });
   if (marketValue === null || opening === null) {
     return { kind: "missingPrice", text: "有股票拿不到價格，算不出實際價值，先不比較。" };
   }
