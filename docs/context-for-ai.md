@@ -61,6 +61,7 @@ cspo/
 │   │   ├── CalculateScreen.tsx 快速試算（Story 001～005、016、017）
 │   │   ├── SettingsScreen.tsx  設定頁（Story 013、020）
 │   │   ├── ProScreen.tsx       Pro 方案介紹頁（Story 020）
+│   │   ├── AssetHistoryScreen.tsx 資產走勢頁 /history（Story 023）
 │   │   ├── TransactionFormScreen.tsx 新增／編輯／刪除交易（Story 009）
 │   │   ├── HoldingsScreen.tsx  持股明細：持有中／已出清、排序（Story 010）
 │   │   ├── HoldingDetailScreen.tsx 單一持股：數字摘要、核心／衛星、股價走勢、交易與股利紀錄（Story 010）
@@ -80,6 +81,7 @@ cspo/
 │   │   ├── holdings.ts     buildHoldingViews、activeHoldings／closedHoldings、sortHoldings、symbolHistory、unrealizedRate、顯示格式（Story 010）
 │   │   ├── xirr.ts         xirr（牛頓法，不收斂改二分法）、positionCashFlows、positionAnnualizedReturn、portfolioAnnualizedReturns（P2-04，Story 025）
 │   │   ├── overview.ts     buildOverview（記帳本 + 現價 → 用 holdings.ts 的 buildHoldingViews 算每檔、三組加總、持有中依市值排序）、oldestPriceDate（Story 011）
+│   │   ├── assetHistory.ts buildAssetHistory（逐日總市值與累計投入）、rangeStart、symbolsInRange、layoutAssetChart（P2-07 走勢圖，Story 023）
 │   │   ├── allocation.ts   computeAllocation（核心／衛星、個股／ETF、每檔市值占比）、toDisplayPercents（P2-07 配置圖，Story 025）
 │   │   ├── migrateSavedHoldings.ts 舊版持股 → 買入交易（migrateSavedHoldings）、emptyLedger、快速試算初始值用的 savedHoldingsFromLedger；replaceSavedHoldings 已沒有人用，快速試算拿掉時一起刪（Story 008、011）
 │   │   ├── ledgerValidation.ts validateLedgerChange（新增／修改／刪除後重播，賣超就拒絕並說是哪一筆）、validateLedger、欄位檢查
@@ -125,12 +127,13 @@ cspo/
 │       └── VersionBadge.tsx 畫面最底部的版本資訊，點開看詳細、可複製（Story 018）
 │       ├── DisclaimerGate.tsx 首次開啟的免責聲明 Modal；DISCLAIMER_TEXT（M-10 原文）
 │       ├── SettingsHeaderButton.tsx 首頁右上「設定」
+│       ├── AssetHistoryCard.tsx / AssetHistoryChart.tsx 資產走勢卡片（期間切換、Pro 鎖、載入／失敗／資料不足）與 SVG 圖（Story 023）
 │       └── ProLockedCard.tsx  ProLockedCard（鎖定的 Pro 功能預覽）、ProGate（Pro 才顯示內容）、ProBadge
 ├── e2e/                Maestro 流程（001-profit、001-loss、002-pick-by-name、003-compare-two 先點「快速試算」；011-empty-home、013-disclaimer）
 ├── docs/
 │   ├── architecture.md 架構、分工、迭代規劃（最完整的設計文件）
 │   ├── glossary.md     共同語言與顯示慣例
-│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、006 計算引擎、007 證券類型與上櫃、008 新儲存層、009 交易輸入、010 持股明細與核心／衛星、011 首頁總覽、013 免責聲明、016 K 線圖、017 AI 解讀、018 版本資訊、019 歷史資料來源、020 Free／Pro 鎖定畫面、025 年化報酬率與資產配置（Gherkin AC + 對應測試表 + 決策紀錄）
+│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、006 計算引擎、007 證券類型與上櫃、008 新儲存層、009 交易輸入、010 持股明細與核心／衛星、011 首頁總覽、013 免責聲明、016 K 線圖、017 AI 解讀、018 版本資訊、019 歷史資料來源、020 Free／Pro 鎖定畫面、023 資產走勢圖、025 年化報酬率與資產配置（Gherkin AC + 對應測試表 + 決策紀錄）
 │   ├── test-plan.md    手動測試清單、bug 回報格式
 │   └── context-for-ai.md 本檔
 ├── design-system/stock-pnl/MASTER.md
