@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { LedgerRepository } from "@/data/ledgerRepository";
 import type { PriceSource } from "@/data/PriceSource";
-import { formatIsoDate } from "@/domain/buyDate";
+import { formatIsoDate, localIsoDate } from "@/domain/buyDate";
 import {
   BUCKET_LABEL,
   formatAmount,
@@ -19,6 +19,7 @@ import type { Bucket } from "@/domain/ledgerTypes";
 import { defaultBucket } from "@/domain/portfolio";
 import { SECURITY_TYPE_LABEL, securityTypeOf } from "@/domain/security";
 import { useHoldings } from "@/hooks/useHoldings";
+import { HoldingAnnualizedReturnCard } from "@/ui/AnnualizedReturnCard";
 import { Button } from "@/ui/Button";
 import { BucketTag, directionOf } from "@/ui/HoldingRow";
 import { DirectionIcon, Icon, type IconName } from "@/ui/Icon";
@@ -57,7 +58,7 @@ const VERDICT = { up: "賺了", down: "虧了", flat: "不賺不賠" } as const;
  * 「新增交易」→ /transaction/new?symbol=；點交易 → /transaction/[id]（T4 的畫面）。
  */
 export default function HoldingDetailScreen({ symbol, repository, prices, today }: Props) {
-  const { ledger, loaded, holdings, repository: repo } = useHoldings({ repository, prices, today });
+  const { ledger, loaded, holdings, quotesStatus, repository: repo } = useHoldings({ repository, prices, today });
   const holding = holdings.find((h) => h.symbol === symbol);
   const history = useMemo(() => (ledger ? symbolHistory(ledger, symbol) : []), [ledger, symbol]);
   const [bucketError, setBucketError] = useState<string | null>(null);
@@ -177,6 +178,15 @@ export default function HoldingDetailScreen({ symbol, repository, prices, today 
           ))}
         </View>
       </Card>
+
+      {ledger ? (
+        <HoldingAnnualizedReturnCard
+          ledger={ledger}
+          position={p}
+          today={today ?? localIsoDate(new Date())}
+          pricesLoading={quotesStatus === "loading"}
+        />
+      ) : null}
 
       <Card>
         <Text style={styles.sectionTitle} accessibilityRole="header">

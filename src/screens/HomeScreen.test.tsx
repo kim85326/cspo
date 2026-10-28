@@ -6,6 +6,7 @@ import { PriceLoadError, type PriceSource } from "@/data/PriceSource";
 import { makeTx, spec37, spec37Ledger } from "@/domain/ledgerTestData";
 import type { Ledger } from "@/domain/ledgerTypes";
 import { emptyLedger } from "@/domain/migrateSavedHoldings";
+import { StaticFeatureFlags } from "@/hooks/useFeatures";
 import HomeScreen from "./HomeScreen";
 
 jest.mock("expo-router", () => ({
@@ -68,6 +69,22 @@ describe("首頁總覽（對應 docs/stories/011）", () => {
 
     await fireEvent.press(screen.getByLabelText("新增第一筆交易"));
     expect(router.push).toHaveBeenCalledWith("/transaction/new");
+  });
+
+  test("截圖匯入（Story 015）：開關打開時空狀態有「從券商截圖匯入」，關閉時沒有", async () => {
+    await renderHome(createMemoryLedgerRepository(emptyLedger()), fakePrices({}));
+    await screen.findByText("還沒有任何交易");
+    expect(screen.queryByLabelText("從券商截圖匯入")).toBeNull();
+
+    await render(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <StaticFeatureFlags flags={{ screenshotImport: true }}>
+          <HomeScreen repository={createMemoryLedgerRepository(emptyLedger())} priceSource={fakePrices({})} />
+        </StaticFeatureFlags>
+      </SafeAreaProvider>,
+    );
+    await fireEvent.press(await screen.findByLabelText("從券商截圖匯入"));
+    expect(router.push).toHaveBeenCalledWith("/import");
   });
 
   test("3.7 範例：整體顯示總報酬 +152,880、+13.88%，以及各項金額與價格日期", async () => {
@@ -148,6 +165,12 @@ describe("首頁總覽（對應 docs/stories/011）", () => {
     expect(router.push).toHaveBeenLastCalledWith("/transaction/new");
     await fireEvent.press(screen.getByLabelText("快速試算"));
     expect(router.push).toHaveBeenLastCalledWith("/calculate");
+  });
+
+  test("核心／衛星卡片下方的入口連到個股 vs ETF 對決（Story 027）", async () => {
+    await renderHome(createMemoryLedgerRepository(mixedLedger()), fakePrices({ "2330": spec37.price, "0050": 190 }));
+    await fireEvent.press(await screen.findByLabelText("核心 vs 衛星，誰賺比較多？"));
+    expect(router.push).toHaveBeenLastCalledWith("/versus");
   });
 
   test("空記帳本也看得到快速試算入口", async () => {

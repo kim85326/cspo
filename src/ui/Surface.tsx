@@ -212,6 +212,45 @@ function usePulse() {
   return opacity;
 }
 
+/** 進到另一頁的入口列：左邊圖示、標題（＋說明）、右邊 ›。整列都可以點 */
+export function LinkRow({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  accessibilityLabel,
+  accessibilityHint,
+  testID,
+}: {
+  icon: IconName;
+  title: string;
+  subtitle?: string;
+  onPress: () => void;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  testID?: string;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityHint={accessibilityHint}
+      testID={testID}
+      onPress={onPress}
+      style={({ pressed }) => [styles.card, styles.linkRow, pressed && styles.pressed]}
+    >
+      <View style={styles.linkIcon}>
+        <Icon name={icon} size={iconSize.md} color={colors.secondary} />
+      </View>
+      <View style={styles.linkBody}>
+        <Text style={styles.linkTitle}>{title}</Text>
+        {subtitle ? <Text style={styles.linkSub}>{subtitle}</Text> : null}
+      </View>
+      <Icon name="chevronRight" size={iconSize.sm} color={colors.mutedForeground} />
+    </Pressable>
+  );
+}
+
 /** 卡片裡「標籤 ……… 數值」的一列；數值等寬、靠右 */
 export function KeyValueRow({
   label,
@@ -298,6 +337,18 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   emptyActions: { alignSelf: "stretch", gap: space.sm, marginTop: space.sm },
+  linkRow: { flexDirection: "row", alignItems: "center", gap: space.sm + space.xs, minHeight: touchTarget + space.md },
+  linkIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md - 2,
+    backgroundColor: colors.secondarySurface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  linkBody: { flex: 1, gap: 2 },
+  linkTitle: { ...type.bodyStrong, color: colors.foreground },
+  linkSub: { ...type.caption, color: colors.mutedForeground },
   skeleton: { borderRadius: radius.sm },
   skeletonGap: { marginTop: space.sm },
   kvRow: {

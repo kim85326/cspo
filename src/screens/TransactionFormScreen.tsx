@@ -20,13 +20,14 @@ import {
   type TransactionFormValues,
 } from "@/domain/transactionForm";
 import type { StockInfo } from "@/domain/types";
+import { useFeatures } from "@/hooks/useFeatures";
 import { useLedger } from "@/hooks/useLedger";
 import { Button } from "@/ui/Button";
 import { DateField } from "@/ui/DateField";
 import { Icon } from "@/ui/Icon";
 import { LabeledInput } from "@/ui/LabeledInput";
 import { StockPicker } from "@/ui/StockPicker";
-import { Card, EmptyState, Notice, SkeletonCard, surfaceStyles } from "@/ui/Surface";
+import { Card, EmptyState, LinkRow, Notice, SkeletonCard, surfaceStyles } from "@/ui/Surface";
 import {
   colors,
   contentMaxWidth,
@@ -49,6 +50,7 @@ import {
  * - 手續費與證交稅依規格 3.2 即時帶入；使用者改過的欄位之後不再自動覆蓋，旁邊出現「重新計算」。
  * - 存檔與刪除都經過 ledgerRepository（從頭重播，賣超或連帶讓別筆賣超就拒絕，訊息說出是哪一筆）。
  * - 「儲存並繼續新增」留在表單，保留證券，其他欄位回到預設。
+ * - 新增模式最上面有「從券商截圖匯入」（Story 015，由功能開關 screenshotImport 控制），進 src/app/import.tsx。
  */
 
 const SIDE_LABEL: Record<TradeSide, string> = { buy: "買入", sell: "賣出" };
@@ -177,6 +179,7 @@ type BodyProps = {
 
 function FormBody({ title, ledger, repo, stocks, stocksLoading, now, original, initialSymbol }: BodyProps) {
   const insets = useSafeAreaInsets();
+  const features = useFeatures();
   const isEdit = original !== null;
   const settings = ledger.settings;
 
@@ -307,6 +310,17 @@ function FormBody({ title, ledger, repo, stocks, stocksLoading, now, original, i
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
+        {!isEdit && features.screenshotImport ? (
+          <LinkRow
+            icon="image"
+            title="持股很多？從券商截圖匯入"
+            subtitle="用券商 app 的庫存截圖一次記好每一檔"
+            accessibilityLabel="從券商截圖匯入"
+            accessibilityHint="持股很多時，用券商 app 的庫存截圖一次記好每一檔"
+            testID="button-open-import"
+            onPress={() => router.push("/import")}
+          />
+        ) : null}
         <Card style={styles.section}>
           <StockPicker
             stocks={stocks}
