@@ -80,6 +80,9 @@ export const chartColors = {
   cost: colors.accent,
   crosshair: colors.mutedForeground,
   zoneOpacity: 0.07,
+  /** P2-09 高檔／低檔色帶：中性灰，只標位置、不暗示好壞 */
+  band: colors.mutedForeground,
+  bandOpacity: 0.12,
 };
 
 /** 間距：4/8 節奏（MASTER.md density 5/10） */

@@ -10,10 +10,24 @@ import { dateFieldStyles, type DateFieldProps } from "./dateFieldStyles";
  * - 最晚只能選到今天；選好的值用 "2026/10/05" 回傳，跟手打時的格式一樣，驗證沿用 parseBuyDate。
  * - 有值時右邊有「清除」，因為這個欄位是選填。
  */
-export function DateField({ label, value, onChange, placeholder, hint, error, testID, allowFuture }: DateFieldProps) {
+export function DateField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  hint,
+  error,
+  testID,
+  allowFuture,
+  min,
+  max,
+}: DateFieldProps) {
   const [iosOpen, setIosOpen] = useState(false);
   const today = new Date();
   const current = toDate(value) ?? today;
+
+  const minimumDate = min ? toDate(formatIsoDate(min)) ?? undefined : undefined;
+  const maximumDate = max ? (toDate(formatIsoDate(max)) ?? undefined) : allowFuture ? undefined : today;
 
   const pick = (date: Date) => onChange(formatIsoDate(localIsoDate(date)));
 
@@ -22,7 +36,8 @@ export function DateField({ label, value, onChange, placeholder, hint, error, te
       DateTimePickerAndroid.open({
         value: current,
         mode: "date",
-        maximumDate: allowFuture ? undefined : today,
+        minimumDate,
+        maximumDate,
         onValueChange: (_event, date) => pick(date),
       });
     } else {
@@ -65,7 +80,8 @@ export function DateField({ label, value, onChange, placeholder, hint, error, te
           value={current}
           mode="date"
           display="inline"
-          maximumDate={allowFuture ? undefined : today}
+          minimumDate={minimumDate}
+          maximumDate={maximumDate}
           locale="zh-TW"
           onValueChange={(_event, date) => {
             setIosOpen(false);

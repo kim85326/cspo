@@ -7,11 +7,13 @@ import { estimatedCashDividends, estimatedStockDividends } from "@/domain/autoDi
 import { formatIsoDate, localIsoDate } from "@/domain/buyDate";
 import {
   BUCKET_LABEL,
+  currentHoldingBuys,
   formatAmount,
   formatPrice,
   formatRate,
   formatShares,
   formatSignedAmountOrDash,
+  hasPlaceholderDate,
   symbolHistory,
   unrealizedRate,
   type HistoryEntry,
@@ -21,6 +23,7 @@ import { defaultBucket } from "@/domain/portfolio";
 import { SECURITY_TYPE_LABEL, securityTypeOf } from "@/domain/security";
 import { useHoldings } from "@/hooks/useHoldings";
 import { HoldingAnnualizedReturnCard } from "@/ui/AnnualizedReturnCard";
+import { buyPointHref } from "@/ui/buyPointLink";
 import { Button } from "@/ui/Button";
 import { BucketTag, directionOf } from "@/ui/HoldingRow";
 import { DirectionIcon, Icon, type IconName } from "@/ui/Icon";
@@ -99,6 +102,9 @@ export default function HoldingDetailScreen({ symbol, repository, prices, today 
 
   const p = holding.position;
   const closed = p.shares === 0;
+  // P2-09 每筆買入各自判斷：只有一筆就用它的日期與成交價；好幾筆就在圖上逐筆標點，結論到每筆買入看
+  const buys = currentHoldingBuys(history, p.holdingSince);
+  const onlyBuy = buys.length === 1 ? buys[0] : null;
   const direction = directionOf(p.totalReturn);
   const color = pnlColors[direction];
   const type = securityTypeOf(symbol);
@@ -227,7 +233,10 @@ export default function HoldingDetailScreen({ symbol, repository, prices, today 
           symbol={symbol}
           name={holding.name}
           costPrice={p.averageCost}
-          buyDate={p.holdingSince ?? undefined}
+          buyDate={onlyBuy?.tradeDate ?? p.holdingSince ?? undefined}
+          buyPrice={onlyBuy?.price}
+          importedDate={onlyBuy ? hasPlaceholderDate(onlyBuy) : undefined}
+          buys={buys.length > 1 ? buys.map((t) => ({ date: t.tradeDate, price: t.price })) : undefined}
           flush
         />
       ) : null}
@@ -243,7 +252,11 @@ export default function HoldingDetailScreen({ symbol, repository, prices, today 
           </View>
         </View>
         {history.map((entry) => (
-          <HistoryRow key={entry.kind === "trade" ? entry.transaction.id : entry.dividend.id} entry={entry} />
+          <HistoryRow
+            key={entry.kind === "trade" ? entry.transaction.id : entry.dividend.id}
+            entry={entry}
+            name={holding.name}
+          />
         ))}
       </Card>
     </ScrollView>
@@ -299,7 +312,7 @@ function EntryBadge({ kind }: { kind: "buy" | "sell" | "dividend" }) {
   );
 }
 
-function HistoryRow({ entry }: { entry: HistoryEntry }) {
+function HistoryRow({ entry, name }: { entry: HistoryEntry; name: string }) {
   if (entry.kind === "dividend") {
     const d = entry.dividend;
     const what =
@@ -338,7 +351,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
     t.side === "buy"
       ? `手續費 ${formatAmount(t.fee)}`
       : `手續費 ${formatAmount(t.fee)} · 證交稅 ${formatAmount(t.tax)}`;
-  return (
+  const row = (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${t.tradeDate} ${main}${t.source === "dca" ? "，定期定額" : ""}，編輯這筆交易`}
@@ -364,6 +377,27 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
       </View>
       <Icon name="chevronRight" size={iconSize.sm} color={colors.mutedForeground} />
     </Pressable>
+  );
+  if (t.side !== "buy") return row;
+  // P2-09 入口：每筆買入各自看「買在高點還是低點」。跟整列分開按，整列仍是編輯
+  return (
+    <View>
+      {row}
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel={`買在高點還是低點：${t.tradeDate} 這筆買入`}
+        onPress={() =>
+          router.push(
+            buyPointHref({ symbol: t.symbol, name, date: t.tradeDate, price: t.price, imported: hasPlaceholderDate(t) }),
+          )
+        }
+        hitSlop={4}
+        style={({ pressed }) => [styles.buyPointLink, pressed && styles.pressed]}
+      >
+        <Text style={styles.buyPointLinkText}>買在高點還是低點？</Text>
+        <Icon name="chevronRight" size={iconSize.sm} color={colors.secondary} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -401,6 +435,15 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     backgroundColor: colors.secondarySurface,
   },
+  buyPointLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    minHeight: touchTarget,
+    paddingLeft: 48,
+    marginTop: -space.sm,
+  },
+  buyPointLinkText: { fontFamily: fonts.medium, fontSize: fontSize.sm, color: colors.secondary },
   sourceTagText: { fontFamily: fonts.medium, fontSize: fontSize.xs, color: colors.secondary },
   estimated: { color: colors.mutedForeground },
   historyRow: {

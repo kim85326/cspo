@@ -1,4 +1,16 @@
-import { buyPosition, buyPositionSentence, levelOf, listingNote } from "./buyPosition";
+import {
+  bandEdges,
+  buyPosition,
+  buyPositionSentence,
+  COMPARE_PERIODS,
+  compareStart,
+  comparisonChartCandles,
+  DEFAULT_COMPARE_PERIOD,
+  earliestCustomStart,
+  levelOf,
+  listingNote,
+  validateCustomStart,
+} from "./buyPosition";
 import type { Candle } from "./types";
 
 const BUY_DATE = "2026-10-05";
@@ -94,11 +106,86 @@ describe("buyPosition（P2-09 買在高點還是低點）", () => {
 
   test("結論只陳述事實：不含「建議」「應該」「買進」「賣出」", () => {
     const sentences = [0, 10, 50, 85, 100].flatMap((below) =>
-      [1, 3, 6, 12].map((period) =>
+      [1, 3, 6, 12, 36, { start: "2025-01-02" }].map((period) =>
         buyPositionSentence(buyPosition(daysBefore(BUY_DATE, mixed(100, below)), [], BUY_DATE, 100, 12), period),
       ),
     );
     sentences.push(buyPositionSentence({ kind: "insufficient", days: 3 }, 3));
     for (const sentence of sentences) expect(sentence).not.toMatch(/建議|應該|買進|賣出/);
+  });
+
+  test("比較區間選項：3 個月、6 個月、1 年（預設）、3 年", () => {
+    expect([...COMPARE_PERIODS]).toEqual([3, 6, 12, 36]);
+    expect(DEFAULT_COMPARE_PERIOD).toBe(12);
+  });
+
+  test("3 年：比較買入日前 36 個月", () => {
+    const candles = daysBefore(BUY_DATE, mixed(900, 450));
+    const position = buyPosition(candles, [], BUY_DATE, 100, 36);
+    expect(compareStart(BUY_DATE, 36)).toBe("2023-10-05");
+    expect(position).toMatchObject({ kind: "ok", from: "2023-10-05" });
+    expect(buyPositionSentence(position, 36)).toMatch(/^你買在近 3 年的/);
+  });
+
+  test("自訂起始日：從那天算到買入日前一天，句子寫「yyyy/mm/dd 以來」", () => {
+    const candles = daysBefore(BUY_DATE, mixed(300, 0));
+    const range = { start: "2026-08-03" };
+    const position = buyPosition(candles, [], BUY_DATE, 200, range);
+    expect(position).toMatchObject({ kind: "ok", from: "2026-08-03", to: "2026-10-02", percent: 100 });
+    expect(buyPositionSentence(position, range)).toBe("你買在 2026/08/03 以來的高檔，買入價高於 100% 的交易日");
+  });
+
+  test("自訂起始日早於買入日前 3 年：不可選取", () => {
+    expect(earliestCustomStart(BUY_DATE)).toBe("2023-10-05");
+    expect(validateCustomStart("2023-10-05", BUY_DATE)).toBeNull();
+    expect(validateCustomStart("2023-10-04", BUY_DATE)).toBe("最早只能選到 2023/10/05（買入日前 3 年）");
+    expect(validateCustomStart("2026-10-05", BUY_DATE)).toBe("起始日要在買入日之前");
+    expect(validateCustomStart("2026-10-04", BUY_DATE)).toBeNull();
+  });
+
+  test("自訂起始日早於上市日：註明以上市以來計算", () => {
+    const candles = daysBefore(BUY_DATE, mixed(60, 30));
+    const range = { start: "2024-01-02" };
+    const position = buyPosition(candles, [], BUY_DATE, 100, range);
+    expect(listingNote(position, range)).toBe("上市日晚於所選起始日，以上市以來 3 個月計算");
+  });
+
+  test("色帶邊界跟高檔／低檔判斷一致：買入價 > highAbove 才是高檔、≤ lowUpTo 才是低檔", () => {
+    // 不規則的收盤價，含重複值
+    const closes = [12, 7, 7, 30, 18, 25, 9, 14, 14, 21, 11, 16, 28, 5, 19, 23, 8, 13, 26, 17, 10, 22, 15];
+    const edges = bandEdges(closes);
+    expect(edges).not.toBeNull();
+    for (let price = 4; price <= 31; price += 0.5) {
+      const below = closes.filter((c) => c < price).length;
+      const level = levelOf(below, closes.length);
+      expect(level === "high").toBe(price > edges!.highAbove);
+      expect(level === "low").toBe(price <= edges!.lowUpTo);
+    }
+  });
+
+  test("色帶：100 天 1～100 元，高檔區在 80 元以上、低檔區到 21 元為止", () => {
+    const closes = Array.from({ length: 100 }, (_, i) => i + 1);
+    expect(bandEdges(closes)).toEqual({ highAbove: 80, lowUpTo: 21 });
+    expect(bandEdges([])).toBeNull();
+  });
+
+  test("區間圖的 K 棒：用還原價，最後接上買入那天（買在週末就接下一個交易日）", () => {
+    const closes = [...Array(20).fill(103), ...Array(20).fill(98)];
+    const candles = daysBefore("2026-10-03", closes); // 10/03 是週六
+    const dividend = {
+      kind: "dividend" as const,
+      symbol: "2330",
+      exDate: candles[20].date,
+      cashPerShare: 5,
+      stockPerThousand: 0,
+      payDate: null,
+    };
+    const monday = { date: "2026-10-05", open: 99, high: 101, low: 97, close: 100 };
+    const chart = comparisonChartCandles([...candles, monday], [dividend], "2026-10-03", "2026-07-01");
+    expect(chart).toHaveLength(41);
+    expect(chart[0].close).toBeCloseTo(98, 6);
+    expect(chart[0].high).toBeCloseTo(98, 6);
+    expect(chart[39].close).toBe(98);
+    expect(chart[40]).toEqual(monday);
   });
 });

@@ -13,6 +13,9 @@ export type DateFieldProps = {
   testID?: string;
   /** 可以選今天以後的日期（定期定額的結束日期用）；預設最晚只能選到今天 */
   allowFuture?: boolean;
+  /** 可選的最早／最晚日期（ISO）：日曆上範圍外的日子選不到（P2-09 自訂起始日最早買入日前 3 年） */
+  min?: string;
+  max?: string;
 };
 
 export const dateFieldStyles = StyleSheet.create({

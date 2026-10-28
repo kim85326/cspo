@@ -15,6 +15,13 @@ type Props = {
   costPrice?: number;
   /** 買入日期（ISO）：在那天、成本價的位置畫一個點 */
   buyDate?: string;
+  /** 分好幾筆買入時每一筆的日期與買入價（持股頁）：每筆一個小圓點 */
+  buys?: { date: string; price: number }[];
+  /**
+   * P2-09 區間圖的高檔／低檔色帶（bandEdges 算的邊界）：高於 highAbove 是高檔區、不高於 lowUpTo 是低檔區。
+   * 給了就不畫成本線上下的賺賠區，免得兩種底色疊在一起。
+   */
+  bands?: { highAbove: number; lowUpTo: number };
   /** 均線，長度跟 candles 一樣；不顯示就不給 */
   movingAverages?: { short: (number | null)[]; long: (number | null)[] };
   /** 目前選到第幾天（點圖或用前後按鈕切換）；null 不畫十字線 */
@@ -41,6 +48,8 @@ export function CandleChart({
   mode,
   costPrice,
   buyDate,
+  buys,
+  bands,
   movingAverages,
   selectedIndex,
   onSelect,
@@ -58,7 +67,10 @@ export function CandleChart({
           paddingBottom: PADDING_BOTTOM,
           costPrice,
           buyDate,
-          extraPrices: movingAverages ? [...movingAverages.short, ...movingAverages.long] : undefined,
+          buys,
+          extraPrices: bands
+            ? [bands.highAbove, bands.lowUpTo]
+            : movingAverages ? [...movingAverages.short, ...movingAverages.long] : undefined,
         })
       : null;
 
@@ -91,7 +103,32 @@ export function CandleChart({
     >
       {layout ? (
         <Svg width={width} height={height} pointerEvents="none">
-          {costY !== null ? (
+          {bands ? (
+            <G testID="chart-level-bands">
+              <Rect
+                x={0}
+                y={layout.plotTop}
+                width={layout.plotRight}
+                height={clamp(layout.priceToY(bands.highAbove) - layout.plotTop, 0, layout.plotBottom - layout.plotTop)}
+                fill={chartColors.band}
+                fillOpacity={chartColors.bandOpacity}
+              />
+              <Rect
+                x={0}
+                y={clamp(layout.priceToY(bands.lowUpTo), layout.plotTop, layout.plotBottom)}
+                width={layout.plotRight}
+                height={clamp(layout.plotBottom - layout.priceToY(bands.lowUpTo), 0, layout.plotBottom - layout.plotTop)}
+                fill={chartColors.band}
+                fillOpacity={chartColors.bandOpacity}
+              />
+              <SvgText x={4} y={layout.plotTop + 12} fontSize={10} fontFamily={fonts.medium} fill={colors.mutedForeground}>
+                高檔區（前 20%）
+              </SvgText>
+              <SvgText x={4} y={layout.plotBottom - 4} fontSize={10} fontFamily={fonts.medium} fill={colors.mutedForeground}>
+                低檔區（後 20%）
+              </SvgText>
+            </G>
+          ) : costY !== null ? (
             <G testID="chart-pnl-zones">
               <Rect
                 x={0}
@@ -273,6 +310,22 @@ export function CandleChart({
               >
                 買入
               </SvgText>
+            </G>
+          ) : null}
+
+          {layout.buyPoints.length > 0 ? (
+            <G testID="chart-buy-points">
+              {layout.buyPoints.map((point) => (
+                <Circle
+                  key={`${point.date}-${point.price}`}
+                  cx={point.x}
+                  cy={point.y}
+                  r={4.5}
+                  fill={chartColors.buy}
+                  stroke={colors.card}
+                  strokeWidth={1.5}
+                />
+              ))}
             </G>
           ) : null}
 

@@ -1,5 +1,7 @@
 import { DEFAULT_USER_SETTINGS } from "./fees";
 import {
+  currentHoldingBuys,
+  hasPlaceholderDate,
   activeHoldings,
   buildHoldingViews,
   closedHoldings,
@@ -127,6 +129,31 @@ describe("symbolHistory", () => {
       settings: DEFAULT_USER_SETTINGS,
     };
     expect(symbolHistory(ledger, "2330").map((e) => e.kind === "trade" && e.transaction.id)).toEqual(["b", "a"]);
+  });
+});
+
+describe("currentHoldingBuys（P2-09 每筆買入各自判斷）", () => {
+  test("只算這一段持有的買入，舊到新；出清前的那段不算", () => {
+    const ledger: Ledger = {
+      ...spec37Ledger(),
+      transactions: [
+        makeTx({ id: "a", side: "buy", tradeDate: "2025-03-01", price: 400, shares: 1000 }),
+        makeTx({ id: "b", side: "sell", tradeDate: "2025-06-01", price: 450, shares: 1000 }),
+        makeTx({ id: "c", side: "buy", tradeDate: "2026-01-05", price: 600, shares: 1000 }),
+        makeTx({ id: "d", side: "sell", tradeDate: "2026-02-01", price: 610, shares: 500 }),
+        makeTx({ id: "e", side: "buy", tradeDate: "2026-03-05", price: 550, shares: 500 }),
+      ],
+      dividends: [],
+    };
+    const history = symbolHistory(ledger, "2330");
+    expect(currentHoldingBuys(history, "2026-01-05").map((t) => t.id)).toEqual(["c", "e"]);
+    expect(currentHoldingBuys(history, null)).toEqual([]);
+  });
+
+  test("拍照匯入或日期待補：買入日不是真的那天", () => {
+    expect(hasPlaceholderDate(makeTx({ side: "buy", price: 1, shares: 1, source: "import" }))).toBe(true);
+    expect(hasPlaceholderDate(makeTx({ side: "buy", price: 1, shares: 1, tradeDateUnknown: true }))).toBe(true);
+    expect(hasPlaceholderDate(makeTx({ side: "buy", price: 1, shares: 1 }))).toBe(false);
   });
 });
 

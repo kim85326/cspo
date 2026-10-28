@@ -1,7 +1,7 @@
 import type { Candle, PnlDirection } from "./types";
 
-/** 期間切換的選項（月數）：1 個月、3 個月、6 個月、1 年 */
-export const CHART_PERIODS = [1, 3, 6, 12] as const;
+/** 期間切換的選項（月數）：1 個月、3 個月、6 個月、1 年、3 年（P2-09 比較區間最長 3 年） */
+export const CHART_PERIODS = [1, 3, 6, 12, 36] as const;
 export type ChartPeriod = (typeof CHART_PERIODS)[number];
 /** 預設 1 年：對齊規格書 P2-09「比較區間預設 1 年」，圖與結論用同一個期間 */
 export const DEFAULT_CHART_PERIOD: ChartPeriod = 12;
@@ -111,6 +111,8 @@ export type ChartLayoutOptions = {
   buyDate?: string;
   /** 其他也要畫進來的價格（均線），價格範圍會把它們包進來；null 略過 */
   extraPrices?: (number | null)[];
+  /** 分好幾筆買入時，每一筆的日期與買入價都標一個點（持股頁）；價格範圍會把它們包進來 */
+  buys?: { date: string; price: number }[];
 };
 
 export type CandleShape = {
@@ -147,6 +149,8 @@ export type ChartLayout = {
   buy: BuyDateLocation | null;
   /** 買入點：買入那天、買入價（成本價）的位置；沒給成本價就落在當天最低點 */
   buyPoint: { x: number; y: number; candle: Candle } | null;
+  /** options.buys 裡落在圖上範圍內的每一筆（早於第一天、晚於最後一天的略過） */
+  buyPoints: { x: number; y: number; date: string; price: number }[];
 };
 
 /** 把 K 棒換算成畫面座標。純函式，畫面只負責照著畫。 */
@@ -161,6 +165,10 @@ export function layoutCandleChart(candles: Candle[], options: ChartLayoutOptions
 
   const prices = candles.flatMap((c) => [c.high, c.low]);
   for (const p of options.extraPrices ?? []) if (p !== null) prices.push(p);
+  const visibleBuys = (options.buys ?? [])
+    .map((b) => ({ ...b, at: locateBuyDate(candles, b.date) }))
+    .filter((b): b is typeof b & { at: { kind: "in"; index: number } } => b.at.kind === "in");
+  for (const b of visibleBuys) prices.push(b.price);
   // 成本離股價太遠（例如抱了好幾年、漲一倍）：把成本包進來會把走勢壓成一條細線。
   // 這時成本線貼在上緣或下緣（costOffChart 告訴畫面要加箭頭），範圍只看股價。
   let costOffChart: "above" | "below" | null = null;
@@ -242,6 +250,7 @@ export function layoutCandleChart(candles: Candle[], options: ChartLayoutOptions
     costOffChart,
     buy,
     buyPoint,
+    buyPoints: visibleBuys.map((b) => ({ x: shapes[b.at.index].x, y: priceToY(b.price), date: b.date, price: b.price })),
   };
 }
 

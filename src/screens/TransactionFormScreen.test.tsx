@@ -133,7 +133,14 @@ describe("新增交易（對應 docs/stories/009）", () => {
 
     await fireEvent.changeText(screen.getByLabelText("手續費"), "300");
     await fireEvent.press(screen.getByLabelText("儲存"));
-    await waitFor(() => expect(router.back).toHaveBeenCalled());
+    // P2-09「新增買入交易後的結果提示」：存好新的買入，換到這筆的「買在高點還是低點」
+    await waitFor(() =>
+      expect(router.replace).toHaveBeenCalledWith({
+        pathname: "/buy-point",
+        params: expect.objectContaining({ symbol: "2330", price: "600", saved: "1" }),
+      }),
+    );
+    expect(router.back).not.toHaveBeenCalled();
     expect(repository.getSnapshot()?.transactions[0]).toMatchObject({ fee: 300, feeOverridden: true });
   });
 

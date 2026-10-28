@@ -121,6 +121,23 @@ export function symbolHistory(ledger: Ledger, symbol: string): HistoryEntry[] {
   return entries.map(({ createdAt: _, ...entry }) => entry as HistoryEntry);
 }
 
+/**
+ * 這一段持有（從 holdingSince 開始，出清過再買的不算前一段）的每筆買入，依日期舊到新。
+ * 持股頁的走勢圖逐筆標買入點、決定「買在高點還是低點」要逐筆看還是只有一筆（P2-09、Story 010 決策 10）。
+ * 同一天先賣光又買回時，那天的買入都算這一段（日期粒度只到天，選最不會漏標的做法）。
+ */
+export function currentHoldingBuys(history: HistoryEntry[], holdingSince: string | null): Transaction[] {
+  if (holdingSince === null) return [];
+  return history
+    .flatMap((e) => (e.kind === "trade" && e.transaction.side === "buy" && e.date >= holdingSince ? [e.transaction] : []))
+    .reverse();
+}
+
+/** 買入日不是真的那天：拍照匯入的期初持股、或舊資料日期待補（P2-09 結論旁要註明） */
+export function hasPlaceholderDate(t: Transaction): boolean {
+  return t.source === "import" || t.tradeDateUnknown === true;
+}
+
 export const BUCKET_LABEL: Record<Bucket, string> = {
   core: "核心",
   satellite: "衛星",

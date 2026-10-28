@@ -81,6 +81,34 @@ describe("HoldingDetailScreen 單一持股（對應 docs/stories/010）", () => 
     expect(router.push).toHaveBeenCalledWith({ pathname: "/transaction/new", params: { symbol: "2330" } });
   });
 
+  test("P2-09：分兩筆買入，每筆各自看買在高點還是低點；走勢卡改提示逐筆看（決策 10）", async () => {
+    await renderScreen("2330", repoOf(spec37Ledger()));
+    expect(await screen.findByTestId("multi-buy-note")).toHaveTextContent(/分 2 筆買入/);
+    expect(screen.queryByTestId("buy-verdict")).toBeNull();
+    // 賣出那筆沒有入口
+    expect(screen.queryByLabelText(/買在高點還是低點：2026-03-05/)).toBeNull();
+
+    await fireEvent.press(screen.getByLabelText("買在高點還是低點：2026-02-05 這筆買入"));
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/buy-point",
+      params: { symbol: "2330", date: "2026-02-05", price: "500", name: "台積電" },
+    });
+  });
+
+  test("P2-09：拍照匯入的期初持股，入口帶上「買入日為匯入日期」", async () => {
+    const ledger: Ledger = {
+      ...spec37Ledger(),
+      transactions: [makeTx({ id: "imp", symbol: "2330", side: "buy", tradeDate: "2026-09-01", price: 900, shares: 100, source: "import" })],
+      dividends: [],
+    };
+    await renderScreen("2330", repoOf(ledger));
+    await fireEvent.press(await screen.findByLabelText("買在高點還是低點：2026-09-01 這筆買入"));
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/buy-point",
+      params: { symbol: "2330", date: "2026-09-01", price: "900", name: "台積電", imported: "1" },
+    });
+  });
+
   test("股利（Story 012）：點股利進編輯；記錄股利帶入代號", async () => {
     await renderScreen("2330", repoOf(spec37Ledger()));
     await fireEvent.press(await screen.findByLabelText("2026-06-15 現金股利 5,000 元，編輯這筆股利"));

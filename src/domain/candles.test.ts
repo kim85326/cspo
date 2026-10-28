@@ -39,7 +39,7 @@ describe("shiftMonths", () => {
 
 describe("期間與要抓的月份", () => {
   test("期間名稱", () => {
-    expect([1, 3, 6, 12].map(periodLabel)).toEqual(["1 個月", "3 個月", "6 個月", "1 年"]);
+    expect([1, 3, 6, 12, 36].map(periodLabel)).toEqual(["1 個月", "3 個月", "6 個月", "1 年", "3 年"]);
   });
 
   test("圖從 N 個月前開始", () => {
@@ -184,6 +184,24 @@ describe("layoutCandleChart", () => {
   test("沒給成本價：買入點落在當天最低點", () => {
     const layout = layoutCandleChart(CANDLES, { ...options, buyDate: "2026-10-05" });
     expect(layout.buyPoint?.y).toBeCloseTo(layout.priceToY(99));
+  });
+
+  test("分好幾筆買入：每筆在當天、買入價的位置一個點；範圍外的略過，買入價包進價格範圍", () => {
+    const layout = layoutCandleChart(CANDLES, {
+      ...options,
+      buys: [
+        { date: "2026-09-01", price: 90 },
+        { date: "2026-10-02", price: 101 },
+        { date: "2026-10-03", price: 140 },
+      ],
+    });
+    expect(layout.buyPoints).toEqual([
+      { x: 150, y: layout.priceToY(101), date: "2026-10-02", price: 101 },
+      // 週六買的標在下一個交易日（10/05）
+      { x: 250, y: layout.priceToY(140), date: "2026-10-03", price: 140 },
+    ]);
+    expect(layout.priceToY(140)).toBeGreaterThanOrEqual(12);
+    expect(layoutCandleChart(CANDLES, options).buyPoints).toEqual([]);
   });
 
   test("均線也包進價格範圍；收盤折線經過每根 K 棒中心", () => {

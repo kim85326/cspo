@@ -56,6 +56,7 @@ export default function RootLayout() {
           <Stack.Screen name="transaction/new" options={{ title: "新增交易" }} />
           <Stack.Screen name="transaction/[id]" options={{ title: "編輯交易" }} />
           <Stack.Screen name="calculate" options={{ title: "快速試算" }} />
+          <Stack.Screen name="buy-point" options={{ title: "買在高點還是低點" }} />
           <Stack.Screen name="pro" options={{ title: "Pro 方案" }} />
           <Stack.Screen name="history" options={{ title: "資產走勢" }} />
           <Stack.Screen name="import" options={{ title: "從截圖匯入" }} />

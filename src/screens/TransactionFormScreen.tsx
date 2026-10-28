@@ -22,6 +22,7 @@ import {
 import type { StockInfo } from "@/domain/types";
 import { useFeatures } from "@/hooks/useFeatures";
 import { useLedger } from "@/hooks/useLedger";
+import { buyPointHref } from "@/ui/buyPointLink";
 import { Button } from "@/ui/Button";
 import { DateField } from "@/ui/DateField";
 import { Icon } from "@/ui/Icon";
@@ -262,6 +263,11 @@ function FormBody({ title, ledger, repo, stocks, stocksLoading, now, original, i
     if (continueAdding) {
       setForm(emptyForm(now()));
       setSavedMessage(`已儲存：${SIDE_LABEL[v.side]} ${stock.name} ${formatShares(v.shares)} 股，可以繼續輸入下一筆`);
+      return;
+    }
+    if (!original && v.side === "buy") {
+      // P2-09「新增買入交易後的結果提示」：存好新的買入，直接帶去看這筆買在高點還是低點（按「完成」回原本那頁）
+      router.replace(buyPointHref({ symbol: stock.symbol, name: stock.name, date: v.tradeDate, price: v.price, saved: true }));
       return;
     }
     leave();

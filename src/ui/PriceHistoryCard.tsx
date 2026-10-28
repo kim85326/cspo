@@ -1,11 +1,11 @@
+import { router } from "expo-router";
 import { type ReactNode, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { formatIsoDate, localIsoDate } from "@/domain/buyDate";
 import {
-  type BuyPosition,
   buyPosition,
   buyPositionSentence,
-  LEVEL_LABEL,
+  IMPORTED_DATE_NOTE,
   listingNote,
   MIN_TRADING_DAYS,
 } from "@/domain/buyPosition";
@@ -22,6 +22,8 @@ import {
 import type { Candle } from "@/domain/types";
 import { type ChartMode, useChartPrefs } from "@/hooks/useChartPrefs";
 import { describeLoadError, type PriceHistory, usePriceHistory } from "@/hooks/usePriceHistory";
+import { LevelBadge, PercentileBar } from "./BuyLevel";
+import { buyPointHref } from "./buyPointLink";
 import { CandleChart, formatPrice } from "./CandleChart";
 import { ChartGuide } from "./ChartGuide";
 import { Icon, type IconName } from "./Icon";
@@ -43,10 +45,19 @@ import {
 type Props = {
   symbol: string;
   name: string;
-  /** 買入價：成本線、賺賠區、買入點百分位都用它 */
+  /** 成本價：成本線、賺賠區；沒給 buyPrice 時買入點百分位也用它（快速試算只有一個價格） */
   costPrice: number;
   /** 買入日期（ISO），選填 */
   buyDate?: string;
+  /** 這筆買入的成交價（持股頁只有一筆買入時給；跟平均成本不同，平均成本含手續費） */
+  buyPrice?: number;
+  /** 拍照匯入的期初持股、或日期待補：結論旁註明「買入日為匯入日期」 */
+  importedDate?: boolean;
+  /**
+   * 分好幾筆買入（持股頁）：圖上每筆都標一個點；結論不再拿平均成本跟第一筆的日期比，
+   * 改請使用者到下方每一筆買入看各自的結果（P2-09「每筆買入交易各自判斷」）。給了就不看 buyDate。
+   */
+  buys?: { date: string; price: number }[];
   /** 放在有 gap 的版面（持股單頁）時拿掉上方外距 */
   flush?: boolean;
 };
@@ -62,7 +73,18 @@ export const BUY_DATE_HINT = "填「買入日期」，就能看出你買在相�
  * 4. 圖：成本線、賺賠區、買入點、十字線；
  * 5. 圖例。第一次看會先跳「怎麼看這張圖」。
  */
-export function PriceHistoryCard({ symbol, name, costPrice, buyDate, flush = false }: Props) {
+export function PriceHistoryCard({
+  symbol,
+  name,
+  costPrice,
+  buyDate: singleBuyDate,
+  buyPrice = costPrice,
+  importedDate,
+  buys,
+  flush = false,
+}: Props) {
+  const multiple = buys !== undefined && buys.length > 1;
+  const buyDate = multiple ? undefined : singleBuyDate;
   const prefs = useChartPrefs();
   const history = usePriceHistory(symbol, buyDate, prefs.period);
   const [guideOpen, setGuideOpen] = useState<boolean | null>(null);
@@ -98,8 +120,22 @@ export function PriceHistoryCard({ symbol, name, costPrice, buyDate, flush = fal
 
       {showGuide ? <ChartGuide onClose={closeGuide} /> : null}
 
-      {data ? (
-        <BuyVerdict data={data} buyDate={buyDate} buyPrice={costPrice} period={prefs.period} />
+      {multiple ? (
+        <View style={styles.verdict} testID="multi-buy-note">
+          <Text style={styles.verdictHint}>
+            這段持有分 {buys.length} 筆買入，每一筆各自比較：點下方紀錄裡買入的「買在高點還是低點？」查看
+          </Text>
+        </View>
+      ) : data ? (
+        <BuyVerdict
+          data={data}
+          symbol={symbol}
+          name={name}
+          buyDate={buyDate}
+          buyPrice={buyPrice}
+          importedDate={importedDate}
+          period={prefs.period}
+        />
       ) : null}
 
       <Segmented
@@ -158,6 +194,7 @@ export function PriceHistoryCard({ symbol, name, costPrice, buyDate, flush = fal
           period={prefs.period}
           costPrice={costPrice}
           buyDate={buyDate}
+          buys={multiple ? buys : undefined}
           selectedDate={selectedDate}
           onSelectDate={setSelectedDate}
           refreshing={history.status === "loading"}
@@ -195,13 +232,19 @@ function chartView(all: Candle[], today: string, period: number): ChartView {
 /** P2-09：一句話結論＋百分位刻度條。只陳述事實，不給買賣建議 */
 function BuyVerdict({
   data,
+  symbol,
+  name,
   buyDate,
   buyPrice,
+  importedDate,
   period,
 }: {
   data: PriceHistory;
+  symbol: string;
+  name: string;
   buyDate?: string;
   buyPrice: number;
+  importedDate?: boolean;
   period: number;
 }) {
   if (!buyDate) {
@@ -219,9 +262,7 @@ function BuyVerdict({
       {position.kind === "ok" ? (
         <>
           <View style={styles.verdictHead}>
-            <View style={styles.levelBadge}>
-              <Text style={styles.levelText}>{LEVEL_LABEL[position.level]}</Text>
-            </View>
+            <LevelBadge level={position.level} />
             <Text style={styles.verdictText}>{sentence}</Text>
           </View>
           <PercentileBar position={position} />
@@ -240,25 +281,19 @@ function BuyVerdict({
           </Text>
         </>
       )}
-    </View>
-  );
-}
-
-/** 0–100% 的刻度條：低檔（≤20%）、中段、高檔（≥80%）三段，▼ 標出這筆買入。三段都用中性色，不暗示好壞 */
-function PercentileBar({ position }: { position: Extract<BuyPosition, { kind: "ok" }> }) {
-  return (
-    <View style={styles.bar} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
-      <View style={styles.barTrack}>
-        <View style={[styles.barSegment, { flex: 20 }]} />
-        <View style={[styles.barSegment, styles.barMiddle, { flex: 60 }]} />
-        <View style={[styles.barSegment, { flex: 20 }]} />
-        <View style={[styles.barMarker, { left: `${position.percent}%` }]} testID="percentile-marker" />
-      </View>
-      <View style={styles.barLabels}>
-        <Text style={styles.barLabel}>低檔</Text>
-        <Text style={styles.barLabel}>中段</Text>
-        <Text style={styles.barLabel}>高檔</Text>
-      </View>
+      {importedDate ? <Text style={styles.importNote}>{IMPORTED_DATE_NOTE}</Text> : null}
+      <Pressable
+        accessibilityRole="link"
+        accessibilityLabel="看比較區間的走勢與高檔、低檔色帶"
+        onPress={() =>
+          router.push(buyPointHref({ symbol, name, date: buyDate, price: buyPrice, imported: importedDate }))
+        }
+        hitSlop={8}
+        style={({ pressed }) => [styles.verdictLink, pressed && styles.pressed]}
+      >
+        <Text style={styles.verdictLinkText}>看比較區間的走勢與高檔／低檔色帶（3 個月～3 年、自訂）</Text>
+        <Icon name="chevronRight" size={iconSize.sm} color={colors.secondary} />
+      </Pressable>
     </View>
   );
 }
@@ -272,6 +307,7 @@ function ChartBody({
   period,
   costPrice,
   buyDate,
+  buys,
   selectedDate,
   onSelectDate,
   refreshing,
@@ -284,6 +320,7 @@ function ChartBody({
   period: number;
   costPrice: number;
   buyDate?: string;
+  buys?: { date: string; price: number }[];
   selectedDate: string | null;
   onSelectDate: (date: string) => void;
   refreshing: boolean;
@@ -310,6 +347,7 @@ function ChartBody({
           mode={mode}
           costPrice={costPrice}
           buyDate={buyDate}
+          buys={buys}
           movingAverages={showMa ? view.ma : undefined}
           selectedIndex={index}
           onSelect={selectIndex}
@@ -350,6 +388,7 @@ function ChartBody({
           ) : null}
         </View>
         {buyDate ? <Text style={styles.legendBuy}>{buyPointNote(candles, buyDate, period)}</Text> : null}
+        {buys ? <Text style={styles.legendBuy}>● 每筆買入（日期、買入價）</Text> : null}
       </View>
     </>
   );
@@ -555,29 +594,10 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: colors.foreground,
   },
-  levelBadge: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.sm,
-    paddingHorizontal: space.sm,
-    paddingVertical: 2,
-  },
-  levelText: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.onPrimary },
   footnote: { fontFamily: fonts.regular, fontSize: fontSize.xs, lineHeight: 18, color: colors.mutedForeground },
-  bar: { gap: 2, paddingTop: 6 },
-  barTrack: { flexDirection: "row", height: 8, borderRadius: 4, overflow: "visible", gap: 2 },
-  barSegment: { backgroundColor: colors.muted, borderRadius: 4 },
-  barMiddle: { backgroundColor: colors.border },
-  barMarker: {
-    position: "absolute",
-    top: -5,
-    width: 4,
-    height: 18,
-    marginLeft: -2,
-    borderRadius: 2,
-    backgroundColor: colors.primary,
-  },
-  barLabels: { flexDirection: "row", justifyContent: "space-between" },
-  barLabel: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: colors.mutedForeground },
+  importNote: { fontFamily: fonts.medium, fontSize: fontSize.xs, lineHeight: 18, color: colors.accent },
+  verdictLink: { flexDirection: "row", alignItems: "center", gap: space.xs, minHeight: 32 },
+  verdictLinkText: { flexShrink: 1, fontFamily: fonts.medium, fontSize: fontSize.sm, color: colors.secondary },
   segmented: {
     flexDirection: "row",
     backgroundColor: colors.muted,
