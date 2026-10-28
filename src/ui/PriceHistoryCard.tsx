@@ -24,7 +24,21 @@ import { type ChartMode, useChartPrefs } from "@/hooks/useChartPrefs";
 import { describeLoadError, type PriceHistory, usePriceHistory } from "@/hooks/usePriceHistory";
 import { CandleChart, formatPrice } from "./CandleChart";
 import { ChartGuide } from "./ChartGuide";
-import { chartColors, colors, fonts, fontSize, pnlColors, radius, shadow, space, touchTarget } from "./theme";
+import { Icon, type IconName } from "./Icon";
+import {
+  chartColors,
+  colors,
+  fonts,
+  fontSize,
+  iconSize,
+  pnlColors,
+  pressedOpacity,
+  radius,
+  shadow,
+  space,
+  touchTarget,
+  type,
+} from "./theme";
 
 type Props = {
   symbol: string;
@@ -33,6 +47,8 @@ type Props = {
   costPrice: number;
   /** 買入日期（ISO），選填 */
   buyDate?: string;
+  /** 放在有 gap 的版面（持股單頁）時拿掉上方外距 */
+  flush?: boolean;
 };
 
 export const CANDLE_EMPTY = "查不到這檔股票這段期間的股價資料";
@@ -46,7 +62,7 @@ export const BUY_DATE_HINT = "填「買入日期」，就能看出你買在相�
  * 4. 圖：成本線、賺賠區、買入點、十字線；
  * 5. 圖例。第一次看會先跳「怎麼看這張圖」。
  */
-export function PriceHistoryCard({ symbol, name, costPrice, buyDate }: Props) {
+export function PriceHistoryCard({ symbol, name, costPrice, buyDate, flush = false }: Props) {
   const prefs = useChartPrefs();
   const history = usePriceHistory(symbol, buyDate, prefs.period);
   const [guideOpen, setGuideOpen] = useState<boolean | null>(null);
@@ -64,7 +80,7 @@ export function PriceHistoryCard({ symbol, name, costPrice, buyDate }: Props) {
   };
 
   return (
-    <View style={styles.card} accessibilityLabel="K 線圖">
+    <View style={[styles.card, flush && styles.flush]} accessibilityLabel="K 線圖">
       <View style={styles.titleRow}>
         <Text style={styles.title} accessibilityRole="header">
           股價走勢
@@ -112,9 +128,8 @@ export function PriceHistoryCard({ symbol, name, costPrice, buyDate }: Props) {
           hitSlop={4}
           style={({ pressed }) => [styles.toggle, prefs.showMa && styles.toggleOn, pressed && styles.pressed]}
         >
-          <Text style={[styles.toggleText, prefs.showMa && styles.toggleTextOn]}>
-            {prefs.showMa ? "✓ 均線" : "均線"}
-          </Text>
+          {prefs.showMa ? <Icon name="check" size={iconSize.sm} color={colors.secondary} /> : null}
+          <Text style={[styles.toggleText, prefs.showMa && styles.toggleTextOn]}>均線</Text>
         </Pressable>
       </View>
 
@@ -366,7 +381,7 @@ function DayDetail({
     : "";
   return (
     <View style={styles.day} testID="day-detail" accessibilityLiveRegion="polite">
-      <DayButton label="前一個交易日" symbol="‹" onPress={onPrevious} />
+      <DayButton label="前一個交易日" icon="chevronLeft" onPress={onPrevious} />
       <View style={styles.dayBody}>
         <Text style={styles.dayDate}>
           {formatIsoDate(candle.date)}
@@ -384,12 +399,12 @@ function DayDetail({
             : ""}
         </Text>
       </View>
-      <DayButton label="後一個交易日" symbol="›" onPress={onNext} />
+      <DayButton label="後一個交易日" icon="chevronRight" onPress={onNext} />
     </View>
   );
 }
 
-function DayButton({ label, symbol, onPress }: { label: string; symbol: string; onPress?: () => void }) {
+function DayButton({ label, icon, onPress }: { label: string; icon: IconName; onPress?: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -399,7 +414,7 @@ function DayButton({ label, symbol, onPress }: { label: string; symbol: string; 
       onPress={onPress}
       style={({ pressed }) => [styles.dayButton, pressed && styles.pressed]}
     >
-      <Text style={[styles.dayButtonText, !onPress && styles.disabledText]}>{symbol}</Text>
+      <Icon name={icon} size={iconSize.lg} color={onPress ? colors.primary : colors.border} />
     </Pressable>
   );
 }
@@ -514,13 +529,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: space.md,
     marginTop: space.md,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     gap: space.sm,
     ...shadow.sm,
   },
+  flush: { marginTop: 0 },
   titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: space.sm },
-  title: { fontFamily: fonts.semibold, fontSize: fontSize.md, color: colors.cardForeground },
+  title: { ...type.title, color: colors.cardForeground },
   helpButton: { minHeight: 32, justifyContent: "center", paddingHorizontal: space.sm },
   helpText: { fontFamily: fonts.medium, fontSize: fontSize.sm, color: colors.secondary },
   flex: { flex: 1 },
@@ -583,6 +599,9 @@ const styles = StyleSheet.create({
   toggle: {
     minHeight: 42,
     paddingHorizontal: space.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.xs,
     justifyContent: "center",
     borderRadius: radius.md,
     borderWidth: 1,
@@ -615,7 +634,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   retryText: { fontFamily: fonts.medium, fontSize: fontSize.md, color: colors.primary },
-  pressed: { opacity: 0.6 },
+  pressed: { opacity: pressedOpacity },
   day: { flexDirection: "row", alignItems: "center", gap: space.xs },
   dayBody: { flex: 1, gap: 2 },
   dayDate: { fontFamily: fonts.medium, fontSize: fontSize.xs, color: colors.mutedForeground, fontVariant: ["tabular-nums"] },
@@ -630,8 +649,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: radius.md,
   },
-  dayButtonText: { fontFamily: fonts.semibold, fontSize: 24, color: colors.primary },
-  disabledText: { color: colors.border },
   refreshing: { position: "absolute", top: 4, left: 4 },
   legend: { gap: space.xs },
   legendRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: space.md, rowGap: space.xs },

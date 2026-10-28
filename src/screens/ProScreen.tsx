@@ -1,12 +1,15 @@
 import { Redirect, Stack } from "expo-router";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PRO_FEATURES } from "@/domain/plan";
 import { useFeatures } from "@/hooks/useFeatures";
 import { useProStatus } from "@/hooks/useProStatus";
+import { Button } from "@/ui/Button";
+import { Icon } from "@/ui/Icon";
 import { ProLockedCard } from "@/ui/ProLockedCard";
-import { colors, fonts, fontSize, radius, space, touchTarget } from "@/ui/theme";
+import { Card, Notice, SectionHeader, surfaceStyles } from "@/ui/Surface";
+import { colors, fonts, fontSize, iconSize, radius, space, type } from "@/ui/theme";
 
 /**
  * Pro 方案介紹頁（docs/stories/020-pro-plan-lock.md）。Tech Day 只做畫面，不串金流：
@@ -23,26 +26,35 @@ export default function ProScreen() {
 
   return (
     <ScrollView
-      style={styles.flex}
-      contentContainerStyle={[styles.content, { paddingBottom: space.xl + insets.bottom }]}
+      style={surfaceStyles.screen}
+      contentContainerStyle={[surfaceStyles.screenContent, { paddingBottom: space.xl + insets.bottom }]}
     >
       <Stack.Screen options={{ title: "Pro 方案" }} />
 
-      <Text style={styles.heading} accessibilityRole="header">
-        賺了嗎 Pro
-      </Text>
-      <Text style={styles.lead}>把時間、股利與定期定額都算進去，看清楚自己選股到底值不值得。</Text>
+      <View style={styles.hero}>
+        <View style={styles.heroIcon}>
+          <Icon name="crown" size={iconSize.lg} color={colors.gold} />
+        </View>
+        <Text style={styles.heading} accessibilityRole="header">
+          賺了嗎 Pro
+        </Text>
+        <Text style={styles.lead}>把時間、股利與定期定額都算進去，看清楚自己選股到底值不值得。</Text>
+      </View>
 
-      <View style={styles.table} testID="plan-table" accessibilityLabel="Free 與 Pro 方案比較">
+      <Card style={styles.table} testID="plan-table" accessibilityLabel="Free 與 Pro 方案比較">
         <View style={[styles.row, styles.headRow]}>
           <Text style={[styles.cellFeature, styles.headText]}>功能</Text>
           <Text style={[styles.cell, styles.headText]}>Free</Text>
-          <Text style={[styles.cell, styles.headText]}>Pro</Text>
+          <Text style={[styles.cell, styles.headText, styles.headPro]}>Pro</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.cellFeature}>記帳、盈虧計算等基本功能</Text>
-          <Text style={styles.cell}>✓</Text>
-          <Text style={styles.cell}>✓</Text>
+          <View style={styles.cellIcon} accessible accessibilityLabel="Free 有">
+            <Icon name="check" size={iconSize.md} color={colors.mutedForeground} />
+          </View>
+          <View style={styles.cellIcon} accessible accessibilityLabel="Pro 有">
+            <Icon name="check" size={iconSize.md} color={colors.secondary} />
+          </View>
         </View>
         {PRO_FEATURES.map((feature) => (
           <View key={feature.id} style={styles.row}>
@@ -51,40 +63,28 @@ export default function ProScreen() {
             <Text style={[styles.cell, styles.cellPro]}>{feature.pro}</Text>
           </View>
         ))}
-      </View>
+      </Card>
 
-      <Text style={styles.sectionTitle} accessibilityRole="header">
-        功能預覽
-      </Text>
+      <SectionHeader title="功能預覽" />
       {PRO_FEATURES.map((feature) => (
         <ProLockedCard key={feature.id} feature={feature.id} showUpgrade={false} unlocked={pro} />
       ))}
 
       {pro ? (
-        <View style={styles.notice} testID="pro-unlocked" accessibilityLiveRegion="polite">
-          <Text style={styles.noticeTitle}>已解鎖所有 Pro 功能</Text>
-          <Text style={styles.noticeText}>目前是用設定頁的 Demo 開關解鎖，不會收費。</Text>
+        <View testID="pro-unlocked" accessibilityLiveRegion="polite">
+          <Notice tone="success" title="已解鎖所有 Pro 功能" message="目前是用設定頁的 Demo 開關解鎖，不會收費。" />
         </View>
       ) : (
         <>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="升級 Pro"
-            testID="button-upgrade-pro"
-            onPress={() => setComingSoon(true)}
-            style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-          >
-            <Text style={styles.buttonText}>升級 Pro</Text>
-          </Pressable>
+          <Button label="升級 Pro" icon="crown" testID="button-upgrade-pro" onPress={() => setComingSoon(true)} />
           {comingSoon ? (
-            <View
-              style={styles.notice}
-              testID="pro-coming-soon"
-              accessibilityRole="alert"
-              accessibilityLiveRegion="polite"
-            >
-              <Text style={styles.noticeTitle}>Pro 方案即將推出</Text>
-              <Text style={styles.noticeText}>目前還不能付費升級，也不會向你收取任何費用。</Text>
+            <View testID="pro-coming-soon">
+              <Notice
+                tone="info"
+                alert
+                title="Pro 方案即將推出"
+                message="目前還不能付費升級，也不會向你收取任何費用。"
+              />
             </View>
           ) : null}
         </>
@@ -96,76 +96,41 @@ export default function ProScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
-  content: { paddingHorizontal: space.lg, paddingTop: space.md },
-  heading: {
-    fontFamily: fonts.bold,
-    fontSize: fontSize.xl,
-    color: colors.foreground,
+  hero: {
+    backgroundColor: colors.brand,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    gap: space.sm,
+  },
+  heroIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.brandBorder,
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: space.xs,
   },
-  lead: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.md,
-    color: colors.mutedForeground,
-    lineHeight: fontSize.md * 1.5,
-    marginBottom: space.lg,
-  },
-  table: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: "hidden",
-    marginBottom: space.lg,
-  },
+  heading: { ...type.headline, color: colors.onBrand },
+  lead: { ...type.body, color: colors.onBrandMuted },
+  table: { padding: 0, gap: 0, overflow: "hidden" },
   row: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-    borderTopWidth: 1,
+    paddingVertical: space.sm + 2,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
     gap: space.sm,
   },
-  headRow: { borderTopWidth: 0, backgroundColor: colors.muted },
+  headRow: { borderTopWidth: 0, backgroundColor: colors.background },
   headText: { fontFamily: fonts.semibold, color: colors.foreground },
+  headPro: { color: colors.secondary },
   cellFeature: { flex: 2, fontFamily: fonts.medium, fontSize: fontSize.sm, color: colors.foreground },
   cell: { flex: 1, fontFamily: fonts.regular, fontSize: fontSize.sm, textAlign: "center", color: colors.foreground },
+  cellIcon: { flex: 1, alignItems: "center" },
   cellMuted: { color: colors.mutedForeground },
   cellPro: { fontFamily: fonts.semibold, color: colors.secondary },
-  sectionTitle: {
-    fontFamily: fonts.semibold,
-    fontSize: fontSize.md,
-    color: colors.foreground,
-    marginBottom: space.sm,
-  },
-  button: {
-    minHeight: touchTarget,
-    backgroundColor: colors.accent,
-    borderRadius: radius.md,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: space.md,
-    marginBottom: space.md,
-  },
-  buttonText: { fontFamily: fonts.semibold, fontSize: fontSize.lg, color: colors.onAccent },
-  pressed: { opacity: 0.85 },
-  notice: {
-    backgroundColor: colors.accentSurface,
-    borderRadius: radius.md,
-    padding: space.md,
-    marginTop: space.sm,
-    marginBottom: space.md,
-    gap: space.xs,
-  },
-  noticeTitle: { fontFamily: fonts.semibold, fontSize: fontSize.md, color: colors.accent },
-  noticeText: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: colors.foreground },
-  footnote: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.xs,
-    color: colors.mutedForeground,
-    textAlign: "center",
-    marginTop: space.sm,
-  },
+  footnote: { ...type.caption, color: colors.mutedForeground, textAlign: "center" },
 });

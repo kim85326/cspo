@@ -33,7 +33,8 @@ import { ImportSourceSheet } from "@/ui/ImportSourceSheet";
 import { InsightSection } from "@/ui/InsightCard";
 import { PnlCard } from "@/ui/PnlCard";
 import { PriceHistoryCard } from "@/ui/PriceHistoryCard";
-import { colors, fonts, fontSize, radius, space, touchTarget } from "@/ui/theme";
+import { Icon } from "@/ui/Icon";
+import { colors, contentMaxWidth, fonts, fontSize, iconSize, pressedOpacity, radius, space, touchTarget, type } from "@/ui/theme";
 import { VersionBadge } from "@/ui/VersionBadge";
 
 type Outcome =
@@ -339,9 +340,12 @@ export default function CalculateScreen() {
               !canAdd && styles.buttonDisabled,
             ]}
           >
-            <Text style={styles.addButtonText}>
-              {canAdd ? "＋ 新增一檔比較" : `最多比較 ${MAX_COMPARE_HOLDINGS} 檔`}
-            </Text>
+            <View style={styles.addButtonInner}>
+              {canAdd ? <Icon name="plus" size={iconSize.sm} color={colors.primary} /> : null}
+              <Text style={styles.addButtonText}>
+                {canAdd ? "新增一檔比較" : `最多比較 ${MAX_COMPARE_HOLDINGS} 檔`}
+              </Text>
+            </View>
           </Pressable>
           {showScreenshotImport ? (
             <Pressable
@@ -497,19 +501,19 @@ export default function CalculateScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
-  content: { paddingHorizontal: space.lg, paddingTop: space.md },
-  heading: {
-    fontFamily: fonts.bold,
-    fontSize: fontSize.xl,
-    color: colors.foreground,
-    marginBottom: space.lg,
-    lineHeight: fontSize.xl * 1.4,
+  content: {
+    paddingHorizontal: space.md,
+    paddingTop: space.md,
+    width: "100%",
+    maxWidth: contentMaxWidth,
+    alignSelf: "center",
   },
+  heading: { ...type.headline, fontSize: fontSize.xl, lineHeight: 30, color: colors.foreground, marginBottom: space.md },
   secondaryRow: { flexDirection: "row", gap: space.sm, marginBottom: space.md },
   addButton: {
     flex: 1,
     minHeight: touchTarget,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.primary,
     borderStyle: "dashed",
     borderRadius: radius.md,
@@ -518,8 +522,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.sm,
     backgroundColor: colors.card,
   },
+  addButtonInner: { flexDirection: "row", alignItems: "center", gap: space.xs },
   addButtonText: {
-    fontFamily: fonts.medium,
+    fontFamily: fonts.semibold,
     color: colors.primary,
     fontSize: fontSize.md,
     textAlign: "center",
@@ -559,12 +564,12 @@ const styles = StyleSheet.create({
     marginBottom: space.md,
     overflow: "hidden",
   },
-  buttonPressed: { opacity: 0.85 },
-  buttonDisabled: { opacity: 0.6 },
+  buttonPressed: { opacity: pressedOpacity },
+  buttonDisabled: { opacity: 0.5 },
   buttonText: {
     fontFamily: fonts.semibold,
     color: colors.onAccent,
-    fontSize: fontSize.lg,
+    fontSize: fontSize.md,
   },
   notFound: {
     backgroundColor: colors.destructiveSurface,

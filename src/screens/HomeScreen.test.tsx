@@ -88,7 +88,8 @@ describe("首頁總覽（對應 docs/stories/011）", () => {
     expect(overall.getByLabelText("已領股利 5,000")).toBeTruthy();
 
     // 只有個股：衛星等於整體，核心沒有紀錄
-    expect(group("衛星（個股）").getByLabelText("總報酬")).toHaveTextContent("▲ +152,880");
+    expect(group("衛星（個股）").getByLabelText("總報酬")).toHaveTextContent("+152,880");
+    expect(group("衛星（個股）").getByTestId("direction-up", { includeHiddenElements: true })).toBeTruthy();
     expect(group("核心（ETF）").getByText("還沒有 ETF 紀錄")).toBeTruthy();
   });
 

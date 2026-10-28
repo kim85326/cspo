@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { PRO_FEATURES, type ProFeature, type ProFeatureId } from "@/domain/plan";
 import { useProStatus } from "@/hooks/useProStatus";
-import { colors, fonts, fontSize, radius, space, touchTarget } from "./theme";
+import { Icon } from "./Icon";
+import { colors, fonts, fontSize, pressedOpacity, radius, shadow, space, touchTarget } from "./theme";
 
 export function proFeature(id: ProFeatureId): ProFeature {
   const feature = PRO_FEATURES.find((f) => f.id === id);
@@ -15,9 +16,8 @@ export function proFeature(id: ProFeatureId): ProFeature {
 export function ProBadge({ unlocked = false }: { unlocked?: boolean }) {
   return (
     <View style={[styles.badge, unlocked && styles.badgeUnlocked]}>
-      <Text style={[styles.badgeText, unlocked && styles.badgeTextUnlocked]}>
-        {unlocked ? "Pro 已解鎖" : "🔒 Pro"}
-      </Text>
+      <Icon name={unlocked ? "check" : "lock"} size={12} color={unlocked ? colors.secondary : colors.accent} />
+      <Text style={[styles.badgeText, unlocked && styles.badgeTextUnlocked]}>{unlocked ? "Pro 已解鎖" : "Pro"}</Text>
     </View>
   );
 }
@@ -82,12 +82,12 @@ export function ProGate({ feature, children }: { feature: ProFeatureId; children
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     padding: space.md,
-    marginBottom: space.sm,
     gap: space.sm,
+    ...shadow.sm,
   },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm },
   title: { flex: 1, fontFamily: fonts.semibold, fontSize: fontSize.md, color: colors.foreground },
@@ -98,8 +98,11 @@ const styles = StyleSheet.create({
     lineHeight: fontSize.sm * 1.5,
   },
   badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     backgroundColor: colors.accentSurface,
-    borderRadius: radius.sm,
+    borderRadius: radius.pill,
     paddingHorizontal: space.sm,
     paddingVertical: 2,
   },
@@ -128,5 +131,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   upgradeText: { fontFamily: fonts.semibold, fontSize: fontSize.md, color: colors.onAccent },
-  pressed: { opacity: 0.85 },
+  pressed: { opacity: pressedOpacity },
 });

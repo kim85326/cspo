@@ -11,7 +11,8 @@ import {
 } from "@/domain/holdings";
 import type { Bucket } from "@/domain/ledgerTypes";
 import type { PnlDirection } from "@/domain/types";
-import { colors, fonts, fontSize, pnlColors, radius, space, touchTarget } from "./theme";
+import { DirectionIcon, Icon } from "./Icon";
+import { colors, fonts, fontSize, iconSize, pnlColors, pressedOpacity, radius, shadow, space, touchTarget, type } from "./theme";
 
 type Props = {
   holding: HoldingView;
@@ -30,12 +31,11 @@ export function directionOf(value: number | null): PnlDirection {
   return value > 0 ? "up" : "down";
 }
 
-const ARROW: Record<PnlDirection, string> = { up: "▲", down: "▼", flat: "" };
 const VERDICT: Record<PnlDirection, string> = { up: "賺了", down: "虧了", flat: "不賺不賠" };
 
 /**
  * 持股明細的一列（Story 010）。持有中顯示市值與總報酬；已出清（股數 0）顯示已實現損益與股利。
- * 漲紅跌綠，另有 ▲▼ 與「賺了／虧了」文字，不只靠顏色。
+ * 漲紅跌綠，另有實心三角與「賺了／虧了」文字，不只靠顏色。可以點的列右邊有 ›。
  */
 export function HoldingRow({ holding, onPress, detailed = false }: Props) {
   const p = holding.position;
@@ -78,11 +78,7 @@ export function HoldingRow({ holding, onPress, detailed = false }: Props) {
       <View style={styles.returnRow}>
         <Text style={styles.returnLabel}>總報酬 · {verdict}</Text>
         <View style={styles.returnValues}>
-          {ARROW[direction] ? (
-            <Text style={[styles.arrow, { color }]} accessibilityElementsHidden importantForAccessibility="no">
-              {ARROW[direction]}
-            </Text>
-          ) : null}
+          <DirectionIcon direction={direction} size={12} color={color} />
           <Text style={[styles.returnAmount, { color }]}>{formatSignedAmountOrDash(p.totalReturn)}</Text>
           <Text style={[styles.returnRate, { color }]}>{formatRate(p.returnRate)}</Text>
         </View>
@@ -106,9 +102,12 @@ export function HoldingRow({ holding, onPress, detailed = false }: Props) {
       accessibilityHint="查看這檔的交易紀錄"
       onPress={onPress}
       testID={`holding-row-${holding.symbol}`}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.row, styles.rowPressable, pressed && styles.pressed]}
     >
-      {body}
+      <View style={styles.flex}>{body}</View>
+      <View style={styles.chevron}>
+        <Icon name="chevronRight" size={iconSize.sm} color={colors.mutedForeground} />
+      </View>
     </Pressable>
   );
 }
@@ -151,7 +150,7 @@ function Cell({ label, value, signed }: { label: string; value: string; signed?:
   );
 }
 
-/** 核心／衛星標籤：核心用深藍淺底、衛星用灰底；文字本身就說明分類 */
+/** 核心／衛星標籤：核心用深藍淺底、衛星用金色淺底（跟首頁卡片的圓點同色）；文字本身就說明分類 */
 export function BucketTag({ bucket }: { bucket: Bucket }) {
   return (
     <View style={[styles.tag, bucket === "core" ? styles.tagCore : styles.tagSatellite]}>
@@ -165,65 +164,55 @@ export function BucketTag({ bucket }: { bucket: Bucket }) {
 const styles = StyleSheet.create({
   row: {
     backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     padding: space.md,
     minHeight: touchTarget,
     gap: space.sm,
+    ...shadow.sm,
   },
-  pressed: { opacity: 0.7 },
+  rowPressable: { flexDirection: "row", alignItems: "center", paddingRight: space.sm },
+  flex: { flex: 1, minWidth: 0, gap: space.sm },
+  chevron: { marginLeft: space.xs },
+  pressed: { opacity: pressedOpacity },
   topRow: { flexDirection: "row", justifyContent: "space-between", gap: space.sm },
   titleBlock: { flex: 1, minWidth: 0 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: space.sm },
-  name: {
-    fontFamily: fonts.semibold,
-    fontSize: fontSize.md,
-    color: colors.cardForeground,
-    flexShrink: 1,
-  },
-  sub: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.xs,
-    color: colors.mutedForeground,
-    marginTop: 2,
-    fontVariant: ["tabular-nums"],
-  },
+  name: { ...type.bodyStrong, color: colors.cardForeground, flexShrink: 1 },
+  sub: { ...type.caption, color: colors.mutedForeground, marginTop: 2, fontVariant: ["tabular-nums"] },
   valueBlock: { alignItems: "flex-end" },
-  valueLabel: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: colors.mutedForeground },
-  value: {
-    fontFamily: fonts.semibold,
-    fontSize: fontSize.md,
-    color: colors.cardForeground,
-    fontVariant: ["tabular-nums"],
-  },
+  valueLabel: { ...type.caption, color: colors.mutedForeground },
+  value: { ...type.numeric, color: colors.cardForeground },
   returnRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     flexWrap: "wrap",
     gap: space.xs,
+    paddingTop: space.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
-  returnLabel: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: colors.mutedForeground },
-  returnValues: { flexDirection: "row", alignItems: "baseline", gap: space.sm },
-  arrow: { fontSize: fontSize.sm },
-  returnAmount: { fontFamily: fonts.bold, fontSize: fontSize.lg, fontVariant: ["tabular-nums"] },
-  returnRate: { fontFamily: fonts.semibold, fontSize: fontSize.sm, fontVariant: ["tabular-nums"] },
+  returnLabel: { ...type.label, fontFamily: fonts.regular, color: colors.mutedForeground },
+  returnValues: { flexDirection: "row", alignItems: "center", gap: space.xs + 2 },
+  returnAmount: { ...type.numericLg },
+  returnRate: { ...type.numericSm, fontFamily: fonts.semibold },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: space.sm,
-    rowGap: space.sm,
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+    padding: space.sm + space.xs,
+    rowGap: space.sm + space.xs,
   },
-  cell: { width: "50%", paddingRight: space.sm },
-  cellLabel: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: colors.mutedForeground },
-  cellValue: { fontFamily: fonts.medium, fontSize: fontSize.sm, fontVariant: ["tabular-nums"] },
-  tag: { borderRadius: radius.sm, paddingHorizontal: space.sm, paddingVertical: 2 },
+  cell: { width: "50%", paddingRight: space.sm, gap: 2 },
+  cellLabel: { ...type.caption, color: colors.mutedForeground },
+  cellValue: { ...type.numericSm },
+  tag: { borderRadius: radius.pill, paddingHorizontal: space.sm, paddingVertical: 2 },
   tagCore: { backgroundColor: colors.secondarySurface },
-  tagSatellite: { backgroundColor: colors.muted },
+  tagSatellite: { backgroundColor: colors.accentSurface },
   tagText: { fontFamily: fonts.medium, fontSize: fontSize.xs },
   tagTextCore: { color: colors.secondary },
-  tagTextSatellite: { color: colors.mutedForeground },
+  tagTextSatellite: { color: colors.accent },
 });

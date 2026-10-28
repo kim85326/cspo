@@ -10,8 +10,7 @@ import { useEffect } from "react";
 import { FeatureFlagsProvider } from "@/hooks/useFeatures";
 import { ProStatusProvider } from "@/hooks/useProStatus";
 import { DisclaimerGate } from "@/ui/DisclaimerGate";
-import { SettingsHeaderButton } from "@/ui/SettingsHeaderButton";
-import { colors, fonts } from "@/ui/theme";
+import { colors, fonts, fontSize } from "@/ui/theme";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -36,16 +35,24 @@ export default function RootLayout() {
     <FeatureFlagsProvider>
       <ProStatusProvider>
         <StatusBar style="dark" />
+        {/* 分頁（總覽／持股／設定）在 (tabs)；其他頁蓋在分頁上，有返回鍵。標題先在這裡給，載入中不會閃出路由名稱 */}
         <Stack
           screenOptions={{
             headerTitleAlign: "center",
             headerShadowVisible: false,
+            headerBackButtonDisplayMode: "minimal",
+            headerTintColor: colors.primary,
             headerStyle: { backgroundColor: colors.background },
-            headerTitleStyle: { fontFamily: fonts.semibold, color: colors.foreground },
+            headerTitleStyle: { fontFamily: fonts.semibold, fontSize: fontSize.lg, color: colors.foreground },
             contentStyle: { backgroundColor: colors.background },
           }}
         >
-          <Stack.Screen name="index" options={{ title: "賺了嗎", headerRight: () => <SettingsHeaderButton /> }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "賺了嗎" }} />
+          <Stack.Screen name="holdings/[symbol]" options={{ title: "持股" }} />
+          <Stack.Screen name="transaction/new" options={{ title: "新增交易" }} />
+          <Stack.Screen name="transaction/[id]" options={{ title: "編輯交易" }} />
+          <Stack.Screen name="calculate" options={{ title: "快速試算" }} />
+          <Stack.Screen name="pro" options={{ title: "Pro 方案" }} />
         </Stack>
         <DisclaimerGate />
       </ProStatusProvider>

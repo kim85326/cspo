@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import { formatReturnRate, formatSignedAmount, pnlDirection } from "@/domain/pnl";
 import type { PnlResult, Quote } from "@/domain/types";
+import { DirectionIcon } from "./Icon";
 import { colors, fonts, fontSize, pnlColors, radius, shadow, space } from "./theme";
 
 type Props = {
@@ -12,13 +13,6 @@ const VERDICT: Record<ReturnType<typeof pnlDirection>, string> = {
   up: "賺了",
   down: "虧了",
   flat: "不賺不賠",
-};
-
-/** 方向符號：純文字字形，不是 emoji。意思已由「賺了／虧了」承載，所以對輔助工具隱藏。 */
-const ARROW: Record<ReturnType<typeof pnlDirection>, string> = {
-  up: "▲",
-  down: "▼",
-  flat: "",
 };
 
 /** 盈虧結果卡片 */
@@ -37,15 +31,7 @@ export function PnlCard({ quote, result }: Props) {
       <Text style={styles.verdict}>{VERDICT[direction]}</Text>
 
       <View style={styles.amountRow}>
-        {ARROW[direction] ? (
-          <Text
-            style={[styles.arrow, { color }]}
-            accessibilityElementsHidden
-            importantForAccessibility="no"
-          >
-            {ARROW[direction]}
-          </Text>
-        ) : null}
+        <DirectionIcon direction={direction} size={20} color={color} />
         <Text style={[styles.pnl, { color }]} accessibilityLabel="盈虧金額">
           {formatSignedAmount(result.pnl)}
         </Text>
@@ -105,7 +91,6 @@ const styles = StyleSheet.create({
     marginTop: space.sm,
   },
   amountRow: { flexDirection: "row", alignItems: "center", marginTop: space.xs },
-  arrow: { fontSize: fontSize.xl, marginRight: space.sm },
   pnl: {
     fontFamily: fonts.bold,
     fontSize: fontSize.display,

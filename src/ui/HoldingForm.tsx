@@ -5,7 +5,7 @@ import type { StockInfo } from "@/domain/types";
 import { DateField } from "./DateField";
 import { LabeledInput } from "./LabeledInput";
 import { StockPicker } from "./StockPicker";
-import { colors, fonts, fontSize, radius, space } from "./theme";
+import { colors, fonts, fontSize, pressedOpacity, radius, shadow, space, touchTarget } from "./theme";
 
 export type HoldingFormErrors = Partial<Record<keyof HoldingInput, string>>;
 
@@ -156,11 +156,12 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
     borderRadius: radius.lg,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
     padding: space.md,
     paddingBottom: 0,
     marginBottom: space.md,
+    ...shadow.sm,
   },
   header: {
     flexDirection: "row",
@@ -173,7 +174,7 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.foreground,
   },
-  remove: { paddingVertical: space.xs, paddingHorizontal: space.sm },
+  remove: { minHeight: touchTarget - space.sm, justifyContent: "center", paddingHorizontal: space.sm },
   removeText: { fontFamily: fonts.medium, fontSize: fontSize.sm, color: colors.destructive },
-  pressed: { opacity: 0.6 },
+  pressed: { opacity: pressedOpacity },
 });

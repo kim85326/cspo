@@ -81,16 +81,16 @@ describe("HoldingsScreen 持股明細（對應 docs/stories/010）", () => {
     expect(row.getByText("衛星")).toBeTruthy();
   });
 
-  test("M-04 AC3：獲利紅色、虧損綠色，且有 ▲▼ 與賺了／虧了", async () => {
+  test("M-04 AC3：獲利紅色、虧損綠色，且有漲跌三角與賺了／虧了", async () => {
     await renderScreen(createMemoryLedgerRepository(mixedLedger()));
     const gain = within(await screen.findByTestId("holding-row-2330"));
     expect(gain.getByText("+152,880")).toHaveStyle({ color: pnlColors.up });
-    expect(gain.getByText("▲", { includeHiddenElements: true })).toBeTruthy();
+    expect(gain.getByTestId("direction-up", { includeHiddenElements: true })).toBeTruthy();
     expect(gain.getByText("總報酬 · 賺了")).toBeTruthy();
 
     const loss = within(screen.getByTestId("holding-row-2317"));
     expect(loss.getByText("-50,948")).toHaveStyle({ color: pnlColors.down });
-    expect(loss.getByText("▼", { includeHiddenElements: true })).toBeTruthy();
+    expect(loss.getByTestId("direction-down", { includeHiddenElements: true })).toBeTruthy();
     expect(loss.getByText("總報酬 · 虧了")).toBeTruthy();
   });
 

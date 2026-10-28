@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SECURITY_TYPE_LABEL } from "@/domain/security";
 import { formatStockLabel, MAX_SEARCH_RESULTS, searchStocks } from "@/domain/stockSearch";
 import type { StockInfo } from "@/domain/types";
-import { colors, fonts, fontSize, radius, shadow, space, touchTarget } from "./theme";
+import { Icon } from "./Icon";
+import { colors, fonts, fontSize, iconSize, radius, shadow, space, touchTarget } from "./theme";
 
 type Props = {
   stocks: StockInfo[];
@@ -111,7 +112,7 @@ export function StockPicker({
             hitSlop={8}
             style={({ pressed }) => [styles.clear, pressed && styles.pressed]}
           >
-            <Text style={styles.clearText}>✕</Text>
+            <Icon name="x" size={iconSize.md} color={colors.mutedForeground} />
           </Pressable>
         ) : null}
       </View>
@@ -193,7 +194,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  clearText: { fontSize: fontSize.md, color: colors.mutedForeground },
   pressed: { opacity: 0.6 },
   error: {
     marginTop: space.xs + 2,

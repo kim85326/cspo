@@ -1,9 +1,9 @@
-import { router, Stack, type Href } from "expo-router";
+import { router, Stack } from "expo-router";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { LedgerRepository } from "@/data/ledgerRepository";
 import type { PriceSource } from "@/data/PriceSource";
+import { formatIsoDate } from "@/domain/buyDate";
 import {
   BUCKET_LABEL,
   formatAmount,
@@ -19,10 +19,25 @@ import type { Bucket } from "@/domain/ledgerTypes";
 import { defaultBucket } from "@/domain/portfolio";
 import { SECURITY_TYPE_LABEL, securityTypeOf } from "@/domain/security";
 import { useHoldings } from "@/hooks/useHoldings";
-import { directionOf } from "@/ui/HoldingRow";
+import { Button } from "@/ui/Button";
+import { BucketTag, directionOf } from "@/ui/HoldingRow";
+import { DirectionIcon, Icon, type IconName } from "@/ui/Icon";
 import { PriceHistoryCard } from "@/ui/PriceHistoryCard";
 import { Segmented } from "@/ui/Segmented";
-import { colors, fonts, fontSize, pnlColors, radius, shadow, space, touchTarget } from "@/ui/theme";
+import { Card, EmptyState, KeyValueRow, SkeletonCard, surfaceStyles } from "@/ui/Surface";
+import {
+  colors,
+  fonts,
+  fontSize,
+  iconSize,
+  pnlColors,
+  pnlSurfaces,
+  pressedOpacity,
+  radius,
+  space,
+  touchTarget,
+  type as typo,
+} from "@/ui/theme";
 
 type Props = {
   symbol: string;
@@ -32,20 +47,16 @@ type Props = {
   today?: string;
 };
 
-// T4（Story 009）的交易畫面同時開發中，合併前 typed routes 還不認得這兩個路由，先轉型
-const newTransactionHref = (symbol: string) =>
-  ({ pathname: "/transaction/new", params: { symbol } }) as unknown as Href;
-const editTransactionHref = (id: string) => ({ pathname: "/transaction/[id]", params: { id } }) as unknown as Href;
+const newTransactionHref = (symbol: string) => ({ pathname: "/transaction/new", params: { symbol } }) as const;
+const editTransactionHref = (id: string) => ({ pathname: "/transaction/[id]", params: { id } }) as const;
 
 const VERDICT = { up: "賺了", down: "虧了", flat: "不賺不賠" } as const;
-const ARROW = { up: "▲", down: "▼", flat: "" } as const;
 
 /**
  * 單一持股頁（M-04、M-06，Story 010）：數字摘要、核心／衛星切換、股價走勢、該證券的交易與股利（新到舊）。
  * 「新增交易」→ /transaction/new?symbol=；點交易 → /transaction/[id]（T4 的畫面）。
  */
 export default function HoldingDetailScreen({ symbol, repository, prices, today }: Props) {
-  const insets = useSafeAreaInsets();
   const { ledger, loaded, holdings, repository: repo } = useHoldings({ repository, prices, today });
   const holding = holdings.find((h) => h.symbol === symbol);
   const history = useMemo(() => (ledger ? symbolHistory(ledger, symbol) : []), [ledger, symbol]);
@@ -55,21 +66,28 @@ export default function HoldingDetailScreen({ symbol, repository, prices, today 
 
   if (!loaded) {
     return (
-      <View style={[styles.screen, styles.center]}>
+      <ScrollView style={surfaceStyles.screen} contentContainerStyle={surfaceStyles.screenContent}>
         <Stack.Screen options={{ title }} />
-        <ActivityIndicator color={colors.primary} />
-        <Text style={styles.muted}>載入中…</Text>
-      </View>
+        <SkeletonCard lines={6} />
+        <SkeletonCard lines={2} />
+      </ScrollView>
     );
   }
 
   if (!holding) {
     return (
-      <View style={[styles.screen, styles.center]}>
+      <ScrollView style={surfaceStyles.screen} contentContainerStyle={surfaceStyles.screenContent}>
         <Stack.Screen options={{ title }} />
-        <Text style={styles.muted}>記帳本裡沒有 {symbol} 的紀錄</Text>
-        <AddButton symbol={symbol} />
-      </View>
+        <Card>
+          <EmptyState
+            icon="inbox"
+            title={`記帳本裡沒有 ${symbol} 的紀錄`}
+            message="記下第一筆買入，就能看到這檔的損益與走勢。"
+          >
+            <AddButton symbol={symbol} />
+          </EmptyState>
+        </Card>
+      </ScrollView>
     );
   }
 
@@ -86,53 +104,81 @@ export default function HoldingDetailScreen({ symbol, repository, prices, today 
     if (!result.ok) setBucketError(result.error.message);
   };
 
+  const rows: { label: string; value: string; signed?: number | null }[] = [
+    ...(closed
+      ? []
+      : [
+          { label: "持有股數", value: formatShares(p.shares) },
+          { label: "平均成本", value: formatPrice(p.averageCost) },
+          { label: "參考價", value: formatPrice(p.price) },
+          { label: "市值", value: formatAmount(p.marketValue) },
+          {
+            label: "未實現損益",
+            value: `${formatSignedAmountOrDash(p.unrealizedPnl)}（${formatRate(unrealizedRate(p))}）`,
+            signed: p.unrealizedPnl,
+          },
+        ]),
+    { label: "已實現損益", value: formatSignedAmountOrDash(p.realizedPnl), signed: p.realizedPnl },
+    { label: "已領股利", value: formatAmount(p.cashDividends) },
+    { label: "累計投入", value: formatAmount(p.invested) },
+    ...(closed ? [] : [{ label: "持有天數", value: p.holdingDays === null ? "—" : `${p.holdingDays} 天` }]),
+  ];
+
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + space.xl }]}
-    >
+    <ScrollView style={surfaceStyles.screen} contentContainerStyle={[surfaceStyles.screenContent, styles.content]}>
       <Stack.Screen options={{ title }} />
 
-      <View style={styles.card} accessibilityLabel="持股摘要">
-        <Text style={styles.cardTitle}>
-          {holding.name}（{symbol}）· {SECURITY_TYPE_LABEL[type]}
-          {closed ? " · 已出清" : ""}
-        </Text>
-        <Text style={styles.verdict}>{p.totalReturn === null ? "缺少價格，暫時算不出總報酬" : VERDICT[direction]}</Text>
-        <View style={styles.amountRow}>
-          {ARROW[direction] ? (
-            <Text style={[styles.arrow, { color }]} accessibilityElementsHidden importantForAccessibility="no">
-              {ARROW[direction]}
+      <Card accessibilityLabel="持股摘要">
+        <View style={styles.summaryHead}>
+          <View style={styles.flex}>
+            <Text style={styles.name} numberOfLines={1}>
+              {holding.name}
             </Text>
-          ) : null}
-          <Text style={[styles.total, { color }]} accessibilityLabel="總報酬">
-            {formatSignedAmountOrDash(p.totalReturn)}
-          </Text>
+            <Text style={styles.meta}>
+              {symbol} · {SECURITY_TYPE_LABEL[type]}
+            </Text>
+          </View>
+          <View style={styles.tags}>
+            <BucketTag bucket={holding.bucket} />
+            {closed ? (
+              <View style={styles.closedTag}>
+                <Text style={styles.closedTagText}>已出清</Text>
+              </View>
+            ) : null}
+          </View>
         </View>
-        <Text style={[styles.rate, { color }]} accessibilityLabel="報酬率">
-          {formatRate(p.returnRate)}
-        </Text>
 
-        {closed ? null : (
-          <>
-            <Row label="持有股數" value={formatShares(p.shares)} />
-            <Row label="平均成本" value={formatPrice(p.averageCost)} />
-            <Row label="參考價" value={formatPrice(p.price)} />
-            <Row label="市值" value={formatAmount(p.marketValue)} />
-            <Row
-              label="未實現損益"
-              value={`${formatSignedAmountOrDash(p.unrealizedPnl)}（${formatRate(unrealizedRate(p))}）`}
-              signed={p.unrealizedPnl}
+        <View style={styles.totalBlock}>
+          <Text style={styles.verdict}>
+            {p.totalReturn === null ? "缺少價格，暫時算不出總報酬" : VERDICT[direction]}
+          </Text>
+          <View style={styles.amountRow}>
+            <DirectionIcon direction={direction} size={18} color={color} />
+            <Text style={[styles.total, { color }]} accessibilityLabel="總報酬" numberOfLines={1} adjustsFontSizeToFit>
+              {formatSignedAmountOrDash(p.totalReturn)}
+            </Text>
+            <View style={[styles.ratePill, { backgroundColor: pnlSurfaces[direction] }]}>
+              <Text style={[styles.rate, { color }]} accessibilityLabel="報酬率">
+                {formatRate(p.returnRate)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View>
+          {rows.map((r, i) => (
+            <KeyValueRow
+              key={r.label}
+              label={r.label}
+              value={r.value}
+              first={i === 0}
+              valueColor={r.signed === undefined ? colors.cardForeground : pnlColors[directionOf(r.signed)]}
             />
-          </>
-        )}
-        <Row label="已實現損益" value={formatSignedAmountOrDash(p.realizedPnl)} signed={p.realizedPnl} />
-        <Row label="已領股利" value={formatAmount(p.cashDividends)} />
-        <Row label="累計投入" value={formatAmount(p.invested)} />
-        {closed ? null : <Row label="持有天數" value={p.holdingDays === null ? "—" : `${p.holdingDays} 天`} />}
-      </View>
+          ))}
+        </View>
+      </Card>
 
-      <View style={styles.card}>
+      <Card>
         <Text style={styles.sectionTitle} accessibilityRole="header">
           核心／衛星
         </Text>
@@ -154,7 +200,7 @@ export default function HoldingDetailScreen({ symbol, repository, prices, today 
             {bucketError}
           </Text>
         ) : null}
-      </View>
+      </Card>
 
       {!closed && p.averageCost !== null ? (
         <PriceHistoryCard
@@ -162,10 +208,11 @@ export default function HoldingDetailScreen({ symbol, repository, prices, today 
           name={holding.name}
           costPrice={p.averageCost}
           buyDate={p.holdingSince ?? undefined}
+          flush
         />
       ) : null}
 
-      <View style={styles.card}>
+      <Card style={styles.historyCard}>
         <View style={styles.historyHeader}>
           <Text style={styles.sectionTitle} accessibilityRole="header">
             交易與股利紀錄
@@ -175,21 +222,37 @@ export default function HoldingDetailScreen({ symbol, repository, prices, today 
         {history.map((entry) => (
           <HistoryRow key={entry.kind === "trade" ? entry.transaction.id : entry.dividend.id} entry={entry} />
         ))}
-      </View>
+      </Card>
     </ScrollView>
   );
 }
 
 function AddButton({ symbol, compact = false }: { symbol: string; compact?: boolean }) {
   return (
-    <Pressable
-      accessibilityRole="button"
+    <Button
+      label="新增交易"
+      icon="plus"
+      variant={compact ? "secondary" : "primary"}
+      size={compact ? "sm" : "md"}
       accessibilityLabel={`新增 ${symbol} 的交易`}
       onPress={() => router.push(newTransactionHref(symbol))}
-      style={({ pressed }) => [compact ? styles.smallButton : styles.primaryButton, pressed && styles.pressed]}
-    >
-      <Text style={compact ? styles.smallButtonText : styles.primaryButtonText}>＋ 新增交易</Text>
-    </Pressable>
+    />
+  );
+}
+
+const ENTRY_BADGE: Record<"buy" | "sell" | "dividend", { icon: IconName; bg: string; fg: string }> = {
+  buy: { icon: "arrowDownLeft", bg: colors.secondarySurface, fg: colors.secondary },
+  sell: { icon: "arrowUpRight", bg: colors.accentSurface, fg: colors.accent },
+  dividend: { icon: "coins", bg: colors.muted, fg: colors.primary },
+};
+
+/** 每筆紀錄左邊的圓形圖示：買入、賣出、股利。只是輔助辨識，文字本身就寫了是哪一種 */
+function EntryBadge({ kind }: { kind: "buy" | "sell" | "dividend" }) {
+  const b = ENTRY_BADGE[kind];
+  return (
+    <View style={[styles.badge, { backgroundColor: b.bg }]}>
+      <Icon name={b.icon} size={iconSize.sm} color={b.fg} />
+    </View>
   );
 }
 
@@ -197,14 +260,18 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
   if (entry.kind === "dividend") {
     const d = entry.dividend;
     const what =
-      d.type === "cash" ? `現金股利 ${formatAmount(d.cashAmount ?? 0)} 元` : `股票股利 ${formatShares(d.stockShares ?? 0)}`;
+      d.type === "cash"
+        ? `現金股利 ${formatAmount(d.cashAmount ?? 0)} 元`
+        : `股票股利 ${formatShares(d.stockShares ?? 0)}`;
     // 股利的編輯畫面在 T7（Story 012），這裡先只顯示
     return (
       <View style={styles.historyRow} accessible accessibilityLabel={`${d.exDate} ${what}`}>
-        <Text style={styles.historyDate}>{d.exDate}</Text>
+        <EntryBadge kind="dividend" />
         <View style={styles.historyBody}>
           <Text style={styles.historyMain}>{what}</Text>
-          {d.status === "estimated" ? <Text style={styles.historySub}>預估</Text> : null}
+          <Text style={styles.historySub}>
+            {formatIsoDate(d.exDate)} 除權息{d.status === "estimated" ? " · 預估" : ""}
+          </Text>
         </View>
       </View>
     );
@@ -213,7 +280,10 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
   const t = entry.transaction;
   const side = t.side === "buy" ? "買入" : "賣出";
   const main = `${side} ${formatShares(t.shares)} @ ${formatPrice(t.price)}`;
-  const costs = t.side === "buy" ? `手續費 ${formatAmount(t.fee)}` : `手續費 ${formatAmount(t.fee)} · 證交稅 ${formatAmount(t.tax)}`;
+  const costs =
+    t.side === "buy"
+      ? `手續費 ${formatAmount(t.fee)}`
+      : `手續費 ${formatAmount(t.fee)} · 證交稅 ${formatAmount(t.tax)}`;
   return (
     <Pressable
       accessibilityRole="button"
@@ -221,110 +291,63 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
       onPress={() => router.push(editTransactionHref(t.id))}
       style={({ pressed }) => [styles.historyRow, pressed && styles.pressed]}
     >
-      <Text style={styles.historyDate}>
-        {t.tradeDate}
-        {t.tradeDateUnknown ? "\n日期待補" : ""}
-      </Text>
+      <EntryBadge kind={t.side} />
       <View style={styles.historyBody}>
         <Text style={styles.historyMain}>{main}</Text>
+        <Text style={styles.historySub}>{costs}</Text>
         <Text style={styles.historySub}>
-          {costs}
+          {formatIsoDate(t.tradeDate)}
+          {t.tradeDateUnknown ? " · 日期待補" : ""}
           {t.note ? ` · ${t.note}` : ""}
         </Text>
       </View>
-      <Text style={styles.chevron} accessibilityElementsHidden importantForAccessibility="no">
-        ›
-      </Text>
+      <Icon name="chevronRight" size={iconSize.sm} color={colors.mutedForeground} />
     </Pressable>
   );
 }
 
-function Row({ label, value, signed }: { label: string; value: string; signed?: number | null }) {
-  const color = signed === undefined ? colors.cardForeground : pnlColors[directionOf(signed)];
-  return (
-    <View style={styles.row} accessible accessibilityLabel={`${label} ${value}`}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, { color }]}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  center: { alignItems: "center", justifyContent: "center", gap: space.sm, padding: space.md },
-  content: { padding: space.md, gap: space.md, width: "100%", maxWidth: 640, alignSelf: "center" },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.lg,
-    padding: space.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: space.sm,
-    ...shadow.sm,
+  content: { paddingBottom: space.xl },
+  flex: { flex: 1, minWidth: 0 },
+  summaryHead: { flexDirection: "row", alignItems: "flex-start", gap: space.sm },
+  name: { ...typo.title, color: colors.cardForeground },
+  meta: { ...typo.caption, color: colors.mutedForeground, marginTop: 2, fontVariant: ["tabular-nums"] },
+  tags: { flexDirection: "row", gap: space.xs },
+  closedTag: {
+    borderRadius: radius.pill,
+    paddingHorizontal: space.sm,
+    paddingVertical: 2,
+    backgroundColor: colors.muted,
   },
-  cardTitle: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: colors.mutedForeground },
-  verdict: { fontFamily: fonts.semibold, fontSize: fontSize.lg, color: colors.cardForeground },
-  amountRow: { flexDirection: "row", alignItems: "center" },
-  arrow: { fontSize: fontSize.xl, marginRight: space.sm },
-  total: { fontFamily: fonts.bold, fontSize: fontSize.display, fontVariant: ["tabular-nums"] },
-  rate: { fontFamily: fonts.semibold, fontSize: fontSize.lg, fontVariant: ["tabular-nums"] },
-  row: {
+  closedTagText: { fontFamily: fonts.medium, fontSize: fontSize.xs, color: colors.mutedForeground },
+  totalBlock: { paddingVertical: space.sm, gap: space.xs },
+  verdict: { ...typo.label, color: colors.mutedForeground },
+  amountRow: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  total: { ...typo.headline, flexShrink: 1 },
+  ratePill: { borderRadius: radius.pill, paddingHorizontal: space.sm, paddingVertical: 2 },
+  rate: { ...typo.numericSm, fontFamily: fonts.semibold },
+  sectionTitle: { ...typo.title, color: colors.cardForeground },
+  hint: { ...typo.caption, color: colors.mutedForeground },
+  error: { ...typo.label, fontFamily: fonts.regular, color: colors.destructive },
+  historyCard: { gap: 0 },
+  historyHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: space.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    alignItems: "center",
+    marginBottom: space.sm,
   },
-  rowLabel: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: colors.mutedForeground },
-  rowValue: { fontFamily: fonts.medium, fontSize: fontSize.sm, fontVariant: ["tabular-nums"] },
-  sectionTitle: { fontFamily: fonts.semibold, fontSize: fontSize.md, color: colors.cardForeground },
-  hint: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: colors.mutedForeground },
-  error: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: colors.destructive },
-  historyHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   historyRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space.sm,
-    minHeight: touchTarget,
-    paddingVertical: space.sm,
-    borderTopWidth: 1,
+    gap: space.sm + space.xs,
+    minHeight: touchTarget + space.md,
+    paddingVertical: space.sm + 2,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
-  historyDate: {
-    width: 88,
-    fontFamily: fonts.regular,
-    fontSize: fontSize.xs,
-    color: colors.mutedForeground,
-    fontVariant: ["tabular-nums"],
-  },
-  historyBody: { flex: 1, minWidth: 0 },
-  historyMain: {
-    fontFamily: fonts.medium,
-    fontSize: fontSize.sm,
-    color: colors.cardForeground,
-    fontVariant: ["tabular-nums"],
-  },
-  historySub: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: colors.mutedForeground },
-  chevron: { fontSize: fontSize.lg, color: colors.mutedForeground },
-  muted: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: colors.mutedForeground, textAlign: "center" },
-  primaryButton: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.md,
-    minHeight: touchTarget,
-    paddingHorizontal: space.lg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  primaryButtonText: { fontFamily: fonts.semibold, fontSize: fontSize.md, color: colors.onAccent },
-  smallButton: {
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    minHeight: 40,
-    paddingHorizontal: space.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  smallButtonText: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.accent },
-  pressed: { opacity: 0.7 },
+  badge: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  historyBody: { flex: 1, minWidth: 0, gap: 2 },
+  historyMain: { ...typo.numericSm, fontFamily: fonts.semibold, color: colors.cardForeground },
+  historySub: { ...typo.caption, color: colors.mutedForeground, fontVariant: ["tabular-nums"] },
+  pressed: { opacity: pressedOpacity },
 });

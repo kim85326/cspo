@@ -1,7 +1,6 @@
-import { router, Stack } from "expo-router";
-import { useMemo } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { useMemo, type ReactNode } from "react";
+import { RefreshControl, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { ledgerRepository as defaultRepository, priceSource as defaultPriceSource } from "@/data";
 import type { LedgerRepository } from "@/data/ledgerRepository";
 import type { PriceSource } from "@/data/PriceSource";
@@ -14,8 +13,11 @@ import type { GroupSummary } from "@/domain/portfolio";
 import type { PnlDirection, Quote } from "@/domain/types";
 import { useLedger } from "@/hooks/useLedger";
 import { useQuotes } from "@/hooks/useQuotes";
+import { Button } from "@/ui/Button";
 import { HoldingRow } from "@/ui/HoldingRow";
-import { colors, fonts, fontSize, pnlColors, radius, space, touchTarget } from "@/ui/theme";
+import { DirectionIcon } from "@/ui/Icon";
+import { Card, EmptyState, Notice, SectionHeader, SkeletonBlock, SkeletonCard, surfaceStyles } from "@/ui/Surface";
+import { colors, fonts, fontSize, pnlColors, pnlColorsOnBrand, radius, space, type } from "@/ui/theme";
 import { VersionBadge } from "@/ui/VersionBadge";
 
 /** 交易畫面是 Story 009，持股明細與單一持股頁是 Story 010 */
@@ -31,9 +33,6 @@ const MAX_HOME_HOLDINGS = 5;
 
 const VERDICT: Record<PnlDirection, string> = { up: "賺了", down: "虧了", flat: "不賺不賠" };
 
-/** 方向符號：純文字字形，意思已由「賺了／虧了」與 +／- 承載，所以對輔助工具隱藏 */
-const ARROW: Record<PnlDirection, string> = { up: "▲", down: "▼", flat: "" };
-
 type Props = {
   /** 測試傳記憶體版；app 裡用 src/data 的 ledgerRepository */
   repository?: LedgerRepository;
@@ -41,18 +40,21 @@ type Props = {
 };
 
 /**
- * 首頁總覽（M-05）：整體、核心（ETF）、衛星（個股）三組數字，下面列市值最大的幾檔持股。
- * 沒有任何交易時顯示空狀態與「新增第一筆交易」。舊的試算畫面搬到 /calculate，從底部「快速試算」進去。
- * 對應 docs/stories/011-home-overview.md。路由入口在 src/app/index.tsx。
+ * 首頁總覽（M-05）：深藍主視覺卡是整體損益，下面是核心（ETF）、衛星（個股）兩張卡與市值最大的幾檔持股。
+ * 沒有任何交易時顯示空狀態與「新增第一筆交易」。快速試算在 /calculate。
+ * 首頁是「總覽」分頁，標題與分頁列在 src/app/(tabs)/_layout.tsx。對應 docs/stories/011-home-overview.md。
  */
 export default function HomeScreen({ repository = defaultRepository, priceSource = defaultPriceSource }: Props) {
-  const insets = useSafeAreaInsets();
   const { ledger } = useLedger(repository);
   const symbols = useMemo(() => (ledger ? ledgerSymbols(ledger) : []), [ledger]);
-  const { quotes, loading: quotesLoading, refreshing, failedCount, updatedAt, refresh } = useQuotes(
-    symbols,
-    priceSource,
-  );
+  const {
+    quotes,
+    loading: quotesLoading,
+    refreshing,
+    failedCount,
+    updatedAt,
+    refresh,
+  } = useQuotes(symbols, priceSource);
 
   const overview = useMemo(() => {
     if (!ledger) return null;
@@ -63,142 +65,196 @@ export default function HomeScreen({ repository = defaultRepository, priceSource
 
   return (
     <ScrollView
-      style={styles.flex}
-      contentContainerStyle={[styles.content, { paddingBottom: space.xl + insets.bottom }]}
+      style={surfaceStyles.screen}
+      contentContainerStyle={[surfaceStyles.screenContent, styles.content]}
       refreshControl={
         isEmpty || !ledger ? undefined : <RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />
       }
     >
-      <Stack.Screen options={{ title: "賺了嗎" }} />
-
       {!overview || !ledger ? (
-        <View style={styles.loading}>
-          <ActivityIndicator color={colors.primary} accessibilityLabel="載入中" />
-        </View>
+        <HomeSkeleton />
       ) : isEmpty ? (
-        <EmptyState />
+        <Card testID="home-empty">
+          <EmptyState
+            icon="filePlus"
+            title="還沒有任何交易"
+            message="把你在券商的買入、賣出一筆一筆記下來，這裡就會幫你算整體、ETF 和個股各賺了多少。"
+          >
+            <Button
+              label="新增第一筆交易"
+              icon="plus"
+              testID="button-add-first-transaction"
+              onPress={() => router.push(ROUTES.newTransaction)}
+            />
+            <QuickCalcButton />
+          </EmptyState>
+        </Card>
       ) : (
         <>
-          <PriceStatus
-            quotes={Object.values(quotes)}
-            loading={quotesLoading}
-            failedCount={failedCount}
-            updatedAt={updatedAt}
-            onRetry={() => void refresh()}
+          <OverallHero
+            summary={overview.summary.overall}
+            pricesLoading={quotesLoading}
+            priceStatus={<PriceAsOf quotes={Object.values(quotes)} loading={quotesLoading} updatedAt={updatedAt} />}
           />
-          <OverallCard summary={overview.summary.overall} pricesLoading={quotesLoading} />
+          {!quotesLoading && failedCount > 0 ? (
+            <Notice
+              tone="warning"
+              testID="price-warning"
+              message={`有 ${failedCount} 檔拿不到現價，市值與總報酬先不計算`}
+              action={{ label: "重新載入", accessibilityLabel: "重新載入價格", onPress: () => void refresh() }}
+            />
+          ) : null}
+
+          <View style={styles.actions}>
+            <Button
+              label="新增交易"
+              icon="plus"
+              testID="button-add-transaction"
+              onPress={() => router.push(ROUTES.newTransaction)}
+              style={styles.action}
+            />
+            <QuickCalcButton style={styles.action} />
+          </View>
+
+          {/* 之後的任務放這裡：配置圓餅圖（P2-07，Story 019）；年化報酬率（P2-04）加在卡片裡 */}
+          <SectionHeader title="核心與衛星" />
           <View style={styles.bucketRow}>
             <BucketCard bucket="core" summary={overview.summary.core} pricesLoading={quotesLoading} />
             <BucketCard bucket="satellite" summary={overview.summary.satellite} pricesLoading={quotesLoading} />
           </View>
 
-          {/* 之後的任務放這裡：配置圓餅圖（P2-07，Story 019）；年化報酬率（P2-04）加在上面三張卡裡 */}
-
-          <PrimaryButton label="新增交易" testID="button-add-transaction" onPress={() => router.push(ROUTES.newTransaction)} />
-
           <HoldingsSection holdings={overview.holdings} pricesLoading={quotesLoading} />
         </>
       )}
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="快速試算"
-        accessibilityHint="不記帳，輸入代號、買入價、數量直接算盈虧"
-        testID="button-open-calculate"
-        onPress={() => router.push(ROUTES.calculate)}
-        style={({ pressed }) => [styles.outlineButton, pressed && styles.pressed]}
-      >
-        <Text style={styles.outlineButtonText}>快速試算</Text>
-      </Pressable>
-      <Text style={styles.calculateHint}>不記帳，直接輸入買入價和數量算盈虧</Text>
 
       <VersionBadge />
     </ScrollView>
   );
 }
 
-function EmptyState() {
+function QuickCalcButton({ style }: { style?: StyleProp<ViewStyle> }) {
   return (
-    <View style={styles.card} testID="home-empty">
-      <Text style={styles.emptyTitle} accessibilityRole="header">
-        還沒有任何交易
-      </Text>
-      <Text style={styles.bodyText}>
-        把你在券商的買入、賣出一筆一筆記下來，這裡就會幫你算整體、ETF 和個股各賺了多少。
-      </Text>
-      <PrimaryButton
-        label="新增第一筆交易"
-        testID="button-add-first-transaction"
-        onPress={() => router.push(ROUTES.newTransaction)}
-      />
+    <Button
+      label="快速試算"
+      variant="tonal"
+      icon="calculator"
+      accessibilityHint="不記帳，輸入代號、買入價、數量直接算盈虧"
+      testID="button-open-calculate"
+      onPress={() => router.push(ROUTES.calculate)}
+      style={style}
+    />
+  );
+}
+
+/** 記帳本還沒讀到：主視覺卡 + 兩張小卡的骨架，資料到了版面不跳 */
+function HomeSkeleton() {
+  return (
+    <View style={styles.skeleton} accessible accessibilityLabel="載入中">
+      <View style={[styles.hero, styles.heroSkeleton]}>
+        <SkeletonBlock tone="dark" width="30%" height={12} />
+        <SkeletonBlock tone="dark" width="65%" height={40} />
+        <SkeletonBlock tone="dark" width="25%" height={16} />
+        <SkeletonBlock tone="dark" width="100%" height={48} />
+      </View>
+      <View style={styles.bucketRow}>
+        <View style={styles.flex}>
+          <SkeletonCard lines={2} />
+        </View>
+        <View style={styles.flex}>
+          <SkeletonCard lines={2} />
+        </View>
+      </View>
     </View>
   );
 }
 
-function PriceStatus({
-  quotes,
-  loading,
-  failedCount,
-  updatedAt,
-  onRetry,
-}: {
-  quotes: Quote[];
-  loading: boolean;
-  failedCount: number;
-  updatedAt: Date | null;
-  onRetry: () => void;
-}) {
-  if (loading) return <Text style={styles.priceStatus}>價格更新中…</Text>;
+function PriceAsOf({ quotes, loading, updatedAt }: { quotes: Quote[]; loading: boolean; updatedAt: Date | null }) {
+  if (loading) return <Text style={styles.heroCaption}>價格更新中…</Text>;
   const asOf = oldestPriceDate(quotes);
   return (
-    <View style={styles.priceStatusRow}>
-      <Text style={styles.priceStatus} testID="price-as-of">
-        {asOf
-          ? `價格：${asOf} 收盤價`
-          : updatedAt
-            ? `價格更新於 ${updatedAt.toTimeString().slice(0, 5)}`
-            : "還沒有價格"}
-      </Text>
-      {failedCount > 0 ? (
-        <View style={styles.warning} testID="price-warning">
-          <Text style={styles.warningText}>有 {failedCount} 檔拿不到現價，市值與總報酬先不計算</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="重新載入價格"
-            hitSlop={space.sm}
-            onPress={onRetry}
-            style={({ pressed }) => [styles.retry, pressed && styles.pressed]}
-          >
-            <Text style={styles.retryText}>重新載入</Text>
-          </Pressable>
-        </View>
-      ) : null}
-    </View>
+    <Text style={styles.heroCaption} testID="price-as-of">
+      {asOf ? `價格：${asOf} 收盤價` : updatedAt ? `價格更新於 ${updatedAt.toTimeString().slice(0, 5)}` : "還沒有價格"}
+    </Text>
   );
 }
 
-function OverallCard({ summary, pricesLoading }: { summary: GroupSummary; pricesLoading: boolean }) {
+/** 深藍主視覺：整體總報酬。漲跌色用深底專用的亮一階版本，對比才夠 */
+function OverallHero({
+  summary,
+  pricesLoading,
+  priceStatus,
+}: {
+  summary: GroupSummary;
+  pricesLoading: boolean;
+  priceStatus: ReactNode;
+}) {
   const total = pricesLoading ? null : summary.totalReturn;
   const direction = total === null ? null : pnlDirection(total);
-  const color = direction ? pnlColors[direction] : colors.mutedForeground;
+  const color = direction ? pnlColorsOnBrand[direction] : colors.onBrandMuted;
+  const priced = !pricesLoading && summary.missingPriceCount === 0;
   return (
-    <View style={styles.card} accessibilityLabel="整體" testID="summary-overall">
-      <Text style={styles.cardTitle}>整體</Text>
-      <Text style={styles.verdict}>{direction ? VERDICT[direction] : "—"}</Text>
-      <View style={styles.amountRow}>
-        {direction && ARROW[direction] ? (
-          <Text style={[styles.arrow, { color }]} accessibilityElementsHidden importantForAccessibility="no">
-            {ARROW[direction]}
-          </Text>
-        ) : null}
-        <Text style={[styles.totalReturn, { color }]} accessibilityLabel="總報酬">
+    <View style={styles.hero} accessibilityLabel="整體" testID="summary-overall">
+      <View style={styles.heroTop}>
+        <View>
+          <View style={styles.heroRule} />
+          <Text style={styles.heroOverline}>整體總報酬</Text>
+        </View>
+        <View style={styles.verdictPill}>
+          <Text style={styles.verdict}>{direction ? VERDICT[direction] : "—"}</Text>
+        </View>
+      </View>
+
+      <View style={styles.heroAmountRow}>
+        {direction ? <DirectionIcon direction={direction} size={22} color={color} /> : null}
+        <Text style={[styles.heroAmount, { color }]} accessibilityLabel="總報酬" numberOfLines={1} adjustsFontSizeToFit>
           {total === null ? "—" : formatSignedAmount(total)}
         </Text>
       </View>
-      <Text style={[styles.rate, { color }]} accessibilityLabel="報酬率">
+      <Text style={[styles.heroRate, { color }]} accessibilityLabel="報酬率">
         {formatRate(pricesLoading ? null : summary.returnRate)}
       </Text>
-      <SummaryRows summary={summary} pricesLoading={pricesLoading} />
+
+      <View style={styles.heroStats}>
+        <HeroStat label="累計投入" value={formatAmount(summary.invested)} />
+        <HeroStat label="目前市值" value={priced ? formatAmount(summary.marketValue) : "—"} />
+      </View>
+      <View style={[styles.heroStats, styles.heroStatsSmall]}>
+        <HeroStat label="已實現" value={formatSignedAmount(summary.realizedPnl)} signed={summary.realizedPnl} small />
+        <HeroStat
+          label="未實現"
+          value={priced ? formatSignedAmount(summary.unrealizedPnl) : "—"}
+          signed={priced ? summary.unrealizedPnl : undefined}
+          small
+        />
+        <HeroStat label="已領股利" value={formatAmount(summary.cashDividends)} small />
+      </View>
+      {priceStatus}
+    </View>
+  );
+}
+
+function HeroStat({
+  label,
+  value,
+  signed,
+  small = false,
+}: {
+  label: string;
+  value: string;
+  signed?: number;
+  small?: boolean;
+}) {
+  const color = signed === undefined ? colors.onBrand : pnlColorsOnBrand[pnlDirection(signed)];
+  return (
+    <View style={styles.heroStat} accessible accessibilityLabel={`${label} ${value}`}>
+      <Text style={styles.heroStatLabel}>{label}</Text>
+      <Text
+        style={[small ? styles.heroStatValueSmall : styles.heroStatValue, { color }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
+        {value}
+      </Text>
     </View>
   );
 }
@@ -218,50 +274,60 @@ function BucketCard({
   const direction = total === null ? null : pnlDirection(total);
   const color = direction ? pnlColors[direction] : colors.mutedForeground;
   return (
-    <View style={[styles.card, styles.bucketCard]} accessibilityLabel={title} testID={`summary-${bucket}`}>
-      <Text style={styles.cardTitle}>{title}</Text>
+    <Card style={styles.bucketCard} accessibilityLabel={title} testID={`summary-${bucket}`}>
+      <View style={styles.bucketTitleRow}>
+        <View style={[styles.bucketDot, bucket === "core" ? styles.dotCore : styles.dotSatellite]} />
+        <Text style={styles.bucketTitle} numberOfLines={1}>
+          {title}
+        </Text>
+      </View>
       {hasRecords ? (
         <>
-          <Text style={[styles.bucketReturn, { color }]} accessibilityLabel="總報酬">
-            {direction && ARROW[direction] ? `${ARROW[direction]} ` : ""}
-            {total === null ? "—" : formatSignedAmount(total)}
-          </Text>
+          <View style={styles.bucketAmountRow}>
+            {direction ? <DirectionIcon direction={direction} size={12} color={color} /> : null}
+            <Text
+              style={[styles.bucketReturn, { color }]}
+              accessibilityLabel="總報酬"
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {total === null ? "—" : formatSignedAmount(total)}
+            </Text>
+          </View>
           <Text style={[styles.bucketRate, { color }]} accessibilityLabel="報酬率">
             {formatRate(pricesLoading ? null : summary.returnRate)}
           </Text>
-          <SummaryRows summary={summary} pricesLoading={pricesLoading} compact />
+          <SummaryRows summary={summary} pricesLoading={pricesLoading} />
         </>
       ) : (
         <Text style={styles.hint}>{bucket === "core" ? "還沒有 ETF 紀錄" : "還沒有個股紀錄"}</Text>
       )}
-    </View>
+    </Card>
   );
 }
 
 /** 累計投入、目前市值、已實現、未實現、已領股利。缺價格時市值與未實現顯示 —，不顯示少算的數字 */
-function SummaryRows({
-  summary,
-  pricesLoading,
-  compact = false,
-}: {
-  summary: GroupSummary;
-  pricesLoading: boolean;
-  compact?: boolean;
-}) {
+function SummaryRows({ summary, pricesLoading }: { summary: GroupSummary; pricesLoading: boolean }) {
   const priced = !pricesLoading && summary.missingPriceCount === 0;
-  const rows: [string, string][] = [
-    ["累計投入", formatAmount(summary.invested)],
-    ["目前市值", priced ? formatAmount(summary.marketValue) : "—"],
-    ["已實現", formatSignedAmount(summary.realizedPnl)],
-    ["未實現", priced ? formatSignedAmount(summary.unrealizedPnl) : "—"],
-    ["已領股利", formatAmount(summary.cashDividends)],
+  const rows: [string, string, number | null][] = [
+    ["累計投入", formatAmount(summary.invested), null],
+    ["目前市值", priced ? formatAmount(summary.marketValue) : "—", null],
+    ["已實現", formatSignedAmount(summary.realizedPnl), summary.realizedPnl],
+    ["未實現", priced ? formatSignedAmount(summary.unrealizedPnl) : "—", priced ? summary.unrealizedPnl : null],
+    ["已領股利", formatAmount(summary.cashDividends), null],
   ];
   return (
-    <View>
-      {rows.map(([label, value]) => (
-        <View key={label} style={[styles.row, compact && styles.rowCompact]} accessibilityLabel={`${label} ${value}`}>
+    <View style={styles.rows}>
+      {rows.map(([label, value, signed]) => (
+        <View key={label} style={styles.row} accessibilityLabel={`${label} ${value}`}>
           <Text style={styles.rowLabel}>{label}</Text>
-          <Text style={[styles.rowValue, compact && styles.rowValueCompact]}>{value}</Text>
+          <Text
+            style={[styles.rowValue, signed !== null && { color: pnlColors[pnlDirection(signed)] }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {value}
+          </Text>
         </View>
       ))}
     </View>
@@ -271,53 +337,39 @@ function SummaryRows({
 function HoldingsSection({ holdings, pricesLoading }: { holdings: HoldingView[]; pricesLoading: boolean }) {
   return (
     <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle} accessibilityRole="header">
-          持股
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="看全部持股"
-          testID="button-all-holdings"
-          hitSlop={space.sm}
-          onPress={() => router.push(ROUTES.holdings)}
-          style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}
-        >
-          <Text style={styles.linkText}>看全部持股</Text>
-        </Pressable>
-      </View>
+      <SectionHeader
+        title="持股"
+        action={
+          <Button
+            label="看全部"
+            variant="ghost"
+            size="sm"
+            accessibilityLabel="看全部持股"
+            testID="button-all-holdings"
+            onPress={() => router.push(ROUTES.holdings)}
+          />
+        }
+      />
       {holdings.length === 0 ? (
-        <View style={styles.card}>
+        <Card>
           <Text style={styles.hint}>目前沒有持有中的股票，已出清的在「看全部持股」</Text>
-        </View>
+        </Card>
       ) : pricesLoading ? (
-        // 價格還沒回來時 HoldingRow 會寫「缺少價格」，先不列，免得閃一下
-        <View style={styles.card}>
-          <ActivityIndicator color={colors.primary} accessibilityLabel="價格更新中" />
+        // 價格還沒回來時 HoldingRow 會寫「缺少價格」，先放骨架，免得閃一下
+        <View style={styles.list} accessible accessibilityLabel="價格更新中">
+          {holdings.slice(0, Math.min(3, MAX_HOME_HOLDINGS)).map((h) => (
+            <SkeletonCard key={h.symbol} lines={1} label="價格更新中" />
+          ))}
         </View>
       ) : (
         // 持股列和持股明細共用（Story 010），首頁用精簡版
-        holdings
-          .slice(0, MAX_HOME_HOLDINGS)
-          .map((h) => (
+        <View style={styles.list}>
+          {holdings.slice(0, MAX_HOME_HOLDINGS).map((h) => (
             <HoldingRow key={h.symbol} holding={h} onPress={() => router.push(ROUTES.holding(h.symbol))} />
-          ))
+          ))}
+        </View>
       )}
     </View>
-  );
-}
-
-function PrimaryButton({ label, testID, onPress }: { label: string; testID: string; onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      testID={testID}
-      onPress={onPress}
-      style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
-    >
-      <Text style={styles.primaryButtonText}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -332,97 +384,78 @@ function formatRate(rate: number | null): string {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.background },
-  content: { paddingHorizontal: space.md, paddingTop: space.md, gap: space.md },
-  loading: { paddingVertical: space["2xl"], alignItems: "center" },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: space.md,
+  flex: { flex: 1 },
+  content: { paddingBottom: space.xl },
+  skeleton: { gap: space.md },
+  hero: {
+    backgroundColor: colors.brand,
+    borderRadius: radius.lg,
+    padding: space.lg,
     gap: space.xs,
+    overflow: "hidden",
   },
-  cardTitle: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.mutedForeground },
-  emptyTitle: { fontFamily: fonts.semibold, fontSize: fontSize.lg, color: colors.foreground },
-  bodyText: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.md,
-    color: colors.foreground,
-    lineHeight: fontSize.md * 1.6,
-    marginBottom: space.sm,
-  },
-  hint: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: colors.mutedForeground },
-  priceStatusRow: { gap: space.sm },
-  priceStatus: {
-    fontFamily: fonts.regular,
-    fontSize: fontSize.xs,
-    color: colors.mutedForeground,
-    fontVariant: ["tabular-nums"],
-  },
-  warning: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.sm,
-    backgroundColor: colors.accentSurface,
-    borderRadius: radius.sm,
+  heroSkeleton: { gap: space.md },
+  heroTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  // icon 的金色箭頭縮成一條短線，當品牌記號
+  heroRule: { width: 24, height: 3, borderRadius: 2, backgroundColor: colors.gold, marginBottom: space.sm },
+  heroOverline: { ...type.label, color: colors.onBrandMuted },
+  verdictPill: {
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.brandBorder,
     paddingHorizontal: space.md,
-    paddingVertical: space.sm,
+    paddingVertical: space.xs,
   },
-  warningText: { flex: 1, fontFamily: fonts.regular, fontSize: fontSize.sm, color: colors.foreground },
-  retry: { minHeight: touchTarget, justifyContent: "center" },
-  retryText: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.primary },
-  verdict: { fontFamily: fonts.semibold, fontSize: fontSize.xl, color: colors.cardForeground },
-  amountRow: { flexDirection: "row", alignItems: "center" },
-  arrow: { fontSize: fontSize.xl, marginRight: space.sm },
-  totalReturn: { fontFamily: fonts.bold, fontSize: fontSize.display, fontVariant: ["tabular-nums"] },
-  rate: { fontFamily: fonts.semibold, fontSize: fontSize.lg, fontVariant: ["tabular-nums"], marginBottom: space.sm },
+  verdict: { ...type.bodyStrong, color: colors.onBrand },
+  heroAmountRow: { flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.sm },
+  heroAmount: { ...type.display, flexShrink: 1 },
+  heroRate: { fontFamily: fonts.semibold, fontSize: fontSize.lg, fontVariant: ["tabular-nums"] },
+  heroStats: {
+    flexDirection: "row",
+    gap: space.md,
+    marginTop: space.md,
+    paddingTop: space.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.brandBorder,
+  },
+  heroStatsSmall: { marginTop: space.sm, paddingTop: 0, borderTopWidth: 0 },
+  heroStat: { flex: 1, minWidth: 0, gap: 2 },
+  heroStatLabel: { ...type.caption, color: colors.onBrandMuted },
+  heroStatValue: { ...type.numericLg, color: colors.onBrand },
+  heroStatValueSmall: { ...type.numericSm, fontFamily: fonts.semibold, color: colors.onBrand },
+  heroCaption: { ...type.caption, color: colors.onBrandMuted, marginTop: space.md, fontVariant: ["tabular-nums"] },
+  actions: { flexDirection: "row", gap: space.sm },
+  action: { flex: 1, paddingHorizontal: space.sm },
   bucketRow: { flexDirection: "row", gap: space.sm },
-  bucketCard: { flex: 1, minWidth: 0, padding: space.sm + space.xs },
-  bucketReturn: { fontFamily: fonts.bold, fontSize: fontSize.lg, fontVariant: ["tabular-nums"] },
-  bucketRate: { fontFamily: fonts.semibold, fontSize: fontSize.sm, fontVariant: ["tabular-nums"], marginBottom: space.xs },
+  bucketCard: { flex: 1, minWidth: 0, padding: space.sm + space.xs, gap: 2 },
+  bucketTitleRow: { flexDirection: "row", alignItems: "center", gap: space.xs + 2, marginBottom: space.xs },
+  bucketDot: { width: 8, height: 8, borderRadius: 4 },
+  dotCore: { backgroundColor: colors.secondary },
+  dotSatellite: { backgroundColor: colors.gold },
+  bucketTitle: { ...type.label, fontFamily: fonts.semibold, color: colors.foreground, flexShrink: 1 },
+  bucketAmountRow: { flexDirection: "row", alignItems: "center", gap: space.xs },
+  bucketReturn: { ...type.numericLg, flexShrink: 1 },
+  bucketRate: { ...type.numericSm, fontFamily: fonts.semibold },
+  hint: { ...type.label, fontFamily: fonts.regular, color: colors.mutedForeground },
+  rows: { marginTop: space.sm },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: space.sm,
-    borderTopWidth: 1,
+    alignItems: "center",
+    paddingVertical: space.xs + 2,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
-    gap: space.sm,
+    gap: space.xs,
   },
-  rowCompact: { paddingVertical: space.xs + 2, gap: space.xs },
-  rowLabel: { fontFamily: fonts.regular, color: colors.mutedForeground, fontSize: fontSize.sm },
+  rowLabel: { ...type.caption, color: colors.mutedForeground },
   rowValue: {
+    ...type.caption,
     fontFamily: fonts.medium,
     color: colors.cardForeground,
-    fontSize: fontSize.sm,
     fontVariant: ["tabular-nums"],
     flexShrink: 1,
     textAlign: "right",
   },
-  rowValueCompact: { fontSize: fontSize.xs },
   section: { gap: space.sm },
-  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  sectionTitle: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.mutedForeground },
-  linkButton: { minHeight: touchTarget, justifyContent: "center" },
-  linkText: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.primary },
-  primaryButton: {
-    minHeight: touchTarget,
-    borderRadius: radius.md,
-    backgroundColor: colors.accent,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  primaryButtonText: { fontFamily: fonts.semibold, fontSize: fontSize.md, color: colors.onAccent },
-  outlineButton: {
-    minHeight: touchTarget,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: space.md,
-  },
-  outlineButtonText: { fontFamily: fonts.semibold, fontSize: fontSize.md, color: colors.primary },
-  calculateHint: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: colors.mutedForeground, textAlign: "center" },
-  pressed: { opacity: 0.85 },
+  list: { gap: space.sm },
 });
