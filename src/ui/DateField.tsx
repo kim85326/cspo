@@ -10,7 +10,7 @@ import { dateFieldStyles, type DateFieldProps } from "./dateFieldStyles";
  * - 最晚只能選到今天；選好的值用 "2026/10/05" 回傳，跟手打時的格式一樣，驗證沿用 parseBuyDate。
  * - 有值時右邊有「清除」，因為這個欄位是選填。
  */
-export function DateField({ label, value, onChange, placeholder, hint, error, testID }: DateFieldProps) {
+export function DateField({ label, value, onChange, placeholder, hint, error, testID, allowFuture }: DateFieldProps) {
   const [iosOpen, setIosOpen] = useState(false);
   const today = new Date();
   const current = toDate(value) ?? today;
@@ -22,7 +22,7 @@ export function DateField({ label, value, onChange, placeholder, hint, error, te
       DateTimePickerAndroid.open({
         value: current,
         mode: "date",
-        maximumDate: today,
+        maximumDate: allowFuture ? undefined : today,
         onValueChange: (_event, date) => pick(date),
       });
     } else {
@@ -65,7 +65,7 @@ export function DateField({ label, value, onChange, placeholder, hint, error, te
           value={current}
           mode="date"
           display="inline"
-          maximumDate={today}
+          maximumDate={allowFuture ? undefined : today}
           locale="zh-TW"
           onValueChange={(_event, date) => {
             setIosOpen(false);

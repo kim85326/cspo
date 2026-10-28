@@ -10,6 +10,7 @@ import { useEffect } from "react";
 import { useAutoDividendSync } from "@/hooks/useAutoDividendSync";
 import { FeatureFlagsProvider } from "@/hooks/useFeatures";
 import { ProStatusProvider } from "@/hooks/useProStatus";
+import { DcaAutoRunner } from "@/ui/DcaAutoRunner";
 import { DisclaimerGate } from "@/ui/DisclaimerGate";
 import { SettingsHeaderButton } from "@/ui/SettingsHeaderButton";
 import { colors, fonts } from "@/ui/theme";
@@ -52,6 +53,8 @@ export default function RootLayout() {
           {/* 畫面載入前標題就先對，不閃出路由名稱 */}
           <Stack.Screen name="history" options={{ title: "資產走勢" }} />
         </Stack>
+        {/* 定期定額：App 開啟時補產生到期的買入交易（Story 024） */}
+        <DcaAutoRunner />
         <DisclaimerGate />
       </ProStatusProvider>
     </FeatureFlagsProvider>

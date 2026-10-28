@@ -1,4 +1,4 @@
-import { router, Stack } from "expo-router";
+import { router, Stack, type Href } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFeatures } from "@/hooks/useFeatures";
@@ -45,6 +45,24 @@ export default function SettingsScreen() {
           </View>
         </View>
       ) : null}
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          自動記帳
+        </Text>
+        <View style={styles.card}>
+          <Text style={styles.hint}>每月扣款日自動記上一筆定期定額買入。</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="定期定額設定"
+            testID="button-open-dca"
+            onPress={() => router.push("/dca" as Href)}
+            style={({ pressed }) => [styles.outlineButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.outlineButtonText}>定期定額</Text>
+          </Pressable>
+        </View>
+      </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle} accessibilityRole="header">

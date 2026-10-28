@@ -75,6 +75,11 @@ export interface LedgerRepository {
   updateSettings(settings: Partial<UserSettings>): Promise<LedgerWriteResult>;
   /** 整份取代（過渡轉接、之後的還原備份用）；重播不過就拒絕 */
   replaceLedger(ledger: Ledger): Promise<LedgerWriteResult>;
+  /**
+   * 拿佇列裡最新的記帳本算出下一份（定期定額規則與自動產生交易用，見 src/data/dcaRules.ts）。
+   * today 是 "YYYY-MM-DD"、now 是 ISO 時間。重播不過就拒絕；回傳同一個物件代表沒變，不寫入也不通知。
+   */
+  transform(compute: (ledger: Ledger, today: string, now: string) => Ledger): Promise<LedgerWriteResult>;
 }
 
 export type LedgerRepositoryOptions = {
@@ -119,13 +124,18 @@ export function createLedgerRepository(
     return load();
   };
 
-  /** 排進佇列：拿最新記帳本算出下一份，驗證通過再存，存成功才更新並通知。compute 回 null 代表沒有要改的，不存檔 */
-  const write = (compute: (ledger: Ledger, today: string) => LedgerWriteResult | null): Promise<LedgerWriteResult> => {
+  /**
+   * 排進佇列：拿最新記帳本算出下一份，驗證通過再存，存成功才更新並通知。
+   * compute 回 null，或回 unchanged（transform 回傳同一份）代表沒有要改的：不存檔也不通知。
+   */
+  type Computed = LedgerWriteResult | { ok: true; ledger: Ledger; unchanged: true };
+  const write = (compute: (ledger: Ledger, today: string) => Computed | null): Promise<LedgerWriteResult> => {
     const run = async (): Promise<LedgerWriteResult> => {
       const current = await load();
       const result = compute(current, localIsoDate(now()));
       if (result === null) return { ok: true, ledger: current };
       if (!result.ok) return result;
+      if ("unchanged" in result) return { ok: true, ledger: current };
       try {
         await store.save(result.ledger);
       } catch {
@@ -217,6 +227,14 @@ export function createLedgerRepository(
     },
     replaceLedger(next) {
       return write(() => {
+        const error = validateLedger(next);
+        return error ? { ok: false, error } : { ok: true, ledger: next };
+      });
+    },
+    transform(compute) {
+      return write((ledger, today) => {
+        const next = compute(ledger, today, stamp());
+        if (next === ledger) return { ok: true, ledger, unchanged: true };
         const error = validateLedger(next);
         return error ? { ok: false, error } : { ok: true, ledger: next };
       });

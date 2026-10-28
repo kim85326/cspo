@@ -332,6 +332,11 @@ function FormBody({ title, ledger, repo, stocks, stocksLoading, now, original, i
             setQuery("");
           }}
         />
+        {original?.source === "dca" ? (
+          <Text style={styles.holding} testID="dca-source-hint">
+            這筆是定期定額自動記上的，可以改成券商實際成交的價格與股數；刪除後不會再自動補回。
+          </Text>
+        ) : null}
         {holding ? (
           <Text style={styles.holding} testID="current-holding">
             {holding}

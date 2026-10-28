@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { DEFAULT_USER_SETTINGS } from "@/domain/fees";
-import type { Dividend, HoldingSetting, Ledger, Transaction, UserSettings } from "@/domain/ledgerTypes";
+import type { DcaRule, Dividend, HoldingSetting, Ledger, Transaction, UserSettings } from "@/domain/ledgerTypes";
 import { validateLedger } from "@/domain/ledgerValidation";
 import { emptyLedger, migrateSavedHoldings } from "@/domain/migrateSavedHoldings";
 import { HOLDINGS_STORAGE_KEY, parseSavedHoldings } from "./asyncStorageHoldingStore";
@@ -137,7 +137,8 @@ function parseJson(raw: string): unknown {
 
 /**
  * JSON → Ledger。整份不像記帳本（不是物件、schemaVersion 不是 1、transactions 不是陣列）回 null；
- * 個別欄位型別不對的交易、股利、持股設定略過；手續費設定缺的欄位用預設值。
+ * 個別欄位型別不對的交易、股利、持股設定、定期定額規則略過；手續費設定缺的欄位用預設值。
+ * 定期定額規則（Story 024）是後來加的選填欄位：舊資料沒有就不帶這個欄位，等於沒有規則，不用搬移。
  */
 export function parseLedger(value: unknown): Ledger | null {
   if (!isRecord(value) || value.schemaVersion !== 1 || !Array.isArray(value.transactions)) return null;
@@ -150,6 +151,7 @@ export function parseLedger(value: unknown): Ledger | null {
     ...(Array.isArray(value.dismissedAutoDividends)
       ? { dismissedAutoDividends: value.dismissedAutoDividends.filter((k): k is string => typeof k === "string") }
       : {}),
+    ...(Array.isArray(value.dcaRules) ? { dcaRules: value.dcaRules.filter(isDcaRule) } : {}),
   };
 }
 
@@ -198,6 +200,22 @@ function isHoldingSetting(value: unknown): value is HoldingSetting {
     isRecord(value) &&
     typeof value.symbol === "string" &&
     (value.bucket === "core" || value.bucket === "satellite")
+  );
+}
+
+function isDcaRule(value: unknown): value is DcaRule {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === "string" &&
+    typeof value.symbol === "string" &&
+    isFiniteNumber(value.amount) &&
+    isFiniteNumber(value.dayOfMonth) &&
+    typeof value.startDate === "string" &&
+    typeof value.enabled === "boolean" &&
+    Array.isArray(value.handledPeriods) &&
+    value.handledPeriods.every((p) => typeof p === "string") &&
+    typeof value.createdAt === "string" &&
+    typeof value.updatedAt === "string"
   );
 }
 

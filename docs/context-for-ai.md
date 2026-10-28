@@ -83,6 +83,7 @@ cspo/
 │   │   ├── overview.ts     buildOverview（記帳本 + 現價 → 用 holdings.ts 的 buildHoldingViews 算每檔、三組加總、持有中依市值排序）、oldestPriceDate（Story 011）
 │   │   ├── assetHistory.ts buildAssetHistory（逐日總市值與累計投入）、rangeStart、symbolsInRange、layoutAssetChart（P2-07 走勢圖，Story 023）
 │   │   ├── benchmark.ts    對決 B「如果改買 0050」：benchmarkStart、benchmarkFlows、simulateBenchmark、buildBenchmarkDuel（P2-05 B，Story 022）
+│   │   ├── dca.ts          定期定額：duePeriods、dcaPurchase（股數公式）、generateDcaTransactions（補產生、去重、順延）（P2-02，Story 024）
 │   │   ├── allocation.ts   computeAllocation（核心／衛星、個股／ETF、每檔市值占比）、toDisplayPercents（P2-07 配置圖，Story 025）
 │   │   ├── migrateSavedHoldings.ts 舊版持股 → 買入交易（migrateSavedHoldings）、emptyLedger、快速試算初始值用的 savedHoldingsFromLedger；replaceSavedHoldings 已沒有人用，快速試算拿掉時一起刪（Story 008、011）
 │   │   ├── ledgerValidation.ts validateLedgerChange（新增／修改／刪除後重播，賣超就拒絕並說是哪一筆）、validateLedger、欄位檢查
@@ -135,7 +136,7 @@ cspo/
 ├── docs/
 │   ├── architecture.md 架構、分工、迭代規劃（最完整的設計文件）
 │   ├── glossary.md     共同語言與顯示慣例
-│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、006 計算引擎、007 證券類型與上櫃、008 新儲存層、009 交易輸入、010 持股明細與核心／衛星、011 首頁總覽、013 免責聲明、016 K 線圖、017 AI 解讀、018 版本資訊、019 歷史資料來源、020 Free／Pro 鎖定畫面、022 對決 B（如果改買 0050）、023 資產走勢圖、025 年化報酬率與資產配置（Gherkin AC + 對應測試表 + 決策紀錄）
+│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、006 計算引擎、007 證券類型與上櫃、008 新儲存層、009 交易輸入、010 持股明細與核心／衛星、011 首頁總覽、013 免責聲明、016 K 線圖、017 AI 解讀、018 版本資訊、019 歷史資料來源、020 Free／Pro 鎖定畫面、022 對決 B（如果改買 0050）、023 資產走勢圖、024 定期定額自動記帳、025 年化報酬率與資產配置（Gherkin AC + 對應測試表 + 決策紀錄）
 │   ├── test-plan.md    手動測試清單、bug 回報格式
 │   └── context-for-ai.md 本檔
 ├── design-system/stock-pnl/MASTER.md
@@ -161,6 +162,7 @@ cspo/
 - 45 個測試（domain 36 + 畫面 9）、TypeScript、ESLint 全綠。
 - 網頁版在 375px 寬實測過；iPhone 透過 Expo Go tunnel 載入成功。
 - 第一個 commit 在 `iteration-1` 分支。
+- Story 024：定期定額自動記帳（`src/domain/dca.ts`、`src/data/dcaRules.ts`、`src/app/dca/`）。入口在設定頁；App 開啟時由根 layout 的 `DcaAutoRunner` 補帳。記帳本加了選填欄位 `dcaRules`，不用搬移。
 
 ### 進行中 / 待辦
 - **Android APK**：`eas.json` 已備好，`eas build -p android --profile preview` 第一次執行會在 Expo 帳號建專案並產生簽章金鑰（Elaine 正在跑或準備跑）。
