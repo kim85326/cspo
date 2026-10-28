@@ -42,6 +42,11 @@ export interface LedgerRepository {
   subscribe(listener: () => void): () => void;
 
   addTransaction(draft: TransactionDraft): Promise<LedgerWriteResult>;
+  /**
+   * 一次新增好幾筆（截圖匯入，Story 015）：全部驗證通過才一起存，任何一筆不合格就整批不寫。
+   * 依陣列順序新增，每筆的 createdAt 相同。
+   */
+  addTransactions(drafts: TransactionDraft[]): Promise<LedgerWriteResult>;
   /** 整筆取代（依 id）；updatedAt 由 repository 更新 */
   updateTransaction(transaction: Transaction): Promise<LedgerWriteResult>;
   deleteTransaction(id: string): Promise<LedgerWriteResult>;
@@ -145,6 +150,19 @@ export function createLedgerRepository(
     addTransaction(draft) {
       const at = stamp();
       return change({ kind: "addTransaction", transaction: { ...draft, id: newId("tx"), createdAt: at, updatedAt: at } });
+    },
+    addTransactions(drafts) {
+      const at = stamp();
+      return write((ledger, today) => {
+        let next = ledger;
+        for (const draft of drafts) {
+          const transaction = { ...draft, id: newId("tx"), createdAt: at, updatedAt: at };
+          const result = validateLedgerChange(next, { kind: "addTransaction", transaction }, today);
+          if (!result.ok) return result;
+          next = result.ledger;
+        }
+        return { ok: true, ledger: next };
+      });
     },
     updateTransaction(transaction) {
       return change({ kind: "updateTransaction", transaction: { ...transaction, updatedAt: stamp() } });

@@ -12,18 +12,26 @@ import { buildOverview, oldestPriceDate } from "@/domain/overview";
 import { formatReturnRate, formatSignedAmount, pnlDirection } from "@/domain/pnl";
 import type { GroupSummary } from "@/domain/portfolio";
 import type { PnlDirection, Quote } from "@/domain/types";
+import { useFeatures } from "@/hooks/useFeatures";
 import { useLedger } from "@/hooks/useLedger";
 import { useQuotes } from "@/hooks/useQuotes";
+import { AllocationCard } from "@/ui/AllocationCard";
+import { PortfolioAnnualizedReturnCard } from "@/ui/AnnualizedReturnCard";
 import { HoldingRow } from "@/ui/HoldingRow";
 import { colors, fonts, fontSize, pnlColors, radius, space, touchTarget } from "@/ui/theme";
 import { VersionBadge } from "@/ui/VersionBadge";
 
-/** 交易畫面是 Story 009，持股明細與單一持股頁是 Story 010 */
+/** 交易畫面是 Story 009，持股明細與單一持股頁是 Story 010，從截圖匯入是 Story 015 */
 const ROUTES = {
   newTransaction: "/transaction/new",
+  importScreenshot: "/import",
   holdings: "/holdings",
   holding: (symbol: string) => ({ pathname: "/holdings/[symbol]", params: { symbol } }) as const,
   calculate: "/calculate",
+  /** 個股 vs ETF 對決 A（Story 027） */
+  versus: "/versus",
+  /** 資產走勢（Story 023） */
+  history: "/history",
 } as const;
 
 /** 首頁最多列幾檔，其他的到「看全部持股」 */
@@ -54,10 +62,11 @@ export default function HomeScreen({ repository = defaultRepository, priceSource
     priceSource,
   );
 
+  const today = localIsoDate(new Date());
   const overview = useMemo(() => {
     if (!ledger) return null;
-    return buildOverview(ledger, (symbol) => quotes[symbol], localIsoDate(new Date()));
-  }, [ledger, quotes]);
+    return buildOverview(ledger, (symbol) => quotes[symbol], today);
+  }, [ledger, quotes, today]);
 
   const isEmpty = !!ledger && ledger.transactions.length === 0 && ledger.dividends.length === 0;
 
@@ -91,8 +100,35 @@ export default function HomeScreen({ repository = defaultRepository, priceSource
             <BucketCard bucket="core" summary={overview.summary.core} pricesLoading={quotesLoading} />
             <BucketCard bucket="satellite" summary={overview.summary.satellite} pricesLoading={quotesLoading} />
           </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="核心 vs 衛星，誰賺比較多？"
+            testID="button-open-versus"
+            onPress={() => router.push(ROUTES.versus)}
+            style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.linkText}>核心 vs 衛星，誰賺比較多？ ›</Text>
+          </Pressable>
 
-          {/* 之後的任務放這裡：配置圓餅圖（P2-07，Story 019）；年化報酬率（P2-04）加在上面三張卡裡 */}
+          {/* 年化報酬率（P2-04）與配置圓餅圖（P2-07），Story 028 */}
+          <PortfolioAnnualizedReturnCard
+            ledger={ledger}
+            holdings={overview.views}
+            today={today}
+            pricesLoading={quotesLoading}
+          />
+          <AllocationCard holdings={overview.views} holdingSettings={ledger.holdingSettings} pricesLoading={quotesLoading} />
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="看資產走勢"
+            accessibilityHint="每天的總市值與累計投入走勢圖"
+            testID="button-asset-history"
+            onPress={() => router.push(ROUTES.history)}
+            style={({ pressed }) => [styles.historyLink, pressed && styles.pressed]}
+          >
+            <Text style={styles.linkText}>看資產走勢 ›</Text>
+          </Pressable>
 
           <PrimaryButton label="新增交易" testID="button-add-transaction" onPress={() => router.push(ROUTES.newTransaction)} />
 
@@ -118,6 +154,7 @@ export default function HomeScreen({ repository = defaultRepository, priceSource
 }
 
 function EmptyState() {
+  const features = useFeatures();
   return (
     <View style={styles.card} testID="home-empty">
       <Text style={styles.emptyTitle} accessibilityRole="header">
@@ -131,6 +168,19 @@ function EmptyState() {
         testID="button-add-first-transaction"
         onPress={() => router.push(ROUTES.newTransaction)}
       />
+      {/* Story 015：由功能開關 screenshotImport 控制 */}
+      {features.screenshotImport ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="從券商截圖匯入"
+          accessibilityHint="用券商 app 的庫存截圖一次記好每一檔"
+          testID="button-empty-import"
+          onPress={() => router.push(ROUTES.importScreenshot)}
+          style={({ pressed }) => [styles.outlineButton, styles.emptyImportButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.outlineButtonText}>從券商截圖匯入</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -404,6 +454,7 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   sectionTitle: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.mutedForeground },
   linkButton: { minHeight: touchTarget, justifyContent: "center" },
+  historyLink: { minHeight: touchTarget, justifyContent: "center", alignSelf: "flex-end" },
   linkText: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.primary },
   primaryButton: {
     minHeight: touchTarget,
@@ -422,6 +473,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: space.md,
   },
+  emptyImportButton: { marginTop: space.sm },
   outlineButtonText: { fontFamily: fonts.semibold, fontSize: fontSize.md, color: colors.primary },
   calculateHint: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: colors.mutedForeground, textAlign: "center" },
   pressed: { opacity: 0.85 },

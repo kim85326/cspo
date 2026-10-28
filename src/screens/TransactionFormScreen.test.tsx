@@ -6,11 +6,12 @@ import { DEFAULT_USER_SETTINGS } from "@/domain/fees";
 import { spec37 } from "@/domain/ledgerTestData";
 import type { Ledger, Transaction } from "@/domain/ledgerTypes";
 import { replaySymbol } from "@/domain/position";
+import { StaticFeatureFlags } from "@/hooks/useFeatures";
 import { DATE_UNKNOWN_HINT, EditTransactionScreen, NewTransactionScreen } from "./TransactionFormScreen";
 
 jest.mock("expo-router", () => ({
   Stack: { Screen: () => null },
-  router: { back: jest.fn(), replace: jest.fn(), canGoBack: jest.fn(() => true) },
+  router: { back: jest.fn(), replace: jest.fn(), push: jest.fn(), canGoBack: jest.fn(() => true) },
   useLocalSearchParams: jest.fn(() => ({})),
 }));
 
@@ -310,5 +311,36 @@ describe("編輯與刪除交易（對應 docs/stories/009）", () => {
     await renderEdit(repository, "step1");
     await fireEvent.press(await screen.findByLabelText("儲存"));
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/"));
+  });
+});
+
+describe("從券商截圖匯入的入口（對應 docs/stories/015）", () => {
+  test("開關關閉（預設）：新增交易頁沒有入口", async () => {
+    await renderNew(makeRepository());
+    expect(screen.queryByLabelText("從券商截圖匯入")).toBeNull();
+  });
+
+  test("開關打開：新增模式有入口，按了進匯入頁；編輯模式沒有", async () => {
+    const repository = makeRepository([spec37.step1]);
+    await render(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <StaticFeatureFlags flags={{ screenshotImport: true }}>
+          <NewTransactionScreen repository={repository} now={now} />
+        </StaticFeatureFlags>
+      </SafeAreaProvider>,
+    );
+    await fireEvent.press(await screen.findByLabelText("從券商截圖匯入"));
+    expect(router.push).toHaveBeenCalledWith("/import");
+
+    mockedParams.mockReturnValue({ id: "step1" });
+    await render(
+      <SafeAreaProvider initialMetrics={METRICS}>
+        <StaticFeatureFlags flags={{ screenshotImport: true }}>
+          <EditTransactionScreen repository={repository} now={now} />
+        </StaticFeatureFlags>
+      </SafeAreaProvider>,
+    );
+    await screen.findByLabelText("刪除這筆交易");
+    expect(screen.queryByLabelText("從券商截圖匯入")).toBeNull();
   });
 });

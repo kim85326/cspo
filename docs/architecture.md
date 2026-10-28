@@ -39,11 +39,13 @@ cspo/
 │   │   ├── _layout.tsx       導覽外框
 │   │   ├── index.tsx         → screens/HomeScreen（首頁總覽，Story 011）
 │   │   ├── calculate.tsx     → screens/CalculateScreen（快速試算）
+│   │   ├── import.tsx        → screens/ImportScreen（從截圖匯入成交易，Story 015）
 │   │   ├── twse+api.ts       API route：網頁版的證交所代理（GET /twse），手機不經過
 │   │   └── tpex+api.ts       API route：網頁版的櫃買中心代理（GET /tpex），手機不經過
 │   ├── screens/              畫面本體與畫面測試
 │   │   ├── HomeScreen.tsx            首頁總覽：整體、核心、衛星三組數字與前 5 檔持股
 │   │   ├── CalculateScreen.tsx       快速試算：輸入一檔或多檔持股 → 看盈虧／比較
+│   │   ├── ImportScreen.tsx          從截圖匯入：選圖 → 辨識 → 核對 → 每檔一筆買入交易
 │   │   └── CalculateScreen.test.tsx  React Native Testing Library
 │   ├── domain/               純 TypeScript，不碰 UI、不碰網路 → 單元測試主戰場
 │   │   ├── types.ts          Holding、Quote、PnlResult
@@ -55,6 +57,7 @@ cspo/
 │   │   ├── compare.test.ts
 │   │   ├── holdingExtract.ts 截圖匯入：辨識結果對到股票清單、張→股、合併重複、套進欄位（applyExtraction）
 │   │   ├── holdingExtract.test.ts
+│   │   ├── importTransactions.ts 截圖匯入成交易：核對畫面的列、每列的檢查、轉成買入交易（Story 015）
 │   │   └── imageMimeType.ts  截圖匯入：依檔案內容／副檔名猜 mimeType（picker 給的不可靠；後端會再看檔頭）
 │   ├── data/                 對外資料來源
 │   │   ├── PriceSource.ts    介面：給代號回現價

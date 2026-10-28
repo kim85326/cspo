@@ -14,14 +14,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { holdingStore, PriceLoadError, priceSource, stockDirectory } from "@/data";
 import { compareHoldings, MAX_COMPARE_HOLDINGS, type ComparisonResult } from "@/domain/compare";
-import { applyExtraction, type ExtractionResult } from "@/domain/holdingExtract";
 import { insightInputFromQuotes } from "@/domain/insightInput";
 import { calculatePnl, validateHoldingInput } from "@/domain/pnl";
 import { resolveStock, searchStocks } from "@/domain/stockSearch";
 import type { Holding, PnlResult, Quote, SavedHolding, StockInfo } from "@/domain/types";
 import { useFeatures } from "@/hooks/useFeatures";
 import { usePersistedHoldings } from "@/hooks/usePersistedHoldings";
-import { useScreenshotImport } from "@/hooks/useScreenshotImport";
 import { ComparisonCard } from "@/ui/ComparisonCard";
 import {
   emptyHoldingForm,
@@ -29,7 +27,6 @@ import {
   type HoldingFormErrors,
   type HoldingFormState,
 } from "@/ui/HoldingForm";
-import { ImportSourceSheet } from "@/ui/ImportSourceSheet";
 import { InsightSection } from "@/ui/InsightCard";
 import { PnlCard } from "@/ui/PnlCard";
 import { PriceHistoryCard } from "@/ui/PriceHistoryCard";
@@ -47,8 +44,7 @@ const LOAD_ERROR_MESSAGE = "行情載入失敗，請檢查網路後重試";
  * 快速試算：輸入一檔或多檔持股 → 看盈虧；兩檔以上就排名比較。按「計算」成功後把輸入存在手機，重開帶回。
  * 輸入存在快速試算自己的地方，不會寫進記帳本（見 data/quickCalcHoldingStore、docs/stories/011 決策紀錄 1）。
  * 對應 docs/stories/001-single-holding-pnl.md、002-stock-picker.md、003-compare-stocks.md、004-remember-holdings.md、
- * 005-import-from-screenshot.md（從截圖匯入：按鈕在這裡，選圖與辨識在 hooks/useScreenshotImport，套用在 domain/applyExtraction；
- *   目前由功能開關 screenshotImport 控制（useFeatures，見 src/config/features.ts），預設關閉）、
+ * 005-import-from-screenshot.md（從截圖匯入：Story 015 起改成產生交易，入口搬到首頁空狀態與新增交易頁，這裡不再有）、
  * 016-candle-chart.md（單檔結果下方的日 K 線圖與買入點，見 ui/PriceHistoryCard）
  * 017-ai-insight.md（AI 解讀：ui/InsightCard 的 InsightSection，由 aiInsight 開關控制，預設關閉）
  * 現價來自 src/data 的 priceSource（app 裡是證交所收盤價，測試是假價）；載入失敗顯示「行情載入失敗」。
@@ -65,8 +61,6 @@ export default function CalculateScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const [importSheetOpen, setImportSheetOpen] = useState(false);
-  const [importWarnings, setImportWarnings] = useState<string[]>([]);
 
   /**
    * 啟動時把上次存的持股帶回欄位（有幾筆就開幾檔，最多 MAX_COMPARE_HOLDINGS）。
@@ -155,38 +149,11 @@ export default function CalculateScreen() {
     setOutcome(null);
   };
 
-  /** 把截圖辨識結果套進欄位：空白筆被覆蓋、已填的保留、最多 MAX_COMPARE_HOLDINGS 檔 */
-  const applyRecognized = useCallback(
-    (result: ExtractionResult) => {
-      const applied = applyExtraction(
-        forms,
-        result,
-        stocks,
-        () => nextId.current++,
-        (id) => emptyHoldingForm(id),
-      );
-      setForms(applied.forms);
-      setImportWarnings(applied.warnings);
-      setOutcome(null);
-      setNotFound(null);
-    },
-    [forms, stocks],
-  );
-  const screenshotImport = useScreenshotImport(applyRecognized);
-
-  const openImportSheet = () => {
-    Keyboard.dismiss();
-    screenshotImport.dismissError();
-    setImportWarnings([]);
-    setImportSheetOpen(true);
-  };
-
   /** 清掉手機裡存的資料，欄位與結果一起清空，回到只有一檔的初始狀態 */
   const handleClearSaved = async () => {
     setForms([emptyHoldingForm(nextId.current++)]);
     setNotFound(null);
     setOutcome(null);
-    setImportWarnings([]);
     await clearSaved();
   };
 
@@ -290,8 +257,6 @@ export default function CalculateScreen() {
   };
 
   const canAdd = forms.length < MAX_COMPARE_HOLDINGS;
-  /** 功能開關：截圖匯入開發中，預設關閉，可遠端打開（見 src/config/features.ts） */
-  const showScreenshotImport = features.screenshotImport;
   const isComparing = forms.length > 1;
 
   return (
@@ -343,69 +308,7 @@ export default function CalculateScreen() {
               {canAdd ? "＋ 新增一檔比較" : `最多比較 ${MAX_COMPARE_HOLDINGS} 檔`}
             </Text>
           </Pressable>
-          {showScreenshotImport ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="從截圖匯入"
-              accessibilityState={{ disabled: screenshotImport.recognizing, busy: screenshotImport.recognizing }}
-              testID="button-import-screenshot"
-              onPress={openImportSheet}
-              disabled={screenshotImport.recognizing}
-              style={({ pressed }) => [
-                styles.addButton,
-                pressed && styles.buttonPressed,
-                screenshotImport.recognizing && styles.buttonDisabled,
-              ]}
-            >
-              <Text style={styles.addButtonText}>從截圖匯入</Text>
-            </Pressable>
-          ) : null}
         </View>
-
-        {showScreenshotImport && screenshotImport.recognizing ? (
-          <View style={styles.importStatus} testID="import-loading" accessibilityLiveRegion="polite">
-            <ActivityIndicator color={colors.primary} />
-            <Text style={styles.importStatusText}>辨識中…</Text>
-          </View>
-        ) : null}
-
-        {showScreenshotImport && screenshotImport.error ? (
-          <View style={styles.notFound} testID="import-error" accessibilityRole="alert" accessibilityLiveRegion="polite">
-            <Text style={styles.notFoundText}>{screenshotImport.error}</Text>
-            <View style={styles.importErrorActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="重試辨識"
-                testID="button-import-retry"
-                onPress={screenshotImport.retry}
-                hitSlop={space.sm}
-                style={({ pressed }) => [styles.importAction, pressed && styles.buttonPressed]}
-              >
-                <Text style={styles.importActionText}>重試</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="關閉錯誤訊息"
-                testID="button-import-dismiss"
-                onPress={screenshotImport.dismissError}
-                hitSlop={space.sm}
-                style={({ pressed }) => [styles.importAction, pressed && styles.buttonPressed]}
-              >
-                <Text style={styles.importActionText}>關閉</Text>
-              </Pressable>
-            </View>
-          </View>
-        ) : null}
-
-        {showScreenshotImport && importWarnings.length > 0 ? (
-          <View style={styles.importWarnings} testID="import-warnings" accessibilityLiveRegion="polite">
-            {importWarnings.map((warning) => (
-              <Text key={warning} style={styles.importWarningText}>
-                {warning}
-              </Text>
-            ))}
-          </View>
-        ) : null}
 
         <Pressable
           accessibilityRole="button"
@@ -482,15 +385,6 @@ export default function CalculateScreen() {
         <Text style={styles.disclaimer}>資料僅供參考，不構成投資建議。</Text>
         <VersionBadge />
       </ScrollView>
-
-      <ImportSourceSheet
-        visible={showScreenshotImport && importSheetOpen}
-        onClose={() => setImportSheetOpen(false)}
-        onPick={(source) => {
-          setImportSheetOpen(false);
-          void screenshotImport.importFrom(source);
-        }}
-      />
     </KeyboardAvoidingView>
   );
 }
@@ -524,30 +418,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     textAlign: "center",
   },
-  importStatus: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.sm,
-    paddingVertical: space.sm,
-    marginBottom: space.sm,
-  },
-  importStatusText: { fontFamily: fonts.medium, color: colors.primary, fontSize: fontSize.md },
-  importErrorActions: { flexDirection: "row", gap: space.md, marginTop: space.sm },
-  importAction: { minHeight: touchTarget - space.md, justifyContent: "center" },
-  importActionText: {
-    fontFamily: fonts.semibold,
-    color: colors.destructive,
-    fontSize: fontSize.md,
-    textDecorationLine: "underline",
-  },
-  importWarnings: {
-    backgroundColor: colors.accentSurface,
-    borderRadius: radius.md,
-    padding: space.md,
-    marginBottom: space.sm,
-    gap: space.xs,
-  },
-  importWarningText: { fontFamily: fonts.regular, color: colors.accent, fontSize: fontSize.sm },
   button: {
     minHeight: touchTarget,
     backgroundColor: colors.accent,

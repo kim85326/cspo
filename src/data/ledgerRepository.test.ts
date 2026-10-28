@@ -48,6 +48,30 @@ describe("ledgerRepository（對應 docs/stories/008）", () => {
     expect(listener).toHaveBeenCalled();
   });
 
+  test("一次新增好幾筆（截圖匯入）：全部存進去、只存一次", async () => {
+    const store = createMemoryLedgerStore();
+    const saveSpy = jest.spyOn(store, "save");
+    const repo = createLedgerRepository(store, opts());
+    const result = await repo.addTransactions([BUY, { ...BUY, symbol: "2317", price: 100 }]);
+    expect(result.ok).toBe(true);
+    expect(repo.getSnapshot()?.transactions.map((t) => [t.id, t.symbol])).toEqual([
+      ["tx-1", "2330"],
+      ["tx-2", "2317"],
+    ]);
+    expect(saveSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("一次新增好幾筆：任何一筆不合格就整批不寫", async () => {
+    const store = createMemoryLedgerStore();
+    const saveSpy = jest.spyOn(store, "save");
+    const repo = createLedgerRepository(store, opts());
+    const before = await repo.load();
+    const result = await repo.addTransactions([BUY, { ...BUY, tradeDate: "2026-12-01" }]);
+    expect(result).toMatchObject({ ok: false, error: { code: "invalid", field: "tradeDate" } });
+    expect(repo.getSnapshot()).toBe(before);
+    expect(saveSpy).not.toHaveBeenCalled();
+  });
+
   test("賣超被拒絕：記帳本不變、不存、訊息照規格 3.7", async () => {
     const repo = createMemoryLedgerRepository(spec37Ledger(), opts());
     const before = await repo.load();

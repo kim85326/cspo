@@ -47,6 +47,8 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="index" options={{ title: "賺了嗎", headerRight: () => <SettingsHeaderButton /> }} />
+          {/* 畫面載入前標題就先對，不閃出路由名稱 */}
+          <Stack.Screen name="history" options={{ title: "資產走勢" }} />
         </Stack>
         {/* 定期定額：App 開啟時補產生到期的買入交易（Story 024） */}
         <DcaAutoRunner />
