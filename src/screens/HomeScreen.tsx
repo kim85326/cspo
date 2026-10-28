@@ -15,6 +15,8 @@ import type { PnlDirection, Quote } from "@/domain/types";
 import { useFeatures } from "@/hooks/useFeatures";
 import { useLedger } from "@/hooks/useLedger";
 import { useQuotes } from "@/hooks/useQuotes";
+import { AllocationCard } from "@/ui/AllocationCard";
+import { PortfolioAnnualizedReturnCard } from "@/ui/AnnualizedReturnCard";
 import { HoldingRow } from "@/ui/HoldingRow";
 import { colors, fonts, fontSize, pnlColors, radius, space, touchTarget } from "@/ui/theme";
 import { VersionBadge } from "@/ui/VersionBadge";
@@ -58,10 +60,11 @@ export default function HomeScreen({ repository = defaultRepository, priceSource
     priceSource,
   );
 
+  const today = localIsoDate(new Date());
   const overview = useMemo(() => {
     if (!ledger) return null;
-    return buildOverview(ledger, (symbol) => quotes[symbol], localIsoDate(new Date()));
-  }, [ledger, quotes]);
+    return buildOverview(ledger, (symbol) => quotes[symbol], today);
+  }, [ledger, quotes, today]);
 
   const isEmpty = !!ledger && ledger.transactions.length === 0 && ledger.dividends.length === 0;
 
@@ -105,7 +108,14 @@ export default function HomeScreen({ repository = defaultRepository, priceSource
             <Text style={styles.linkText}>核心 vs 衛星，誰賺比較多？ ›</Text>
           </Pressable>
 
-          {/* 之後的任務放這裡：配置圓餅圖（P2-07，Story 019）；年化報酬率（P2-04）加在上面三張卡裡 */}
+          {/* 年化報酬率（P2-04）與配置圓餅圖（P2-07），Story 028 */}
+          <PortfolioAnnualizedReturnCard
+            ledger={ledger}
+            holdings={overview.views}
+            today={today}
+            pricesLoading={quotesLoading}
+          />
+          <AllocationCard holdings={overview.views} holdingSettings={ledger.holdingSettings} pricesLoading={quotesLoading} />
 
           <PrimaryButton label="新增交易" testID="button-add-transaction" onPress={() => router.push(ROUTES.newTransaction)} />
 
