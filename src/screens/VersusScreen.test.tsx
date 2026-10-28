@@ -93,7 +93,8 @@ describe("個股 vs ETF 對決 A（對應 docs/stories/027）", () => {
     const satellite = within(screen.getByLabelText("衛星（個股）"));
     expect(satellite.getByText("年化較高")).toBeTruthy();
     // 130,000 − 預估賣出費用（手續費 185、證交稅 390）− 100,000
-    expect(satellite.getByLabelText("總報酬").props.children).toEqual(["▲ ", "+29,425"]);
+    expect(satellite.getByLabelText("總報酬").props.children).toBe("+29,425");
+    expect(satellite.getByTestId("direction-up", { includeHiddenElements: true })).toBeTruthy();
     expect(satellite.getByLabelText("報酬率").props.children).toBe("+29.43%");
     expect(satellite.getByLabelText("累計投入 100,000")).toBeTruthy();
 

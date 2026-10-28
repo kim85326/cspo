@@ -19,7 +19,7 @@ import { useProStatus } from "@/hooks/useProStatus";
 import { AssetHistoryChart } from "./AssetHistoryChart";
 import { ProGate } from "./ProLockedCard";
 import { Segmented } from "./Segmented";
-import { chartColors, colors, fonts, fontSize, radius, space, touchTarget } from "./theme";
+import { cardSurface, cardTitle, chartColors, colors, fonts, fontSize, pressedOpacity, radius, space, touchTarget } from "./theme";
 
 type Props = {
   ledger: Ledger;
@@ -43,7 +43,7 @@ export function AssetHistoryCard({ ledger, latestPrices, today, candleSource }: 
 
   const options = ASSET_RANGES.map((r) => ({
     value: r.value,
-    label: !pro && !FREE_ASSET_RANGES.includes(r.value) ? `${r.label} 🔒` : r.label,
+    label: !pro && !FREE_ASSET_RANGES.includes(r.value) ? `${r.label}・Pro` : r.label,
   }));
 
   const body = (
@@ -215,14 +215,11 @@ function chartSummary(points: AssetHistoryPoint[]): string {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    ...cardSurface,
     padding: space.md,
     gap: space.sm,
   },
-  title: { fontFamily: fonts.semibold, fontSize: fontSize.md, color: colors.foreground },
+  title: cardTitle,
   body: { gap: space.sm },
   placeholder: { paddingVertical: space.lg, alignItems: "center", gap: space.sm },
   hint: {
@@ -266,5 +263,5 @@ const styles = StyleSheet.create({
     borderColor: chartColors.cost,
   },
   note: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: colors.mutedForeground, lineHeight: fontSize.xs * 1.5 },
-  pressed: { opacity: 0.85 },
+  pressed: { opacity: pressedOpacity },
 });

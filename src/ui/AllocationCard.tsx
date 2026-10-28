@@ -7,7 +7,7 @@ import { BUCKET_LABEL, formatAmount, type HoldingView } from "@/domain/holdings"
 import type { HoldingSetting } from "@/domain/ledgerTypes";
 import { SECURITY_TYPE_LABEL } from "@/domain/security";
 import { Segmented } from "./Segmented";
-import { colors, fonts, fontSize, radius, space } from "./theme";
+import { cardSurface, cardTitle, colors, fonts, fontSize, space } from "./theme";
 
 /**
  * 配置圓餅圖（P2-07 配置圖、實作指南 T13，Story 028）。比例來自 src/domain/allocation.ts。
@@ -179,14 +179,11 @@ function Donut({ items }: { items: LegendItem[] }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    ...cardSurface,
     padding: space.md,
     gap: space.sm,
   },
-  title: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.mutedForeground },
+  title: cardTitle,
   body: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: space.md },
   legend: { flexGrow: 1, flexBasis: 140, minWidth: 0, gap: space.xs },
   legendRow: { flexDirection: "row", alignItems: "center", gap: space.sm, minHeight: 24 },

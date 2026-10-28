@@ -17,7 +17,7 @@ import type { Ledger } from "@/domain/ledgerTypes";
 import { useBenchmarkPrices, type BenchmarkPriceSources, type BenchmarkPrices } from "@/hooks/useBenchmarkPrices";
 import { describeLoadError } from "@/hooks/usePriceHistory";
 import { Segmented } from "./Segmented";
-import { colors, fonts, fontSize, radius, space, touchTarget } from "./theme";
+import { cardSurface, cardTitle, colors, fonts, fontSize, pressedOpacity, radius, space, touchTarget } from "./theme";
 
 type Props = {
   ledger: Ledger;
@@ -194,14 +194,11 @@ function LoadError({ error, onRetry }: { error: unknown; onRetry: () => void }) 
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    ...cardSurface,
     padding: space.md,
     gap: space.sm,
   },
-  title: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.mutedForeground },
+  title: cardTitle,
   hint: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: colors.mutedForeground, lineHeight: fontSize.sm * 1.5 },
   placeholder: { paddingVertical: space.lg, alignItems: "center", gap: space.sm },
   scope: { gap: space.xs, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: colors.border },
@@ -234,5 +231,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   retryText: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.primary },
-  pressed: { opacity: 0.85 },
+  pressed: { opacity: pressedOpacity },
 });

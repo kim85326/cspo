@@ -8,7 +8,7 @@ import type { Position } from "@/domain/position";
 import { portfolioAnnualizedReturns, positionAnnualizedReturn } from "@/domain/xirr";
 import { useFeatures } from "@/hooks/useFeatures";
 import { ProGate } from "./ProLockedCard";
-import { colors, fonts, fontSize, pnlColors, radius, space } from "./theme";
+import { cardSurface, cardTitle, colors, fonts, fontSize, pnlColors, space } from "./theme";
 
 /**
  * 年化報酬率（P2-04、實作指南 T11 的畫面，Story 028）。數字全部來自 src/domain/xirr.ts。
@@ -157,14 +157,11 @@ function ReturnRow({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    ...cardSurface,
     padding: space.md,
     gap: space.xs,
   },
-  title: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.mutedForeground },
+  title: cardTitle,
   row: { paddingVertical: space.sm, borderTopWidth: 1, borderTopColor: colors.border, gap: 2 },
   rowFirst: { borderTopWidth: 0, paddingVertical: 0 },
   rowMain: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: space.sm },

@@ -1,7 +1,10 @@
 import { router, Tabs } from "expo-router";
 import { StyleSheet, View, type ColorValue } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, type IconName } from "@/ui/Icon";
-import { colors, fonts, fontSize, iconSize } from "@/ui/theme";
+import { colors, fonts, fontSize, iconSize, space } from "@/ui/theme";
+
+const TAB_BAR_HEIGHT = 64;
 
 /**
  * 底部分頁：總覽／持股／新增／設定（mvp-implementation-guide 的 (tabs) 結構）。
@@ -9,6 +12,8 @@ import { colors, fonts, fontSize, iconSize } from "@/ui/theme";
  * 分頁標題（header）用 title，分頁列的字用 tabBarLabel，兩者分開。
  */
 export default function TabsLayout() {
+  // 圖示 24 + 文字 + 上下留白；底部再加安全區（Home 指示條）。預設高度在網頁版會切到文字
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
@@ -24,6 +29,9 @@ export default function TabsLayout() {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
           borderTopWidth: StyleSheet.hairlineWidth,
+          height: TAB_BAR_HEIGHT + insets.bottom,
+          paddingTop: space.xs + 2,
+          paddingBottom: insets.bottom + space.xs + 2,
         },
       }}
     >
@@ -67,9 +75,9 @@ function tabIcon(name: IconName) {
 const styles = StyleSheet.create({
   // 「新增」用品牌深藍圓底，跟其他三個分頁區分：它是動作，不是一頁
   addIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: colors.brand,
     alignItems: "center",
     justifyContent: "center",

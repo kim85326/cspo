@@ -1,6 +1,6 @@
 import { router, Stack } from "expo-router";
 import { useMemo } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { LedgerRepository } from "@/data/ledgerRepository";
 import type { PriceSource } from "@/data/PriceSource";
@@ -14,8 +14,11 @@ import { useFeatures } from "@/hooks/useFeatures";
 import { useHoldings } from "@/hooks/useHoldings";
 import { useProStatus } from "@/hooks/useProStatus";
 import { BenchmarkDuelCard } from "@/ui/BenchmarkDuelCard";
+import { Button } from "@/ui/Button";
+import { DirectionIcon } from "@/ui/Icon";
+import { SkeletonCard } from "@/ui/Surface";
 import { ProGate } from "@/ui/ProLockedCard";
-import { colors, fonts, fontSize, pnlColors, radius, space, touchTarget } from "@/ui/theme";
+import { cardSurface, cardTitle, colors, contentMaxWidth, fonts, fontSize, pnlColors, radius, space } from "@/ui/theme";
 
 type Props = {
   /** 測試與畫面開發用；預設是 src/data 的 ledgerRepository */
@@ -30,7 +33,6 @@ const TITLE: Record<Bucket, string> = { core: "核心（ETF）", satellite: "衛
 const NO_RECORDS: Record<Bucket, string> = { core: "還沒有 ETF 紀錄", satellite: "還沒有個股紀錄" };
 
 /** 方向符號：意思已由 +／- 承載，對輔助工具隱藏 */
-const ARROW = { up: "▲ ", down: "▼ ", flat: "" } as const;
 
 /**
  * 個股 vs ETF 對決 A：我的核心 vs 我的衛星（P2-05 A，實作指南 T12）。對應 docs/stories/027-core-vs-satellite-duel.md。
@@ -72,7 +74,8 @@ export default function VersusScreen({ repository, prices, today: todayProp, ben
 
       {!loaded || !duel ? (
         <View style={styles.loading}>
-          <ActivityIndicator color={colors.primary} accessibilityLabel="載入中" />
+          <SkeletonCard lines={2} />
+          <SkeletonCard lines={4} />
         </View>
       ) : (
         <>
@@ -83,15 +86,12 @@ export default function VersusScreen({ repository, prices, today: todayProp, ben
           <ConclusionCard conclusion={conclusion} />
 
           {conclusion?.kind === "noRecords" ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="新增交易"
+            <Button
+              label="新增交易"
+              icon="plus"
               testID="button-add-transaction"
               onPress={() => router.push("/transaction/new")}
-              style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.primaryButtonText}>新增交易</Text>
-            </Pressable>
+            />
           ) : (
             <>
               <View style={styles.sideRow}>
@@ -171,10 +171,12 @@ function SideCard({
       {side.hasRecords ? (
         <>
           <Text style={styles.label}>總報酬</Text>
-          <Text style={[styles.bigNumber, { color }]} accessibilityLabel="總報酬">
-            {direction ? ARROW[direction] : ""}
-            {formatSignedAmountOrDash(total)}
-          </Text>
+          <View style={styles.bigNumberRow}>
+            {direction ? <DirectionIcon direction={direction} size={14} color={color} /> : null}
+            <Text style={[styles.bigNumber, { color }]} accessibilityLabel="總報酬">
+              {formatSignedAmountOrDash(total)}
+            </Text>
+          </View>
           <Text style={styles.label}>報酬率</Text>
           <Text style={[styles.number, { color }]} accessibilityLabel="報酬率">
             {pricesLoading ? DASH : formatRate(summary.returnRate)}
@@ -253,19 +255,23 @@ function GlossaryCard() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  content: { paddingHorizontal: space.md, paddingTop: space.md, gap: space.md },
-  loading: { paddingVertical: space["2xl"], alignItems: "center" },
+  content: {
+    paddingHorizontal: space.md,
+    paddingTop: space.md,
+    gap: space.md,
+    width: "100%",
+    maxWidth: contentMaxWidth,
+    alignSelf: "center",
+  },
+  loading: { gap: space.md },
   intro: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: colors.mutedForeground, lineHeight: fontSize.sm * 1.5 },
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    ...cardSurface,
     padding: space.md,
     gap: space.xs,
   },
   conclusionCard: { gap: space.sm },
-  cardTitle: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.mutedForeground },
+  cardTitle,
   conclusionText: {
     fontFamily: fonts.semibold,
     fontSize: fontSize.lg,
@@ -278,7 +284,7 @@ const styles = StyleSheet.create({
   badge: {
     alignSelf: "flex-start",
     backgroundColor: colors.secondarySurface,
-    borderRadius: radius.sm,
+    borderRadius: radius.pill,
     paddingHorizontal: space.sm,
     paddingVertical: 2,
   },
@@ -291,7 +297,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     paddingVertical: space.xs + 2,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
     gap: space.xs,
   },
@@ -306,13 +312,5 @@ const styles = StyleSheet.create({
   glossary: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: colors.foreground, lineHeight: fontSize.sm * 1.6 },
   glossaryTerm: { fontFamily: fonts.semibold },
   footnote: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: colors.mutedForeground, textAlign: "center" },
-  primaryButton: {
-    minHeight: touchTarget,
-    borderRadius: radius.md,
-    backgroundColor: colors.accent,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  primaryButtonText: { fontFamily: fonts.semibold, fontSize: fontSize.md, color: colors.onAccent },
-  pressed: { opacity: 0.85 },
+  bigNumberRow: { flexDirection: "row", alignItems: "center", gap: space.xs },
 });

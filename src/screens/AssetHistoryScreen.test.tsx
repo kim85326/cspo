@@ -157,7 +157,7 @@ describe("資產走勢（對應 docs/stories/023）", () => {
     await screen.findByTestId("asset-history-chart");
     const before = candles.calls.length;
 
-    await fireEvent.press(screen.getByLabelText("近 1 年 🔒"));
+    await fireEvent.press(screen.getByLabelText("近 1 年・Pro"));
     expect(await screen.findByTestId("pro-feature-assetHistory")).toBeTruthy();
     expect(screen.queryByTestId("asset-history-chart")).toBeNull();
     expect(candles.calls.length).toBe(before);

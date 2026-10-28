@@ -34,7 +34,7 @@ import { REVIEW_BADGE } from "@/ui/HoldingForm";
 import { ImportSourceSheet } from "@/ui/ImportSourceSheet";
 import { LabeledInput } from "@/ui/LabeledInput";
 import { StockPicker } from "@/ui/StockPicker";
-import { colors, fonts, fontSize, radius, space, touchTarget } from "@/ui/theme";
+import { cardSurface, colors, fonts, fontSize, pressedOpacity, radius, space, touchTarget } from "@/ui/theme";
 
 export const PRIVACY_NOTE = "截圖只用來辨識，辨識完就丟掉，不會存在手機或電腦上。";
 
@@ -399,10 +399,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
   content: { paddingHorizontal: space.md, paddingTop: space.md, gap: space.md },
   card: {
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
+    ...cardSurface,
     padding: space.md,
     gap: space.xs,
   },
@@ -455,6 +452,6 @@ const styles = StyleSheet.create({
   destructiveText: { color: colors.destructive },
   linkButton: { alignSelf: "center", minHeight: touchTarget, justifyContent: "center", paddingHorizontal: space.md },
   linkText: { fontFamily: fonts.medium, fontSize: fontSize.sm, color: colors.mutedForeground },
-  pressed: { opacity: 0.85 },
+  pressed: { opacity: pressedOpacity },
   disabled: { opacity: 0.6 },
 });

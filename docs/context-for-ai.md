@@ -45,14 +45,16 @@
 cspo/
 ├── src/
 │   ├── app/            路由（expo-router）。只放轉出，不放邏輯與測試
-│   │   ├── _layout.tsx 載入 IBM Plex Sans 字型、Stack 導覽、ProStatusProvider、首次開啟的免責聲明（DisclaimerGate）、首頁右上「設定」
-│   │   ├── index.tsx   → screens/HomeScreen（首頁總覽，Story 011）
+│   │   ├── _layout.tsx 載入 IBM Plex Sans 字型、Stack 導覽（各頁標題先在這裡給）、ProStatusProvider、首次開啟的免責聲明（DisclaimerGate）
+│   │   ├── (tabs)/_layout.tsx 底部分頁：總覽／持股／新增／設定。「新增」按下去 push /transaction/new，不是一頁
+│   │   ├── (tabs)/index.tsx   → screens/HomeScreen（首頁總覽，Story 011）
 │   │   ├── calculate.tsx → screens/CalculateScreen（快速試算，原本的首頁）
-│   │   ├── settings.tsx → screens/SettingsScreen（免責聲明；Pro 區塊與 Demo 開關由 proPlan 功能開關控制）
+│   │   ├── (tabs)/settings.tsx → screens/SettingsScreen（免責聲明；Pro 區塊與 Demo 開關由 proPlan 功能開關控制）
 │   │   ├── pro.tsx     → screens/ProScreen（Pro 方案介紹，proPlan 功能開關關閉時導回首頁）
 │   │   ├── transaction/new.tsx  → screens/TransactionFormScreen 新增交易，可帶 ?symbol=2330（Story 009）
 │   │   ├── transaction/[id].tsx → screens/TransactionFormScreen 編輯／刪除交易（Story 009）
-│   │   ├── holdings/index.tsx → screens/HoldingsScreen（持股明細，Story 010）
+│   │   ├── (tabs)/holdings.tsx → screens/HoldingsScreen（持股明細，Story 010）
+│   │   ├── (tabs)/add.tsx      「新增」分頁的佔位：直接打開 /add 會導去 /transaction/new
 │   │   ├── holdings/[symbol].tsx → screens/HoldingDetailScreen（單一持股、核心／衛星切換，Story 010）
 │   │   ├── twse+api.ts 網頁版同源代理 GET /twse → 證交所（沒開 CORS）
 │   │   └── tpex+api.ts 網頁版同源代理 GET /tpex → 櫃買中心（沒開 CORS）
@@ -117,7 +119,10 @@ cspo/
 │   │   ├── appVersionSource.ts 讀 expo-application／expo-constants／expo-updates 的版本原始值（Story 018）
 │   │   └── index.ts            Jest 或 EXPO_PUBLIC_USE_FAKE_PRICES=1 用假來源，否則 marketSource（證交所 + 櫃買中心）
 │   └── ui/             可重用元件與設計 token
-│       ├── theme.ts        colors / space / radius / fonts / fontSize / touchTarget / pnlColors
+│       ├── theme.ts        設計 token：colors / pnlColors（漲紅跌綠）/ pnlColorsOnBrand / type（字級階層）/ space / radius / shadow / cardSurface / iconSize / pressedOpacity
+│       ├── Icon.tsx        Lucide 圖示（用 react-native-svg 畫，不另裝套件）、DirectionIcon（漲跌三角）
+│       ├── Button.tsx      共用按鈕：primary（金）/ secondary（深藍框）/ tonal / ghost / destructive
+│       ├── Surface.tsx     Card、SectionHeader、Notice（提示條）、EmptyState、SkeletonBlock／SkeletonCard（骨架）、LinkRow、KeyValueRow
 │       ├── StockPicker.tsx 股票選擇器（打代號、打名稱、從清單選；每列有「個股／ETF」標籤，最多 20 筆）
 │       ├── LabeledInput.tsx
 │       ├── HoldingForm.tsx 一檔的輸入區塊（StockPicker + 買入價 + 數量 + 移除鈕）
@@ -127,7 +132,6 @@ cspo/
 │       ├── ComparisonCard.tsx 多檔比較結果（排名、表現最好／最差、合計）
 │       └── VersionBadge.tsx 畫面最底部的版本資訊，點開看詳細、可複製（Story 018）
 │       ├── DisclaimerGate.tsx 首次開啟的免責聲明 Modal；DISCLAIMER_TEXT（M-10 原文）
-│       ├── SettingsHeaderButton.tsx 首頁右上「設定」
 │       ├── BenchmarkDuelCard.tsx 對決 B 卡片：基準與期間切換、衛星／整體兩段結論、載入失敗重試（Story 022）
 │       ├── AssetHistoryCard.tsx / AssetHistoryChart.tsx 資產走勢卡片（期間切換、Pro 鎖、載入／失敗／資料不足）與 SVG 圖（Story 023）
 │       └── ProLockedCard.tsx  ProLockedCard（鎖定的 Pro 功能預覽）、ProGate（Pro 才顯示內容）、ProBadge
@@ -173,7 +177,7 @@ cspo/
   - ~~交易輸入畫面~~（Story 009 已完成：`/transaction/new`（可帶 `?symbol=`）、`/transaction/<id>`；手續費與證交稅自動帶入可覆寫、儲存並繼續新增、刪除二次確認。首頁還沒有入口，T5／T6 加）
   - ~~從券商截圖匯入持股~~（Story 005：expo-image-picker + Expo Router API route `/recognize` + Claude vision；API key 放 `.env`，見 architecture.md 第 7 節）
   - ~~K 線圖與買入點~~（Story 016：證交所 STOCK_DAY 日 K，近 3～6 個月；`react-native-svg` 自繪；選填「買入日期」標 ▲；網頁版走 `/twse-day` 代理）
-  - 免責聲明（Story 013：首次開啟要按同意，設定頁常駐；首頁右上新增「設定」入口）
+  - 免責聲明（Story 013：首次開啟要按同意，設定頁常駐；「設定」在底部分頁）
   - Free／Pro 鎖定畫面（Story 020：只做畫面，不串金流；`features.proPlan` 預設關閉；Demo 開關在設定頁底部）
   - 手續費 0.1425%（最低 20 元）與交易稅 0.3%
   - 持股明細、單一持股頁、核心／衛星切換（Story 010：`/holdings`、`/holdings/[symbol]`；首頁的持股列與「看全部持股」也連到這裡。未實現 % 的分母待 PO 確認，見 story 決策 2）

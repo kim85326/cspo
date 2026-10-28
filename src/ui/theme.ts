@@ -1,4 +1,4 @@
-import type { TextStyle } from "react-native";
+import { StyleSheet, type TextStyle } from "react-native";
 import type { PnlDirection } from "@/domain/types";
 
 /**
@@ -160,6 +160,22 @@ export const touchTarget = 48;
 
 /** 按下去的回饋：透明度一致 */
 export const pressedOpacity = 0.75;
+
+/** 白底卡片的外觀（圓角 16、細框、淡陰影）。用 StyleSheet 的元件展開這個；JSX 裡直接用 Surface 的 <Card> */
+export const cardSurface = {
+  backgroundColor: colors.card,
+  borderRadius: radius.lg,
+  borderWidth: StyleSheet.hairlineWidth,
+  borderColor: colors.border,
+  shadowColor: "#0F172A",
+  shadowOpacity: 0.05,
+  shadowRadius: 2,
+  shadowOffset: { width: 0, height: 1 },
+  elevation: 1,
+};
+
+/** 卡片標題（白底卡片左上角） */
+export const cardTitle = { ...type.title, color: colors.cardForeground };
 
 export const shadow = {
   sm: {
