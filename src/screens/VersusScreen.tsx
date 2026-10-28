@@ -9,9 +9,11 @@ import { buildDuel, duelConclusion, formatAnnualized, type DuelConclusion, type 
 import { DASH, formatAmount, formatRate, formatSignedAmountOrDash } from "@/domain/holdings";
 import type { Bucket } from "@/domain/ledgerTypes";
 import { pnlDirection } from "@/domain/pnl";
+import type { BenchmarkPriceSources } from "@/hooks/useBenchmarkPrices";
 import { useFeatures } from "@/hooks/useFeatures";
 import { useHoldings } from "@/hooks/useHoldings";
 import { useProStatus } from "@/hooks/useProStatus";
+import { BenchmarkDuelCard } from "@/ui/BenchmarkDuelCard";
 import { ProGate } from "@/ui/ProLockedCard";
 import { colors, fonts, fontSize, pnlColors, radius, space, touchTarget } from "@/ui/theme";
 
@@ -20,6 +22,8 @@ type Props = {
   repository?: LedgerRepository;
   prices?: PriceSource;
   today?: string;
+  /** 對決 B 的歷史價格來源；預設是 src/data 的 candleSource／corporateActionSource */
+  benchmarkSources?: BenchmarkPriceSources;
 };
 
 const TITLE: Record<Bucket, string> = { core: "核心（ETF）", satellite: "衛星（個股）" };
@@ -31,9 +35,10 @@ const ARROW = { up: "▲ ", down: "▼ ", flat: "" } as const;
 /**
  * 個股 vs ETF 對決 A：我的核心 vs 我的衛星（P2-05 A，實作指南 T12）。對應 docs/stories/027-core-vs-satellite-duel.md。
  * 兩邊並排顯示總報酬、報酬率；年化報酬率是 Pro 功能（P2-08），proPlan 開關打開時用 ProGate 鎖住。
- * 上方一句白話結論只陳述事實（src/domain/duel.ts）。從首頁「核心 vs 衛星，誰賺比較多？」進來，路由在 src/app/versus.tsx。
+ * 上方一句白話結論只陳述事實（src/domain/duel.ts）。
+ * 下方是對決 B「如果改買 0050」（Story 022，BenchmarkDuelCard），Pro 功能，proPlan 開關打開時用 ProGate 鎖住。從首頁「核心 vs 衛星，誰賺比較多？」進來，路由在 src/app/versus.tsx。
  */
-export default function VersusScreen({ repository, prices, today: todayProp }: Props) {
+export default function VersusScreen({ repository, prices, today: todayProp, benchmarkSources }: Props) {
   const insets = useSafeAreaInsets();
   const today = todayProp ?? localIsoDate(new Date());
   const { ledger, loaded, holdings, quotesStatus } = useHoldings({ repository, prices, today });
@@ -48,6 +53,15 @@ export default function VersusScreen({ repository, prices, today: todayProp }: P
   const leader = conclusion?.kind === "compared" ? conclusion : null;
 
   const annualizedCard = duel ? <AnnualizedCard core={duel.core} satellite={duel.satellite} /> : null;
+  const benchmarkCard = ledger ? (
+    <BenchmarkDuelCard
+      ledger={ledger}
+      holdings={holdings}
+      quotesLoading={pricesLoading}
+      today={today}
+      sources={benchmarkSources}
+    />
+  ) : null;
 
   return (
     <ScrollView
@@ -95,6 +109,8 @@ export default function VersusScreen({ repository, prices, today: todayProp }: P
               </View>
 
               {proPlan ? <ProGate feature="annualizedReturn">{annualizedCard}</ProGate> : annualizedCard}
+
+              {proPlan ? <ProGate feature="etfDuelFull">{benchmarkCard}</ProGate> : benchmarkCard}
             </>
           )}
 
