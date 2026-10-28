@@ -1,3 +1,5 @@
+import type { Market } from "./types";
+
 /**
  * 交易紀錄（記帳本）的資料型別，欄位照 docs/product-spec.md 第 4 章。
  * 日期一律是 ISO 字串：交易日、除權息日用 "YYYY-MM-DD"，createdAt／updatedAt 用完整 ISO 時間。
@@ -10,6 +12,18 @@ export type SecurityType = "stock" | "etf";
 export type Bucket = "core" | "satellite";
 
 export type TradeSide = "buy" | "sell";
+
+/**
+ * 交易幣別 [多幣別預留]（product-spec 3.8、第 4 章；docs/stories/029）。
+ * Tech Day 期間一律 TWD；沒填的舊資料視為 TWD。
+ */
+export type Currency = "TWD" | "USD";
+
+/**
+ * 記帳本上的市場別 [多幣別預留]：上市、上櫃、美股。沒填的舊資料視為台股。
+ * 證券主檔的 Market（types.ts）目前只有台股兩種，美股功能做的時候再合併。
+ */
+export type LedgerMarket = Market | "US";
 
 /** 交易來源。MVP 只有 manual；其他是後面 Phase 預留 */
 export type TransactionSource = "manual" | "dca" | "import" | "email";
@@ -28,7 +42,10 @@ export type Transaction = {
   tradeDateUnknown?: boolean;
   /** 成交價，> 0 */
   price: number;
-  /** 股數，正整數 */
+  /**
+   * 股數，> 0。型別上可為小數（美股碎股，例如 0.37 股）[多幣別預留]；
+   * 台股的輸入驗證仍限制整數（validateTransaction，之後依 market 判斷）。
+   */
   shares: number;
   /** 手續費（自動計算，可覆寫） */
   fee: number;
@@ -36,6 +53,12 @@ export type Transaction = {
   tax: number;
   /** 使用者是否手動改過手續費或稅 */
   feeOverridden: boolean;
+  /** 選填，沒填視為台股 [多幣別預留] */
+  market?: LedgerMarket;
+  /** 選填，沒填視為 TWD。price、fee、tax 都以這個幣別記錄 [多幣別預留] */
+  currency?: Currency;
+  /** 選填，沒填視為 1。成交當下 1 單位外幣等於多少台幣 [多幣別預留] */
+  fxRate?: number;
   source: TransactionSource;
   /** 券商委託書號 [P3] */
   brokerOrderRef?: string;
@@ -62,10 +85,18 @@ export type Dividend = {
   exDate: string;
   /** 發放日，選填 */
   payDate?: string;
-  /** 實際入帳金額（cash 用） */
+  /** 實際入帳金額（cash 用），以 currency 計；有預扣稅時是扣完之後的金額 */
   cashAmount?: number;
-  /** 配發股數（stock 用） */
+  /** 配發股數（stock 用）。型別上可為小數 [多幣別預留]；台股驗證仍限制整數 */
   stockShares?: number;
+  /** 選填，沒填視為台股 [多幣別預留] */
+  market?: LedgerMarket;
+  /** 選填，沒填視為 TWD。cashAmount、withholdingTax 以這個幣別記錄 [多幣別預留] */
+  currency?: Currency;
+  /** 選填，沒填視為 1。入帳當下 1 單位外幣等於多少台幣 [多幣別預留] */
+  fxRate?: number;
+  /** 預扣稅額（美股股利預扣 30%），以 currency 計。只供顯示，報酬只計 cashAmount。台股不使用 [多幣別預留] */
+  withholdingTax?: number;
   status: DividendStatus;
   source: "manual" | "auto";
   /**
@@ -80,7 +111,10 @@ export type Dividend = {
 
 /** 使用者對某檔證券的設定。沒有設定時依類型決定（ETF → 核心，個股 → 衛星） */
 export type HoldingSetting = {
+  /** 主鍵（之後支援美股時改為 market + symbol） */
   symbol: string;
+  /** 選填，沒填視為台股 [多幣別預留] */
+  market?: LedgerMarket;
   bucket: Bucket;
 };
 
@@ -137,4 +171,5 @@ export type Ledger = {
    * 定期定額規則（Story 024）。選填：舊資料沒有這個欄位，讀到時當成沒有規則，不用升 schemaVersion、不用搬移。
    */
   dcaRules?: DcaRule[];
+  // 多幣別欄位（market、currency、fxRate、withholdingTax）都在各筆紀錄上、都是選填，同樣不升 schemaVersion（Story 029）
 };

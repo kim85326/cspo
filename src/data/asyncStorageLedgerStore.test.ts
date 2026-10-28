@@ -198,3 +198,44 @@ describe("舊版持股搬移（對應 docs/stories/008）", () => {
     expect(await AsyncStorage.getItem(LEDGER_STORAGE_KEY)).toBeNull();
   });
 });
+
+describe("多幣別欄位（對應 docs/stories/029）", () => {
+  test("舊資料沒有 market／currency／fxRate：照原樣讀回、不升 schemaVersion，計算時視為 TWD、1", async () => {
+    await AsyncStorage.setItem(LEDGER_STORAGE_KEY, JSON.stringify(spec37Ledger()));
+    const ledger = await newStore().load();
+    expect(ledger).toEqual(spec37Ledger());
+    expect(ledger.schemaVersion).toBe(1);
+    expect(ledger.transactions.every((t) => t.currency === undefined && t.fxRate === undefined)).toBe(true);
+    const p = computePosition("2330", ledger.transactions, ledger.dividends, {
+      type: "stock",
+      price: spec37.price,
+      today: "2026-10-27",
+    });
+    expect(p.totalReturn).toBeCloseTo(152_880, 6);
+  });
+
+  test("有填的多幣別欄位存得進去也讀得回來", async () => {
+    const ledger = spec37Ledger();
+    const withFields = {
+      ...ledger,
+      transactions: ledger.transactions.map((t) => ({ ...t, market: "TWSE" as const, currency: "TWD" as const, fxRate: 1 })),
+      dividends: ledger.dividends.map((d) => ({ ...d, currency: "TWD" as const, withholdingTax: 0 })),
+      holdingSettings: [{ symbol: "2330", market: "TWSE" as const, bucket: "core" as const }],
+    };
+    await newStore().save(withFields);
+    expect(await newStore().load()).toEqual(withFields);
+  });
+
+  test("認不得的值只拿掉那個欄位（回到預設），不丟整筆紀錄", () => {
+    const ledger = spec37Ledger();
+    const parsed = parseLedger({
+      ...ledger,
+      transactions: [{ ...spec37.step1, market: "NASDAQ", currency: "JPY", fxRate: -3 }, spec37.step2],
+      dividends: [{ ...spec37.step4, fxRate: "30", withholdingTax: -1 }],
+      holdingSettings: [{ symbol: "2330", market: 1, bucket: "core" }],
+    });
+    expect(parsed?.transactions).toEqual([spec37.step1, spec37.step2]);
+    expect(parsed?.dividends).toEqual([spec37.step4]);
+    expect(parsed?.holdingSettings).toEqual([{ symbol: "2330", bucket: "core" }]);
+  });
+});

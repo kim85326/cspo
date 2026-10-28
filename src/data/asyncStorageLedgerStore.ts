@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { CURRENCIES, LEDGER_MARKETS } from "@/domain/currency";
 import { DEFAULT_USER_SETTINGS } from "@/domain/fees";
 import type { DcaRule, Dividend, HoldingSetting, Ledger, Transaction, UserSettings } from "@/domain/ledgerTypes";
 import { validateLedger } from "@/domain/ledgerValidation";
@@ -139,20 +140,40 @@ function parseJson(raw: string): unknown {
  * JSON → Ledger。整份不像記帳本（不是物件、schemaVersion 不是 1、transactions 不是陣列）回 null；
  * 個別欄位型別不對的交易、股利、持股設定、定期定額規則略過；手續費設定缺的欄位用預設值。
  * 定期定額規則（Story 024）是後來加的選填欄位：舊資料沒有就不帶這個欄位，等於沒有規則，不用搬移。
+ * 多幣別欄位（Story 029）也是選填：舊資料沒有就視為台股、TWD、匯率 1；值認不得的只拿掉那個欄位，不丟整筆。
  */
 export function parseLedger(value: unknown): Ledger | null {
   if (!isRecord(value) || value.schemaVersion !== 1 || !Array.isArray(value.transactions)) return null;
   return {
     schemaVersion: 1,
-    transactions: value.transactions.filter(isTransaction),
-    dividends: Array.isArray(value.dividends) ? value.dividends.filter(isDividend) : [],
-    holdingSettings: Array.isArray(value.holdingSettings) ? value.holdingSettings.filter(isHoldingSetting) : [],
+    transactions: value.transactions.filter(isTransaction).map(dropInvalidMultiCurrency),
+    dividends: Array.isArray(value.dividends) ? value.dividends.filter(isDividend).map(dropInvalidMultiCurrency) : [],
+    holdingSettings: Array.isArray(value.holdingSettings)
+      ? value.holdingSettings.filter(isHoldingSetting).map(dropInvalidMultiCurrency)
+      : [],
     settings: parseSettings(value.settings),
     ...(Array.isArray(value.dismissedAutoDividends)
       ? { dismissedAutoDividends: value.dismissedAutoDividends.filter((k): k is string => typeof k === "string") }
       : {}),
     ...(Array.isArray(value.dcaRules) ? { dcaRules: value.dcaRules.filter(isDcaRule) } : {}),
   };
+}
+
+/**
+ * 拿掉認不得的多幣別欄位（market、currency、fxRate、withholdingTax），讓它回到「沒填」= 台股、TWD、1。
+ * 都正常就回傳原本的物件。
+ */
+function dropInvalidMultiCurrency<T extends Transaction | Dividend | HoldingSetting>(record: T): T {
+  const fields = record as Record<string, unknown>;
+  const invalid = new Set<string>();
+  if ("market" in fields && !(LEDGER_MARKETS as readonly unknown[]).includes(fields.market)) invalid.add("market");
+  if ("currency" in fields && !(CURRENCIES as readonly unknown[]).includes(fields.currency)) invalid.add("currency");
+  if ("fxRate" in fields && !(isFiniteNumber(fields.fxRate) && fields.fxRate > 0)) invalid.add("fxRate");
+  if ("withholdingTax" in fields && !(isFiniteNumber(fields.withholdingTax) && fields.withholdingTax >= 0)) {
+    invalid.add("withholdingTax");
+  }
+  if (invalid.size === 0) return record;
+  return Object.fromEntries(Object.entries(fields).filter(([key]) => !invalid.has(key))) as T;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
