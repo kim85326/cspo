@@ -8,7 +8,7 @@ import { colors, fonts, fontSize, space } from "./theme";
  * 網頁版的日期欄位：用瀏覽器內建的 <input type="date">（datetimepicker 套件不支援網頁）。
  * 對外介面與手機版 DateField 相同，值一樣是 "2026/10/05"。
  */
-export function DateField({ label, value, onChange, hint, error, testID }: DateFieldProps) {
+export function DateField({ label, value, onChange, hint, error, testID, allowFuture }: DateFieldProps) {
   return (
     <View style={styles.wrapper}>
       <Text style={styles.label}>{label}</Text>
@@ -18,7 +18,7 @@ export function DateField({ label, value, onChange, hint, error, testID }: DateF
           "aria-label": label,
           "data-testid": testID,
           value: value.replace(/\//g, "-"),
-          max: localIsoDate(new Date()),
+          max: allowFuture ? undefined : localIsoDate(new Date()),
           onChange: (event: { target: { value: string } }) => onChange(event.target.value.replace(/-/g, "/")),
           style: {
             flex: 1,

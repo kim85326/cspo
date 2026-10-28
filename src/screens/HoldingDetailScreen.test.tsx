@@ -6,7 +6,7 @@ import { createLedgerRepository, type LedgerRepository } from "@/data/ledgerRepo
 import { createMemoryLedgerStore } from "@/data/memoryLedgerStore";
 import type { PriceSource } from "@/data/PriceSource";
 import type { Ledger } from "@/domain/ledgerTypes";
-import { makeTx, spec37, spec37Ledger } from "@/domain/ledgerTestData";
+import { makeDividend, makeTx, spec37, spec37Ledger } from "@/domain/ledgerTestData";
 import { pnlColors } from "@/ui/theme";
 import HoldingDetailScreen from "./HoldingDetailScreen";
 
@@ -79,6 +79,36 @@ describe("HoldingDetailScreen 單一持股（對應 docs/stories/010）", () => 
 
     await fireEvent.press(screen.getByRole("button", { name: "新增 2330 的交易" }));
     expect(router.push).toHaveBeenCalledWith({ pathname: "/transaction/new", params: { symbol: "2330" } });
+  });
+
+  test("股利（Story 012）：點股利進編輯；記錄股利帶入代號", async () => {
+    await renderScreen("2330", repoOf(spec37Ledger()));
+    await fireEvent.press(await screen.findByLabelText("2026-06-15 現金股利 5,000 元，編輯這筆股利"));
+    expect(router.push).toHaveBeenCalledWith({ pathname: "/dividend/[id]", params: { id: "step4" } });
+
+    await fireEvent.press(screen.getByRole("button", { name: "記錄 2330 的股利" }));
+    expect(router.push).toHaveBeenCalledWith({ pathname: "/dividend/new", params: { symbol: "2330" } });
+  });
+
+  test("預估股利另外列「預估即將入帳」，不算進已領股利與總報酬", async () => {
+    const estimated = makeDividend({
+      id: "auto-1",
+      type: "cash",
+      exDate: "2026-10-20",
+      payDate: "2026-11-20",
+      cashAmount: 9000,
+      status: "estimated",
+      source: "auto",
+    });
+    const estimatedStock = makeDividend({ type: "stock", exDate: "2026-10-20", stockShares: 15, status: "estimated", source: "auto" });
+    await renderScreen("2330", repoOf({ ...spec37Ledger(), dividends: [...spec37Ledger().dividends, estimated, estimatedStock] }));
+    expect(await screen.findByLabelText("預估即將入帳 9,000 元 + 15 股")).toBeTruthy();
+    expect(screen.getByText("股票股利 15 股")).toBeTruthy();
+    expect(screen.getByLabelText("持有股數 1,500 股")).toBeTruthy();
+    expect(screen.getByLabelText("已領股利 5,000")).toBeTruthy();
+    expect(screen.getByLabelText("總報酬")).toHaveTextContent("+152,880");
+    expect(screen.getByLabelText("2026-10-20 現金股利 9,000 元，預估即將入帳，編輯這筆股利")).toBeTruthy();
+    expect(screen.getAllByText("預估即將入帳 · 自動帶入")).toHaveLength(2);
   });
 
   test("M-06 AC1：0050 預設核心", async () => {

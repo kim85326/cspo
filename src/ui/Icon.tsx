@@ -131,6 +131,14 @@ const PATHS = {
       <Path d="M7 17 17 7" />
     </>
   ),
+  calendar: (
+    <>
+      <Path d="M8 2v4" />
+      <Path d="M16 2v4" />
+      <Rect width="18" height="18" x="3" y="4" rx="2" />
+      <Path d="M3 10h18" />
+    </>
+  ),
   lineChart: (
     <>
       <Path d="M3 3v16a2 2 0 0 0 2 2h16" />

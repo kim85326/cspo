@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { LedgerRepository } from "@/data/ledgerRepository";
 import type { PriceSource } from "@/data/PriceSource";
+import { estimatedCashDividends, estimatedStockDividends } from "@/domain/autoDividends";
 import { formatIsoDate, localIsoDate } from "@/domain/buyDate";
 import {
   BUCKET_LABEL,
@@ -50,12 +51,16 @@ type Props = {
 
 const newTransactionHref = (symbol: string) => ({ pathname: "/transaction/new", params: { symbol } }) as const;
 const editTransactionHref = (id: string) => ({ pathname: "/transaction/[id]", params: { id } }) as const;
+// T7（Story 012）的股利畫面
+const newDividendHref = (symbol: string) => ({ pathname: "/dividend/new", params: { symbol } }) as const;
+const editDividendHref = (id: string) => ({ pathname: "/dividend/[id]", params: { id } }) as const;
 
 const VERDICT = { up: "賺了", down: "虧了", flat: "不賺不賠" } as const;
 
 /**
  * 單一持股頁（M-04、M-06，Story 010）：數字摘要、核心／衛星切換、股價走勢、該證券的交易與股利（新到舊）。
  * 「新增交易」→ /transaction/new?symbol=；點交易 → /transaction/[id]（T4 的畫面）。
+ * 「記錄股利」→ /dividend/new?symbol=；點股利 → /dividend/[id]（T7 的畫面）。預估股利另外列出，不算進總報酬。
  */
 export default function HoldingDetailScreen({ symbol, repository, prices, today }: Props) {
   const { ledger, loaded, holdings, quotesStatus, repository: repo } = useHoldings({ repository, prices, today });
@@ -97,6 +102,8 @@ export default function HoldingDetailScreen({ symbol, repository, prices, today 
   const direction = directionOf(p.totalReturn);
   const color = pnlColors[direction];
   const type = securityTypeOf(symbol);
+  const estimatedCash = ledger ? estimatedCashDividends(ledger.dividends, symbol) : 0;
+  const estimatedStock = ledger ? estimatedStockDividends(ledger.dividends, symbol) : 0;
 
   const changeBucket = async (bucket: Bucket) => {
     if (bucket === holding.bucket) return;
@@ -121,6 +128,9 @@ export default function HoldingDetailScreen({ symbol, repository, prices, today 
         ]),
     { label: "已實現損益", value: formatSignedAmountOrDash(p.realizedPnl), signed: p.realizedPnl },
     { label: "已領股利", value: formatAmount(p.cashDividends) },
+    ...(estimatedCash > 0 || estimatedStock > 0
+      ? [{ label: "預估即將入帳", value: estimatedLabel(estimatedCash, estimatedStock) }]
+      : []),
     { label: "累計投入", value: formatAmount(p.invested) },
     ...(closed ? [] : [{ label: "持有天數", value: p.holdingDays === null ? "—" : `${p.holdingDays} 天` }]),
   ];
@@ -227,7 +237,10 @@ export default function HoldingDetailScreen({ symbol, repository, prices, today 
           <Text style={styles.sectionTitle} accessibilityRole="header">
             交易與股利紀錄
           </Text>
-          <AddButton symbol={symbol} compact />
+          <View style={styles.historyActions}>
+            <AddDividendButton symbol={symbol} />
+            <AddButton symbol={symbol} compact />
+          </View>
         </View>
         {history.map((entry) => (
           <HistoryRow key={entry.kind === "trade" ? entry.transaction.id : entry.dividend.id} entry={entry} />
@@ -235,6 +248,25 @@ export default function HoldingDetailScreen({ symbol, repository, prices, today 
       </Card>
     </ScrollView>
   );
+}
+
+function AddDividendButton({ symbol }: { symbol: string }) {
+  return (
+    <Button
+      label="記錄股利"
+      icon="coins"
+      variant="secondary"
+      size="sm"
+      accessibilityLabel={`記錄 ${symbol} 的股利`}
+      onPress={() => router.push(newDividendHref(symbol))}
+      style={styles.flex}
+    />
+  );
+}
+
+function estimatedLabel(cash: number, stock: number): string {
+  const parts = [cash > 0 ? `${formatAmount(cash)} 元` : null, stock > 0 ? formatShares(stock) : null];
+  return parts.filter(Boolean).join(" + ");
 }
 
 function AddButton({ symbol, compact = false }: { symbol: string; compact?: boolean }) {
@@ -246,6 +278,7 @@ function AddButton({ symbol, compact = false }: { symbol: string; compact?: bool
       size={compact ? "sm" : "md"}
       accessibilityLabel={`新增 ${symbol} 的交易`}
       onPress={() => router.push(newTransactionHref(symbol))}
+      style={compact ? styles.flex : undefined}
     />
   );
 }
@@ -273,17 +306,28 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
       d.type === "cash"
         ? `現金股利 ${formatAmount(d.cashAmount ?? 0)} 元`
         : `股票股利 ${formatShares(d.stockShares ?? 0)}`;
-    // 股利的編輯畫面在 T7（Story 012），這裡先只顯示
+    const sub = [
+      d.status === "estimated" ? "預估即將入帳" : null,
+      d.source === "auto" ? "自動帶入" : null,
+      d.note ?? null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
     return (
-      <View style={styles.historyRow} accessible accessibilityLabel={`${d.exDate} ${what}`}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${d.exDate} ${what}${d.status === "estimated" ? "，預估即將入帳" : ""}，編輯這筆股利`}
+        onPress={() => router.push(editDividendHref(d.id))}
+        style={({ pressed }) => [styles.historyRow, pressed && styles.pressed]}
+      >
         <EntryBadge kind="dividend" />
         <View style={styles.historyBody}>
-          <Text style={styles.historyMain}>{what}</Text>
-          <Text style={styles.historySub}>
-            {formatIsoDate(d.exDate)} 除權息{d.status === "estimated" ? " · 預估" : ""}
-          </Text>
+          <Text style={[styles.historyMain, d.status === "estimated" && styles.estimated]}>{what}</Text>
+          <Text style={styles.historySub}>{formatIsoDate(d.exDate)} 除權息</Text>
+          {sub ? <Text style={styles.historySub}>{sub}</Text> : null}
         </View>
-      </View>
+        <Icon name="chevronRight" size={iconSize.sm} color={colors.mutedForeground} />
+      </Pressable>
     );
   }
 
@@ -297,13 +341,20 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${t.tradeDate} ${main}，編輯這筆交易`}
+      accessibilityLabel={`${t.tradeDate} ${main}${t.source === "dca" ? "，定期定額" : ""}，編輯這筆交易`}
       onPress={() => router.push(editTransactionHref(t.id))}
       style={({ pressed }) => [styles.historyRow, pressed && styles.pressed]}
     >
       <EntryBadge kind={t.side} />
       <View style={styles.historyBody}>
-        <Text style={styles.historyMain}>{main}</Text>
+        <View style={styles.mainRow}>
+          <Text style={styles.historyMain}>{main}</Text>
+          {t.source === "dca" ? (
+            <View style={styles.sourceTag}>
+              <Text style={styles.sourceTagText}>定期定額</Text>
+            </View>
+          ) : null}
+        </View>
         <Text style={styles.historySub}>{costs}</Text>
         <Text style={styles.historySub}>
           {formatIsoDate(t.tradeDate)}
@@ -340,12 +391,18 @@ const styles = StyleSheet.create({
   hint: { ...typo.caption, color: colors.mutedForeground },
   error: { ...typo.label, fontFamily: fonts.regular, color: colors.destructive },
   historyCard: { gap: 0 },
-  historyHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: space.sm,
+  historyHeader: { gap: space.sm, marginBottom: space.sm },
+  historyActions: { flexDirection: "row", gap: space.sm },
+  mainRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: space.xs + 2 },
+  /** 交易來源標記（Story 024 定期定額） */
+  sourceTag: {
+    borderRadius: radius.pill,
+    paddingHorizontal: space.sm,
+    paddingVertical: 1,
+    backgroundColor: colors.secondarySurface,
   },
+  sourceTagText: { fontFamily: fonts.medium, fontSize: fontSize.xs, color: colors.secondary },
+  estimated: { color: colors.mutedForeground },
   historyRow: {
     flexDirection: "row",
     alignItems: "center",

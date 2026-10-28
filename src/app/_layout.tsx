@@ -7,14 +7,18 @@ import { useFonts } from "expo-font";
 import { SplashScreen, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { useAutoDividendSync } from "@/hooks/useAutoDividendSync";
 import { FeatureFlagsProvider } from "@/hooks/useFeatures";
 import { ProStatusProvider } from "@/hooks/useProStatus";
+import { DcaAutoRunner } from "@/ui/DcaAutoRunner";
 import { DisclaimerGate } from "@/ui/DisclaimerGate";
 import { colors, fonts, fontSize } from "@/ui/theme";
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  // 股利自動帶入：App 開啟時跑一次，背景執行（Story 012）
+  useAutoDividendSync();
   // 設計系統指定 IBM Plex Sans；中文字由系統字型回退。字型載好前停在 splash，避免字體跳動。
   const [fontsLoaded, fontError] = useFonts({
     IBMPlexSans_400Regular,
@@ -56,7 +60,14 @@ export default function RootLayout() {
           <Stack.Screen name="history" options={{ title: "資產走勢" }} />
           <Stack.Screen name="import" options={{ title: "從截圖匯入" }} />
           <Stack.Screen name="versus" options={{ title: "個股 vs ETF 對決" }} />
+          <Stack.Screen name="dividend/new" options={{ title: "記錄股利" }} />
+          <Stack.Screen name="dividend/[id]" options={{ title: "編輯股利" }} />
+          <Stack.Screen name="dca/index" options={{ title: "定期定額" }} />
+          <Stack.Screen name="dca/new" options={{ title: "新增定期定額" }} />
+          <Stack.Screen name="dca/[id]" options={{ title: "編輯定期定額" }} />
         </Stack>
+        {/* 定期定額：App 開啟時補產生到期的買入交易（Story 024） */}
+        <DcaAutoRunner />
         <DisclaimerGate />
       </ProStatusProvider>
     </FeatureFlagsProvider>

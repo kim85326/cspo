@@ -339,6 +339,15 @@ function FormBody({ title, ledger, repo, stocks, stocksLoading, now, original, i
               setQuery("");
             }}
           />
+          {original?.source === "dca" ? (
+            <View style={styles.sourceHint}>
+              <Notice
+                tone="info"
+                testID="dca-source-hint"
+                message="這筆是定期定額自動記上的，可以改成券商實際成交的價格與股數；刪除後不會再自動補回。"
+              />
+            </View>
+          ) : null}
           {holding ? (
             <Text style={styles.holding} testID="current-holding">
               {holding}
@@ -634,6 +643,7 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
   },
   label: { ...type.label, color: colors.mutedForeground, marginBottom: space.xs + 2 },
+  sourceHint: { marginBottom: space.md },
   sideRow: { flexDirection: "row", gap: space.sm, marginBottom: space.md },
   sideButton: {
     flex: 1,

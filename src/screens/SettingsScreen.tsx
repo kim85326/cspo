@@ -43,6 +43,25 @@ export default function SettingsScreen() {
         </Section>
       ) : null}
 
+      <Section title="自動記帳">
+        <Card style={styles.listCard}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="定期定額設定"
+            testID="button-open-dca"
+            onPress={() => router.push("/dca")}
+            style={({ pressed }) => [styles.listRow, pressed && styles.pressed]}
+          >
+            <RowIcon name="calendar" />
+            <View style={styles.rowBody}>
+              <Text style={styles.rowTitle}>定期定額</Text>
+              <Text style={styles.rowSub}>每月扣款日自動記上一筆定期定額買入。</Text>
+            </View>
+            <Icon name="chevronRight" size={iconSize.sm} color={colors.mutedForeground} />
+          </Pressable>
+        </Card>
+      </Section>
+
       <Section title="免責聲明">
         <Card testID="settings-disclaimer" style={styles.disclaimer}>
           <RowIcon name="shield" />

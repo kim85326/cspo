@@ -70,7 +70,12 @@ export function demoLedger(): Ledger {
       // 手動改成核心的存股型個股
       tx("2412", "buy", "2026-01-15", 120, 1000, 171),
     ],
-    dividends: [cash("2330", "2026-06-15", 5000), cash("0050", "2026-07-17", 2000)],
+    dividends: [
+      cash("2330", "2026-06-15", 5000),
+      cash("0050", "2026-07-17", 2000),
+      // 自動帶入、還沒到發放日的預估股利（Story 012），看「預估即將入帳」用。日期與金額是示範用的，不是真的除息資料
+      { ...cash("00878", "2026-10-21", 1200), payDate: "2026-11-18", status: "estimated", source: "auto" },
+    ],
     holdingSettings: [{ symbol: "2412", bucket: "core" }],
     settings: DEFAULT_USER_SETTINGS,
   };
