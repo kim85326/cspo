@@ -11,6 +11,8 @@ export type DateFieldProps = {
   hint?: string;
   error?: string;
   testID?: string;
+  /** 可以選今天以後的日期（定期定額的結束日期用）；預設最晚只能選到今天 */
+  allowFuture?: boolean;
 };
 
 export const dateFieldStyles = StyleSheet.create({

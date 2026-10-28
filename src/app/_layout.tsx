@@ -9,6 +9,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { FeatureFlagsProvider } from "@/hooks/useFeatures";
 import { ProStatusProvider } from "@/hooks/useProStatus";
+import { DcaAutoRunner } from "@/ui/DcaAutoRunner";
 import { DisclaimerGate } from "@/ui/DisclaimerGate";
 import { SettingsHeaderButton } from "@/ui/SettingsHeaderButton";
 import { colors, fonts } from "@/ui/theme";
@@ -47,6 +48,8 @@ export default function RootLayout() {
         >
           <Stack.Screen name="index" options={{ title: "賺了嗎", headerRight: () => <SettingsHeaderButton /> }} />
         </Stack>
+        {/* 定期定額：App 開啟時補產生到期的買入交易（Story 024） */}
+        <DcaAutoRunner />
         <DisclaimerGate />
       </ProStatusProvider>
     </FeatureFlagsProvider>

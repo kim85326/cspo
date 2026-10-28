@@ -39,6 +39,10 @@ export type Transaction = {
   source: TransactionSource;
   /** 券商委託書號 [P3] */
   brokerOrderRef?: string;
+  /** source = "dca" 時：由哪一條定期定額規則產生（規則刪掉後仍保留，只是找不到規則）。見 docs/stories/024 */
+  dcaRuleId?: string;
+  /** source = "dca" 時：哪一期，"YYYY-MM"（扣款日所在的月份，順延到下個月也算原本那期） */
+  dcaPeriod?: string;
   note?: string;
   createdAt: string;
   updatedAt: string;
@@ -87,6 +91,31 @@ export type UserSettings = {
   minFeeOddLot: number;
 };
 
+/**
+ * 定期定額規則（P2-02，docs/stories/024）。App 開啟時依規則補產生到期的買入交易。
+ * 去重靠 handledPeriods：同一規則同一期只處理一次，使用者刪掉自動產生的交易也不會補回。
+ */
+export type DcaRule = {
+  id: string;
+  symbol: string;
+  /** 每期金額（元），正整數 */
+  amount: number;
+  /** 每月扣款日 1–28；遇到非交易日順延到下一個交易日 */
+  dayOfMonth: number;
+  /** 開始日期 YYYY-MM-DD；扣款日早於這天的那期不產生 */
+  startDate: string;
+  /** 結束日期 YYYY-MM-DD，選填；扣款日晚於這天的那期不產生 */
+  endDate?: string;
+  /** false = 暫停：不產生新的交易 */
+  enabled: boolean;
+  /** 最近一次從暫停恢復的日期 YYYY-MM-DD；扣款日早於這天的期數（暫停期間）不補 */
+  resumedAt?: string;
+  /** 已處理過的期數 "YYYY-MM"：已產生交易，或金額不足買 1 股而略過。刪掉交易也不移除 */
+  handledPeriods: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 /** 整份記帳本：存在手機本機的就是這個 */
 export type Ledger = {
   schemaVersion: 1;
@@ -94,4 +123,8 @@ export type Ledger = {
   dividends: Dividend[];
   holdingSettings: HoldingSetting[];
   settings: UserSettings;
+  /**
+   * 定期定額規則（Story 024）。選填：舊資料沒有這個欄位，讀到時當成沒有規則，不用升 schemaVersion、不用搬移。
+   */
+  dcaRules?: DcaRule[];
 };

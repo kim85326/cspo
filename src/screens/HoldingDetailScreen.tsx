@@ -217,7 +217,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${t.tradeDate} ${main}，編輯這筆交易`}
+      accessibilityLabel={`${t.tradeDate} ${main}${t.source === "dca" ? "，定期定額" : ""}，編輯這筆交易`}
       onPress={() => router.push(editTransactionHref(t.id))}
       style={({ pressed }) => [styles.historyRow, pressed && styles.pressed]}
     >
@@ -227,6 +227,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
       </Text>
       <View style={styles.historyBody}>
         <Text style={styles.historyMain}>{main}</Text>
+        {t.source === "dca" ? <Text style={styles.sourceTag}>定期定額</Text> : null}
         <Text style={styles.historySub}>
           {costs}
           {t.note ? ` · ${t.note}` : ""}
@@ -305,6 +306,17 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
   },
   historySub: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: colors.mutedForeground },
+  /** 交易來源標記（Story 024 定期定額） */
+  sourceTag: {
+    alignSelf: "flex-start",
+    marginVertical: 2,
+    paddingHorizontal: space.xs + 2,
+    borderRadius: radius.sm,
+    backgroundColor: colors.secondarySurface,
+    color: colors.secondary,
+    fontFamily: fonts.medium,
+    fontSize: fontSize.xs,
+  },
   chevron: { fontSize: fontSize.lg, color: colors.mutedForeground },
   muted: { fontFamily: fonts.regular, fontSize: fontSize.sm, color: colors.mutedForeground, textAlign: "center" },
   primaryButton: {
