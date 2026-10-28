@@ -116,7 +116,7 @@ Scenario: 沒有相簿或相機權限
 
 工程同學要在自己的 dev server 打開：`.env.local` 加 `EXPO_PUBLIC_FEATURE_SCREENSHOT_IMPORT=1`（同電腦網頁版、同 Wi-Fi 的 Expo Go 只要另外開 `npm run backend`；不開後端想看畫面加 `EXPO_PUBLIC_USE_FAKE_RECOGNIZER=1`），重開 `npx expo start` 後在手機上 reload。
 
-不做：截圖匯入改成產生交易（T10），要等交易輸入（T4）與首頁（T6）合併後再做。
+**Story 015 起**：核對完成後改成建立買入交易，入口搬到首頁空狀態與新增交易頁的 `/import`，快速試算不再有「從截圖匯入」。上面「按下『計算並比較』」「已填的內容不會被蓋掉」「超過 5 檔」等情境改以 [Story 015](015-import-to-transactions.md) 為準；選圖、辨識、核對的其他情境不變。
 
 ## 狀態
 

@@ -12,15 +12,17 @@ import { buildOverview, oldestPriceDate } from "@/domain/overview";
 import { formatReturnRate, formatSignedAmount, pnlDirection } from "@/domain/pnl";
 import type { GroupSummary } from "@/domain/portfolio";
 import type { PnlDirection, Quote } from "@/domain/types";
+import { useFeatures } from "@/hooks/useFeatures";
 import { useLedger } from "@/hooks/useLedger";
 import { useQuotes } from "@/hooks/useQuotes";
 import { HoldingRow } from "@/ui/HoldingRow";
 import { colors, fonts, fontSize, pnlColors, radius, space, touchTarget } from "@/ui/theme";
 import { VersionBadge } from "@/ui/VersionBadge";
 
-/** 交易畫面是 Story 009，持股明細與單一持股頁是 Story 010 */
+/** 交易畫面是 Story 009，持股明細與單一持股頁是 Story 010，從截圖匯入是 Story 015 */
 const ROUTES = {
   newTransaction: "/transaction/new",
+  importScreenshot: "/import",
   holdings: "/holdings",
   holding: (symbol: string) => ({ pathname: "/holdings/[symbol]", params: { symbol } }) as const,
   calculate: "/calculate",
@@ -118,6 +120,7 @@ export default function HomeScreen({ repository = defaultRepository, priceSource
 }
 
 function EmptyState() {
+  const features = useFeatures();
   return (
     <View style={styles.card} testID="home-empty">
       <Text style={styles.emptyTitle} accessibilityRole="header">
@@ -131,6 +134,19 @@ function EmptyState() {
         testID="button-add-first-transaction"
         onPress={() => router.push(ROUTES.newTransaction)}
       />
+      {/* Story 015：由功能開關 screenshotImport 控制 */}
+      {features.screenshotImport ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="從券商截圖匯入"
+          accessibilityHint="用券商 app 的庫存截圖一次記好每一檔"
+          testID="button-empty-import"
+          onPress={() => router.push(ROUTES.importScreenshot)}
+          style={({ pressed }) => [styles.outlineButton, styles.emptyImportButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.outlineButtonText}>從券商截圖匯入</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -422,6 +438,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: space.md,
   },
+  emptyImportButton: { marginTop: space.sm },
   outlineButtonText: { fontFamily: fonts.semibold, fontSize: fontSize.md, color: colors.primary },
   calculateHint: { fontFamily: fonts.regular, fontSize: fontSize.xs, color: colors.mutedForeground, textAlign: "center" },
   pressed: { opacity: 0.85 },
