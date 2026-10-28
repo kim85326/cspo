@@ -83,6 +83,15 @@ describe("asyncStorageLedgerStore（對應 docs/stories/008）", () => {
       settings: { ...DEFAULT_USER_SETTINGS, feeDiscount: 0.28 },
     });
   });
+
+  test("刪過的自動股利（Story 012）留著，不是字串的略過；舊資料沒有這個欄位就不加", () => {
+    const good = spec37Ledger();
+    expect(parseLedger({ ...good, dismissedAutoDividends: ["2330|2026-06-11|cash", 3] })).toEqual({
+      ...good,
+      dismissedAutoDividends: ["2330|2026-06-11|cash"],
+    });
+    expect(parseLedger(good)).not.toHaveProperty("dismissedAutoDividends");
+  });
 });
 
 describe("舊版持股搬移（對應 docs/stories/008）", () => {

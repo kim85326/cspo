@@ -64,6 +64,11 @@ export type Dividend = {
   stockShares?: number;
   status: DividendStatus;
   source: "manual" | "auto";
+  /**
+   * 自動帶入（source = auto）的紀錄被使用者改過金額或按過「確認入帳」：之後不再自動更新金額（P2-03）。
+   * 手動紀錄不用這個欄位。見 docs/stories/012。
+   */
+  userModified?: boolean;
   note?: string;
   createdAt: string;
   updatedAt: string;
@@ -94,4 +99,9 @@ export type Ledger = {
   dividends: Dividend[];
   holdingSettings: HoldingSetting[];
   settings: UserSettings;
+  /**
+   * 使用者刪掉的自動帶入股利（autoDividendKey：代號|除權息日|類型），之後自動帶入不再建立（P2-03）。
+   * 選填，舊資料沒有視為空陣列。見 docs/stories/012。
+   */
+  dismissedAutoDividends?: string[];
 };

@@ -1,3 +1,10 @@
+import {
+  applyAutoDividendPlan,
+  dismissAutoDividend,
+  isEmptyPlan,
+  planAutoDividends,
+  type AutoDividendDraft,
+} from "@/domain/autoDividends";
 import { localIsoDate } from "@/domain/buyDate";
 import type { Bucket, Dividend, Ledger, Transaction, UserSettings } from "@/domain/ledgerTypes";
 import {
@@ -6,6 +13,7 @@ import {
   type LedgerChange,
   type LedgerError,
 } from "@/domain/ledgerValidation";
+import type { DividendEvent } from "@/domain/types";
 import type { LedgerStore } from "./LedgerStore";
 import { createMemoryLedgerStore } from "./memoryLedgerStore";
 
@@ -48,7 +56,13 @@ export interface LedgerRepository {
 
   addDividend(draft: DividendDraft): Promise<LedgerWriteResult>;
   updateDividend(dividend: Dividend): Promise<LedgerWriteResult>;
+  /** 刪除；自動帶入的股利會記進 dismissedAutoDividends，之後不再自動建立（Story 012） */
   deleteDividend(id: string): Promise<LedgerWriteResult>;
+  /**
+   * 股利自動帶入（P2-03，Story 012）：拿最新的記帳本依除權息事件新增、更新、移除自動股利，一次存檔。
+   * 沒有要改的就不存檔、不通知（ok 回傳原本的記帳本）。
+   */
+  syncAutoDividends(events: readonly DividendEvent[]): Promise<LedgerWriteResult>;
 
   /** 手動切換某檔的核心／衛星（M-06）；傳 null 改回依類型的預設 */
   setBucket(symbol: string, bucket: Bucket | null): Promise<LedgerWriteResult>;
@@ -100,11 +114,12 @@ export function createLedgerRepository(
     return load();
   };
 
-  /** 排進佇列：拿最新記帳本算出下一份，驗證通過再存，存成功才更新並通知 */
-  const write = (compute: (ledger: Ledger, today: string) => LedgerWriteResult): Promise<LedgerWriteResult> => {
+  /** 排進佇列：拿最新記帳本算出下一份，驗證通過再存，存成功才更新並通知。compute 回 null 代表沒有要改的，不存檔 */
+  const write = (compute: (ledger: Ledger, today: string) => LedgerWriteResult | null): Promise<LedgerWriteResult> => {
     const run = async (): Promise<LedgerWriteResult> => {
       const current = await load();
       const result = compute(current, localIsoDate(now()));
+      if (result === null) return { ok: true, ledger: current };
       if (!result.ok) return result;
       try {
         await store.save(result.ledger);
@@ -153,7 +168,23 @@ export function createLedgerRepository(
       return change({ kind: "updateDividend", dividend: { ...dividend, updatedAt: stamp() } });
     },
     deleteDividend(id) {
-      return change({ kind: "deleteDividend", id });
+      return write((ledger, today) => {
+        const old = ledger.dividends.find((d) => d.id === id);
+        const result = validateLedgerChange(ledger, { kind: "deleteDividend", id }, today);
+        if (!result.ok || !old) return result;
+        return { ok: true, ledger: dismissAutoDividend(result.ledger, old) };
+      });
+    },
+    syncAutoDividends(events) {
+      return write((ledger, today) => {
+        const plan = planAutoDividends(ledger, events, today);
+        if (isEmptyPlan(plan)) return null;
+        const at = stamp();
+        const make = (draft: AutoDividendDraft) => ({ ...draft, id: newId("div"), createdAt: at, updatedAt: at });
+        const next = applyAutoDividendPlan(ledger, plan, make, at);
+        const error = validateLedger(next);
+        return error ? { ok: false, error } : { ok: true, ledger: next };
+      });
     },
 
     setBucket(symbol, bucket) {

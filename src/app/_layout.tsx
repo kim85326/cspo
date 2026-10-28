@@ -7,6 +7,7 @@ import { useFonts } from "expo-font";
 import { SplashScreen, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { useAutoDividendSync } from "@/hooks/useAutoDividendSync";
 import { FeatureFlagsProvider } from "@/hooks/useFeatures";
 import { ProStatusProvider } from "@/hooks/useProStatus";
 import { DisclaimerGate } from "@/ui/DisclaimerGate";
@@ -16,6 +17,8 @@ import { colors, fonts } from "@/ui/theme";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  // 股利自動帶入：App 開啟時跑一次，背景執行（Story 012）
+  useAutoDividendSync();
   // 設計系統指定 IBM Plex Sans；中文字由系統字型回退。字型載好前停在 splash，避免字體跳動。
   const [fontsLoaded, fontError] = useFonts({
     IBMPlexSans_400Regular,

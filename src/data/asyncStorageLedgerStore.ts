@@ -147,6 +147,9 @@ export function parseLedger(value: unknown): Ledger | null {
     dividends: Array.isArray(value.dividends) ? value.dividends.filter(isDividend) : [],
     holdingSettings: Array.isArray(value.holdingSettings) ? value.holdingSettings.filter(isHoldingSetting) : [],
     settings: parseSettings(value.settings),
+    ...(Array.isArray(value.dismissedAutoDividends)
+      ? { dismissedAutoDividends: value.dismissedAutoDividends.filter((k): k is string => typeof k === "string") }
+      : {}),
   };
 }
 
