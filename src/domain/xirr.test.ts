@@ -10,7 +10,7 @@ import {
 
 const TODAY = "2026-10-27";
 
-describe("xirr（P2-04，對應 docs/stories/025）", () => {
+describe("xirr（P2-04，對應 docs/stories/017）", () => {
   test("規格 AC：一年前投入 100,000、今天價值 110,000 → 10.00%", () => {
     // 手算：2025-10-27 → 2026-10-27 是 365 天（剛好 1 年），110,000 ÷ 100,000 − 1 = 0.1
     const rate = xirr([

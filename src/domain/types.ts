@@ -18,7 +18,7 @@ export type Candle = {
 
 /**
  * 一次除權息（同一個除權息交易日的現金與配股合成一筆）。日期都是 ISO。
- * 來源：FinMind TaiwanStockDividend，或證交所／櫃買中心的除權除息計算結果表（見 docs/stories/019）。
+ * 來源：FinMind TaiwanStockDividend，或證交所／櫃買中心的除權除息計算結果表（見 docs/stories/021）。
  */
 export type DividendEvent = {
   kind: "dividend";

@@ -4,7 +4,7 @@
 **我想要** 把領到的股利記下來，而且 App 能依除權息資料自動幫我帶入
 **以便** 總報酬不會因為漏記股利而被低估
 
-對應規格：[product-spec.md](../product-spec.md) 的 M-03、P2-03 與 3.3、第 4 章 `Dividend`；實作指南 [T7](../mvp-implementation-guide.md)。除權息資料來源見 Story 019。
+對應規格：[product-spec.md](../product-spec.md) 的 M-03、P2-03 與 3.3、第 4 章 `Dividend`；實作指南 [T7](../mvp-implementation-guide.md)。除權息資料來源見 Story 021。
 
 ## 路由與入口
 

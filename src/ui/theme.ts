@@ -67,7 +67,7 @@ export const pnlSurfaces: Record<PnlDirection, string> = {
 };
 
 /**
- * 走勢圖（Story 016）專用色。
+ * 走勢圖（Story 030）專用色。
  * 均線避開紅、綠、金（成本）、深藍（買入點），另用實線／虛線區分，不靠顏色單獨傳達。
  * 賺賠區直接用 pnlColors 加低透明度（zoneOpacity），不另訂色碼。
  */

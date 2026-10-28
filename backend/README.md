@@ -1,6 +1,6 @@
 # AI 後端（AI 解讀＋截圖辨識）
 
-「賺了嗎」的「AI 解讀」（Story 017，`POST /insight`）與「從截圖匯入」的辨識（Story 005，`POST /recognize`）共用的本機後端。
+「賺了嗎」的「AI 解讀」（Story 031，`POST /insight`）與「從截圖匯入」的辨識（Story 005，`POST /recognize`）共用的本機後端。
 Anthropic API key 只放在這台電腦的 `backend/.env`。
 
 ```bash

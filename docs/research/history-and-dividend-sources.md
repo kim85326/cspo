@@ -171,7 +171,7 @@ GET https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=23
 
 ## 3. 建議組合，以及怎麼接進 `src/data`
 
-> **已實作：** 見 [Story 019](../stories/019-history-and-dividend-sources.md)。實作時改成沿用 Story 016 的 `CandleSource`（FinMind 本來就有開高低收），沒有另開 `HistorySource`；其餘大致照本節。
+> **已實作：** 見 [Story 021](../stories/021-history-and-dividend-sources.md)。實作時改成沿用 Story 030 的 `CandleSource`（FinMind 本來就有開高低收），沒有另開 `HistorySource`；其餘大致照本節。
 
 ### 3.1 現況
 

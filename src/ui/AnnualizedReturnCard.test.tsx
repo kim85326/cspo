@@ -64,7 +64,7 @@ const portfolio = (holdings: HoldingView[], transactions: Transaction[]) => (
   <PortfolioAnnualizedReturnCard ledger={ledgerOf(transactions)} holdings={holdings} today={TODAY} />
 );
 
-describe("年化報酬率畫面（P2-04，對應 docs/stories/028）", () => {
+describe("年化報酬率畫面（P2-04，對應 docs/stories/019）", () => {
   test("首頁：核心 +10.00%；衛星持有未滿一年；整體以最早一筆算，已滿一年", async () => {
     await renderWith(portfolio([etf, stock], [etfBuy, stockBuy]));
     expect(await screen.findByLabelText("核心年化報酬率 +10.00%")).toBeTruthy();

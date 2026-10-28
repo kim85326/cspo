@@ -5,7 +5,7 @@ import { useInsight } from "@/hooks/useInsight";
 import { colors, fonts, fontSize, radius, space, touchTarget } from "./theme";
 
 /**
- * AI 解讀（Story 017）：結果卡下方的「AI 解讀」按鈕 → 解讀中 → 解讀卡；失敗顯示原因與「重試」。
+ * AI 解讀（Story 031）：結果卡下方的「AI 解讀」按鈕 → 解讀中 → 解讀卡；失敗顯示原因與「重試」。
  * 由功能開關 aiInsight 控制（src/config/features.ts，可遠端切換），開關在 CalculateScreen 判斷。
  */
 export function InsightSection({ input }: { input: InsightInput }) {

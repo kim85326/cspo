@@ -19,7 +19,7 @@ import { summarize } from "./portfolio";
 import { computePosition } from "./position";
 import { portfolioAnnualizedReturns, positionCashFlows } from "./xirr";
 
-/** 多幣別預留（product-spec 3.8、第 4 章；docs/stories/029，對應實作指南 T1b） */
+/** 多幣別預留（product-spec 3.8、第 4 章；docs/stories/025，對應實作指南 T1b） */
 
 const TODAY = "2026-10-27";
 const stock = { type: "stock" as const, today: TODAY };

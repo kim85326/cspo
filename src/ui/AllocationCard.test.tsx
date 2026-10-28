@@ -19,12 +19,12 @@ function holding(symbol: string, name: string, type: SecurityType, shares: numbe
   };
 }
 
-// 2330 市值 600,000、0050 300,000、2317 100,000（Story 025 的配置範例）
+// 2330 市值 600,000、0050 300,000、2317 100,000（Story 017 的配置範例）
 const tsmc = holding("2330", "台積電", "stock", 1000, 600);
 const etf = holding("0050", "元大台灣50", "etf", 2000, 150);
 const honhai = holding("2317", "鴻海", "stock", 1000, 100);
 
-describe("AllocationCard 配置圓餅圖（對應 docs/stories/028）", () => {
+describe("AllocationCard 配置圓餅圖（對應 docs/stories/019）", () => {
   test("預設看核心／衛星：核心 30%、衛星 70%", async () => {
     await render(<AllocationCard holdings={[tsmc, etf, honhai]} holdingSettings={[]} />);
     expect(screen.getByLabelText("核心 30.00%，市值 300,000 元")).toBeTruthy();

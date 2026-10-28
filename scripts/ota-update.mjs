@@ -6,7 +6,7 @@
 //
 // 會先用 fingerprint 比對「最新的 preview APK」：原生部分沒變才發 OTA；變了就停下來，請你重打 APK。
 // 同學收到更新的方式：把 app 從最近使用清單滑掉再打開，第二次打開就是新版。
-// 「說明」會寫進這次的 bundle（EXPO_PUBLIC_OTA_MESSAGE），app 底部的版本資訊點開就看得到（Story 018）。
+// 「說明」會寫進這次的 bundle（EXPO_PUBLIC_OTA_MESSAGE），app 底部的版本資訊點開就看得到（Story 032）。
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";

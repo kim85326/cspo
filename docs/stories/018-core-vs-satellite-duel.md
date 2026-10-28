@@ -1,7 +1,7 @@
-# Story 027：個股 vs ETF 對決 A（我的核心 vs 我的衛星）
+# Story 018：個股 vs ETF 對決 A（我的核心 vs 我的衛星）
 
-> **對應實作指南 T12／Story 018**。指南給的編號 018 已經被版本標示（[018-version-badge.md](018-version-badge.md)）用掉，所以改用 027。
-> 規格：[product-spec.md](../product-spec.md) **P2-05 A**；Tech Day 範圍與優先順序第 3 項。年化報酬率的算法沿用 [Story 025](025-xirr-and-allocation.md)，Pro 鎖定沿用 [Story 020](020-pro-plan-lock.md)。
+> **對應實作指南 T12。** 原本因為 018 被版本標示用掉而暫用 027，2026-10-28 統一改回指南的 018（版本標示改為 032，見 [docs/README.md](../README.md)「Story 編號對照」）。
+> 規格：[product-spec.md](../product-spec.md) **P2-05 A**；Tech Day 範圍與優先順序第 3 項。年化報酬率的算法沿用 [Story 017](017-xirr-and-allocation.md)，Pro 鎖定沿用 [Story 020](020-pro-plan-lock.md)。
 
 **身為** 同時買 ETF 和個股的投資新手
 **我想要** 把我的 ETF（核心）和個股（衛星）並排比一比，並看到一句白話結論

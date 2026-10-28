@@ -1,7 +1,7 @@
 import type { AllocationSlice } from "./allocation";
 
 /**
- * 配置圓餅圖（P2-07、Story 028）的畫圖用計算：把占比換成甜甜圈的每一段弧。
+ * 配置圓餅圖（P2-07、Story 019）的畫圖用計算：把占比換成甜甜圈的每一段弧。
  * 比例本身來自 allocation.ts 的 computeAllocation，這裡不重算。
  */
 

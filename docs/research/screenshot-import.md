@@ -8,7 +8,7 @@
 
 > **2026-10-27 更新：已實作，採用的做法和下面推薦的不同。**
 >
-> - **辨識改走本機後端 `backend/` 的 `POST /recognize`**（和 AI 解讀 Story 017 同一台），不部署 EAS Hosting。理由：Elaine 的硬性條件是 **API key 只能留在她的電腦上**；EAS Hosting 要把 key 放進 EAS 的 secret，等於放到 Expo 的伺服器上。本機後端已經有存取碼、每 IP 頻率、每日上限、同時處理數、CORS 與 ngrok 固定網址，直接沿用（§3 的四層防護都有：存取碼、依 `X-Forwarded-For` 最後一個值的頻率限制、5 MB 上限＋看檔頭、Console 花費上限）。
+> - **辨識改走本機後端 `backend/` 的 `POST /recognize`**（和 AI 解讀 Story 031 同一台），不部署 EAS Hosting。理由：Elaine 的硬性條件是 **API key 只能留在她的電腦上**；EAS Hosting 要把 key 放進 EAS 的 secret，等於放到 Expo 的伺服器上。本機後端已經有存取碼、每 IP 頻率、每日上限、同時處理數、CORS 與 ngrok 固定網址，直接沿用（§3 的四層防護都有：存取碼、依 `X-Forwarded-For` 最後一個值的頻率限制、5 MB 上限＋看檔頭、Console 花費上限）。
 > - dev server 的 `src/app/recognize+api.ts` 與 `src/server/recognizeHoldings.ts` **已刪除**，網頁版也改打後端：辨識邏輯只留一份（`backend/src/claudeRecognize.ts`），key 也只剩 `backend/.env` 一個地方。
 > - **§1.4 的 mimeType bug 已修**：後端看檔頭判斷格式（`backend/src/recognizeRequest.ts`），不信任 app 的 mimeType；app 端 `src/domain/imageMimeType.ts` 依序用檔案內容 → 副檔名 → picker 的值猜一個當提示，猜不到就不送。
 > - 真 key 實測 2 次（本機後端，port 8797）：`01-lots-cost.q60.jpg` **標成 `image/png` 送出**（重現手機的情況）→ 200，後端認成 `image/jpeg`，3 檔與 `expected.json` 完全一致，10 秒，4,602／563 tokens ≈ **US$0.030**；`03-mixed-en-six.png` → 200，7 列全對，並提示台積電重複，8 秒，4,602／752 tokens ≈ **US$0.033**。符合 §4 的估計。

@@ -105,7 +105,7 @@ Scenario: 沒有相簿或相機權限
 
 ## 功能開關
 
-由 `src/config/features.ts` 的 `screenshotImport` 控制，**預設關閉**，可以遠端切換（Story 026），不用重打 APK、不用發 OTA。
+由 `src/config/features.ts` 的 `screenshotImport` 控制，**預設關閉**，可以遠端切換（Story 033），不用重打 APK、不用發 OTA。
 
 **Tech Day 現場打開**（細節見 [architecture.md](../architecture.md) 第 7 節）：
 

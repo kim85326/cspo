@@ -134,7 +134,7 @@ Scenario: 功能開關關閉
 
 ## 功能開關
 
-沿用 `screenshotImport`（預設關閉，可遠端切換，見 Story 005「功能開關」與 Story 026）。開關關閉時首頁、新增交易頁都沒有入口，直接進 `/import` 會導回首頁。
+沿用 `screenshotImport`（預設關閉，可遠端切換，見 Story 005「功能開關」與 Story 033）。開關關閉時首頁、新增交易頁都沒有入口，直接進 `/import` 會導回首頁。
 工程同學在網頁版試：`.env.local` 加 `EXPO_PUBLIC_FEATURE_SCREENSHOT_IMPORT=1`、`EXPO_PUBLIC_USE_FAKE_RECOGNIZER=1`（不開後端、固定回兩檔），重開 `npx expo start`。
 
 ## 狀態

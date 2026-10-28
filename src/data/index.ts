@@ -50,7 +50,7 @@ const useFakeInsight =
  * - 其他情況：證交所（上市）+ 櫃買中心（上櫃）最近一個交易日的收盤價，合成一個來源（marketSource）。
  *   一邊失敗另一邊照用，見 docs/stories/007。
  * - 歷史日 K（K 線圖、走勢、定期定額）與除權息、分割：FinMind 為主，失敗（含超過次數上限、週日維護）
- *   自動退回證交所／櫃買中心；外面包一層 AsyncStorage 快取，抓過的月份不再抓。見 docs/stories/019。
+ *   自動退回證交所／櫃買中心；外面包一層 AsyncStorage 快取，抓過的月份不再抓。見 docs/stories/021。
  *
  * EXPO_PUBLIC_ 變數會在打包時被 Expo CLI 直接換成字串，所以必須整個寫死 `process.env.EXPO_PUBLIC_…`，
  * 不能用變數或解構拿。切法見 docs/architecture.md 第 7 節。
@@ -98,7 +98,7 @@ export const holdingStore: HoldingStore = createQuickCalcHoldingStore(ledgerRepo
 export const holdingRecognizer: HoldingRecognizer = useFakeRecognizer
   ? fakeHoldingRecognizer
   : backendHoldingRecognizer;
-/** AI 解讀（Story 017）：打工程同學電腦上的 backend/，見 docs/architecture.md 第 7 節 */
+/** AI 解讀（Story 031）：打工程同學電腦上的 backend/，見 docs/architecture.md 第 7 節 */
 export const insightProvider: InsightProvider = useFakeInsight
   ? fakeInsightProvider
   : backendInsightProvider;

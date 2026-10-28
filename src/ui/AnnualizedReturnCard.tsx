@@ -11,7 +11,7 @@ import { ProGate } from "./ProLockedCard";
 import { cardSurface, cardTitle, colors, fonts, fontSize, pnlColors, space } from "./theme";
 
 /**
- * 年化報酬率（P2-04、實作指南 T11 的畫面，Story 028）。數字全部來自 src/domain/xirr.ts。
+ * 年化報酬率（P2-04、實作指南 T11 的畫面，Story 019）。數字全部來自 src/domain/xirr.ts。
  * 年化報酬率是 Pro 功能（P2-08）：Pro 方案開關（proPlan）打開時用 ProGate 包住；
  * 開關關閉（APK 目前的狀態）時還沒有 Free／Pro 之分，直接顯示，免得「升級 Pro」按了被導回首頁。
  */

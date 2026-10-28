@@ -1,7 +1,7 @@
 import type { Currency, Dividend, LedgerMarket, Transaction } from "./ledgerTypes";
 
 /**
- * 多幣別（product-spec 3.8，docs/stories/029）。Tech Day 期間全部是台股、台幣，
+ * 多幣別（product-spec 3.8，docs/stories/025）。Tech Day 期間全部是台股、台幣，
  * 這裡的規則算出來的結果跟以前完全一樣；之後支援美股（8.2）時計算引擎不用重寫。
  *
  * - 所有報酬以台幣計算。外幣金額一律乘以「該筆紀錄自己的」fxRate，不用今天的匯率回頭換算。

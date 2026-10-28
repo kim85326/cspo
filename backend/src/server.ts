@@ -16,7 +16,7 @@ import { InvalidRecognizeRequest, parseRecognizeRequest, type RecognizeInput } f
 /**
  * 路由（只開這三條，其他一律 404）：
  * - GET  /health     → 200，回報 key／token 有沒有設（不回值）
- * - POST /insight    → AI 解讀（Story 017）
+ * - POST /insight    → AI 解讀（Story 031）
  * - POST /recognize  → 截圖匯入的辨識（Story 005）；大小上限另外設（INSIGHT_RECOGNIZE_MAX_IMAGE_BYTES）
  *   兩條 POST 依序檢查：頻率 → 存取碼 → API key → 大小 → 格式 → 每日上限 → 同時處理數 → 呼叫 Claude，
  *   而且共用同一份頻率限制、每日上限與同時處理數（整台後端一個預算）。

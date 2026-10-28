@@ -1,6 +1,6 @@
 import type { InsightInput } from "@/domain/insightInput";
 
-/** AI 解讀的結果（Story 017）。文字都已經過後端的禁用字眼檢查。 */
+/** AI 解讀的結果（Story 031）。文字都已經過後端的禁用字眼檢查。 */
 export type Insight = {
   /** 一句話總結 */
   summary: string;

@@ -60,7 +60,7 @@ cspo/
 │   │   └── tpex+api.ts 網頁版同源代理 GET /tpex → 櫃買中心（沒開 CORS）
 │   ├── screens/        畫面本體與畫面測試
 │   │   ├── HomeScreen.tsx      首頁總覽：整體／核心／衛星、前 5 檔持股、新增交易與快速試算入口（Story 011）
-│   │   ├── CalculateScreen.tsx 快速試算（Story 001～005、016、017）
+│   │   ├── CalculateScreen.tsx 快速試算（Story 001～005、030、031）
 │   │   ├── SettingsScreen.tsx  設定頁（Story 013、020）
 │   │   ├── ProScreen.tsx       Pro 方案介紹頁（Story 020）
 │   │   ├── AssetHistoryScreen.tsx 資產走勢頁 /history（Story 023）
@@ -68,7 +68,7 @@ cspo/
 │   │   ├── HoldingsScreen.tsx  持股明細：持有中／已出清、排序（Story 010）
 │   │   ├── HoldingDetailScreen.tsx 單一持股：數字摘要、核心／衛星、股價走勢、交易與股利紀錄（Story 010）
 │   │   └── *.test.tsx
-│   ├── config/features.ts 功能開關：screenshotImport、aiInsight、proPlan（預設關閉；可遠端切換，畫面用 hooks/useFeatures 讀，見 Story 026）
+│   ├── config/features.ts 功能開關：screenshotImport、aiInsight、proPlan（預設關閉；可遠端切換，畫面用 hooks/useFeatures 讀，見 Story 033）
 │   ├── hooks/          useProStatus（Pro 狀態 Provider）、useDisclaimerConsent、usePersistedHoldings、useLedger（畫面讀寫記帳本，Story 008）、useQuotes（一次抓多檔現價，Story 011）等
 │   ├── domain/         純 TypeScript，不碰 UI 與網路，單元測試主戰場
 │   │   ├── types.ts        Holding、Quote、PnlResult、StockInfo（含 type 個股／ETF、market 上市／上櫃）、SecurityType、Market
@@ -81,19 +81,19 @@ cspo/
 │   │   ├── position.ts     computePosition（依日期重播 → 持股、平均成本、已實現、未實現、股利、總報酬、持有天數）、replaySymbol
 │   │   ├── portfolio.ts    summarize（整體、核心、衛星三組加總）、bucketOf、defaultBucket
 │   │   ├── holdings.ts     buildHoldingViews、activeHoldings／closedHoldings、sortHoldings、symbolHistory、unrealizedRate、顯示格式（Story 010）
-│   │   ├── xirr.ts         xirr（牛頓法，不收斂改二分法）、positionCashFlows、positionAnnualizedReturn、portfolioAnnualizedReturns（P2-04，Story 025）
+│   │   ├── xirr.ts         xirr（牛頓法，不收斂改二分法）、positionCashFlows、positionAnnualizedReturn、portfolioAnnualizedReturns（P2-04，Story 017）
 │   │   ├── overview.ts     buildOverview（記帳本 + 現價 → 用 holdings.ts 的 buildHoldingViews 算每檔、三組加總、持有中依市值排序）、oldestPriceDate（Story 011）
 │   │   ├── assetHistory.ts buildAssetHistory（逐日總市值與累計投入）、rangeStart、symbolsInRange、layoutAssetChart（P2-07 走勢圖，Story 023）
 │   │   ├── benchmark.ts    對決 B「如果改買 0050」：benchmarkStart、benchmarkFlows、simulateBenchmark、buildBenchmarkDuel（P2-05 B，Story 022）
-│   │   ├── currency.ts     多幣別預留：currencyOf、fxRateOf、toTwd、symbolCurrency、currentFxRate、FxRateLookup（product-spec 3.8，Story 029）
+│   │   ├── currency.ts     多幣別預留：currencyOf、fxRateOf、toTwd、symbolCurrency、currentFxRate、FxRateLookup（product-spec 3.8，Story 025）
 │   │   ├── dca.ts          定期定額：duePeriods、dcaPurchase（股數公式）、generateDcaTransactions（補產生、去重、順延）（P2-02，Story 024）
-│   │   ├── allocation.ts   computeAllocation（核心／衛星、個股／ETF、每檔市值占比）、toDisplayPercents（P2-07 配置圖，Story 025）
+│   │   ├── allocation.ts   computeAllocation（核心／衛星、個股／ETF、每檔市值占比）、toDisplayPercents（P2-07 配置圖，Story 017）
 │   │   ├── migrateSavedHoldings.ts 舊版持股 → 買入交易（migrateSavedHoldings）、emptyLedger、快速試算初始值用的 savedHoldingsFromLedger；replaceSavedHoldings 已沒有人用，快速試算拿掉時一起刪（Story 008、011）
 │   │   ├── ledgerValidation.ts validateLedgerChange（新增／修改／刪除後重播，賣超就拒絕並說是哪一筆）、validateLedger、欄位檢查
 │   │   ├── transactionForm.ts 交易表單的字串處理：全形轉半形、自動帶入手續費與稅（autoCosts）、預估總金額、存檔前驗證（Story 009）
 │   │   ├── plan.ts         PRO_FEATURES（Pro 功能清單）、isPro（是不是 Pro 只問它，Story 020）
 │   │   ├── ledgerTestData.ts   測試共用資料（product-spec 3.7 範例、makeTx、makeDividend），只給 *.test.ts 用
-│   │   ├── versionInfo.ts  describeVersion：版本原始值 → 底部那行小字與詳細資訊（Story 018）
+│   │   ├── versionInfo.ts  describeVersion：版本原始值 → 底部那行小字與詳細資訊（Story 032）
 │   │   └── *.test.ts
 │   ├── data/           對外資料來源
 │   │   ├── PriceSource.ts      介面：getQuote(symbol) → Quote | null
@@ -118,7 +118,7 @@ cspo/
 │   │   ├── asyncStorageHoldingStore.ts 舊版 `cspo.holdings.v1`，現在只用來讀舊資料搬移
 │   │   ├── appPrefs.ts         本機是非設定：免責聲明已同意、Pro Demo 開關（AsyncStorage）
 │   │   ├── __fixtures__/       真實 API 回應（裁剪過），測試用：tpexMainboardQuotes.json
-│   │   ├── appVersionSource.ts 讀 expo-application／expo-constants／expo-updates 的版本原始值（Story 018）
+│   │   ├── appVersionSource.ts 讀 expo-application／expo-constants／expo-updates 的版本原始值（Story 032）
 │   │   └── index.ts            Jest 或 EXPO_PUBLIC_USE_FAKE_PRICES=1 用假來源，否則 marketSource（證交所 + 櫃買中心）
 │   └── ui/             可重用元件與設計 token
 │       ├── theme.ts        設計 token：colors / pnlColors（漲紅跌綠）/ pnlColorsOnBrand / type（字級階層）/ space / radius / shadow / cardSurface / iconSize / pressedOpacity
@@ -132,7 +132,7 @@ cspo/
 │       ├── HoldingRow.tsx  持股明細的一列（精簡版給首頁、detailed 給持股明細）、BucketTag（Story 010）
 │       ├── Segmented.tsx   分段切換（radiogroup）
 │       ├── ComparisonCard.tsx 多檔比較結果（排名、表現最好／最差、合計）
-│       └── VersionBadge.tsx 畫面最底部的版本資訊，點開看詳細、可複製（Story 018）
+│       └── VersionBadge.tsx 畫面最底部的版本資訊，點開看詳細、可複製（Story 032）
 │       ├── DisclaimerGate.tsx 首次開啟的免責聲明 Modal；DISCLAIMER_TEXT（M-10 原文）
 │       ├── BenchmarkDuelCard.tsx 對決 B 卡片：基準與期間切換、衛星／整體兩段結論、載入失敗重試（Story 022）
 │       ├── AssetHistoryCard.tsx / AssetHistoryChart.tsx 資產走勢卡片（期間切換、Pro 鎖、載入／失敗／資料不足）與 SVG 圖（Story 023）
@@ -141,7 +141,7 @@ cspo/
 ├── docs/
 │   ├── architecture.md 架構、分工、迭代規劃（最完整的設計文件）
 │   ├── glossary.md     共同語言與顯示慣例
-│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、006 計算引擎、007 證券類型與上櫃、008 新儲存層、009 交易輸入、010 持股明細與核心／衛星、011 首頁總覽、013 免責聲明、016 K 線圖、017 AI 解讀、018 版本資訊、019 歷史資料來源、020 Free／Pro 鎖定畫面、022 對決 B（如果改買 0050）、023 資產走勢圖、024 定期定額自動記帳、025 年化報酬率與資產配置、029 資料模型預留多幣別（實作指南 T1b）（Gherkin AC + 對應測試表 + 決策紀錄）
+│   ├── stories/        001 單筆盈虧、002 股票選擇器、003 多檔比較、004 存持股、005 截圖匯入、006 計算引擎、007 證券類型與上櫃、008 新儲存層、009 交易輸入、010 持股明細與核心／衛星、011 首頁總覽、012 股利、013 免責聲明、015 截圖匯入產生交易、017 年化報酬率與資產配置（計算）、018 對決 A（核心 vs 衛星）、019 配置圓餅圖與年化報酬率（畫面）、020 Free／Pro 鎖定畫面、021 歷史資料來源、022 對決 B（如果改買 0050）、023 資產走勢圖、024 定期定額自動記帳、025 資料模型預留多幣別；規格外：030 K 線圖與買在高點還是低點、031 AI 解讀、032 版本資訊、033 遠端功能開關。編號對照見 docs/README.md；016 是 Google 登入（另一個分支）（Gherkin AC + 對應測試表 + 決策紀錄）
 │   ├── test-plan.md    手動測試清單、bug 回報格式
 │   └── context-for-ai.md 本檔
 ├── design-system/stock-pnl/MASTER.md
@@ -168,7 +168,7 @@ cspo/
 - 網頁版在 375px 寬實測過；iPhone 透過 Expo Go tunnel 載入成功。
 - 第一個 commit 在 `iteration-1` 分支。
 - Story 024：定期定額自動記帳（`src/domain/dca.ts`、`src/data/dcaRules.ts`、`src/app/dca/`）。入口在設定頁；App 開啟時由根 layout 的 `DcaAutoRunner` 補帳。記帳本加了選填欄位 `dcaRules`，不用搬移。
-- Story 029（實作指南 T1b）：`Transaction`、`Dividend`、`HoldingSetting` 加選填的 `market`／`currency`／`fxRate`（股利另有 `withholdingTax`），沒填視為台股、TWD、1，不用搬移。計算引擎每筆金額先乘自己的 `fxRate`（`src/domain/currency.ts` 的 `toTwd`），結果全是台幣。畫面沒改。
+- Story 025（實作指南 T1b）：`Transaction`、`Dividend`、`HoldingSetting` 加選填的 `market`／`currency`／`fxRate`（股利另有 `withholdingTax`），沒填視為台股、TWD、1，不用搬移。計算引擎每筆金額先乘自己的 `fxRate`（`src/domain/currency.ts` 的 `toTwd`），結果全是台幣。畫面沒改。
 
 ### 進行中 / 待辦
 - **Android APK**：`eas.json` 已備好，`eas build -p android --profile preview` 第一次執行會在 Expo 帳號建專案並產生簽章金鑰（Elaine 正在跑或準備跑）。
@@ -180,13 +180,13 @@ cspo/
   - ~~新儲存層與舊資料搬移~~（Story 008 已完成：記帳本存 `cspo.ledger.v1`，舊版持股第一次開 App 自動轉成買入交易；首頁經過渡轉接照常使用。舊資料有買入日期就用那天，沒有才用搬移當天，PO 已確認）
   - ~~交易輸入畫面~~（Story 009 已完成：`/transaction/new`（可帶 `?symbol=`）、`/transaction/<id>`；手續費與證交稅自動帶入可覆寫、儲存並繼續新增、刪除二次確認。首頁還沒有入口，T5／T6 加）
   - ~~從券商截圖匯入持股~~（Story 005：expo-image-picker + Expo Router API route `/recognize` + Claude vision；API key 放 `.env`，見 architecture.md 第 7 節）
-  - ~~K 線圖與買入點~~（Story 016：證交所 STOCK_DAY 日 K，近 3～6 個月；`react-native-svg` 自繪；選填「買入日期」標 ▲；網頁版走 `/twse-day` 代理）
+  - ~~K 線圖與買入點~~（Story 030：證交所 STOCK_DAY 日 K，近 3～6 個月；`react-native-svg` 自繪；選填「買入日期」標 ▲；網頁版走 `/twse-day` 代理）
   - 免責聲明（Story 013：首次開啟要按同意，設定頁常駐；「設定」在底部分頁）
   - Free／Pro 鎖定畫面（Story 020：只做畫面，不串金流；`features.proPlan` 預設關閉；Demo 開關在設定頁底部）
   - 手續費 0.1425%（最低 20 元）與交易稅 0.3%
   - 持股明細、單一持股頁、核心／衛星切換（Story 010：`/holdings`、`/holdings/[symbol]`；首頁的持股列與「看全部持股」也連到這裡。未實現 % 的分母待 PO 確認，見 story 決策 2）
-  - 年化報酬率（XIRR）與資產配置的計算（Story 025，`src/domain/xirr.ts`、`allocation.ts`）已完成，畫面（首頁年化報酬率、配置圓餅圖）還沒接
-  - 年化報酬率（XIRR）與資產配置的計算（Story 025，`src/domain/xirr.ts`、`allocation.ts`）已完成，畫面（首頁年化報酬率、配置圓餅圖）還沒接；首頁已留位置
+  - 年化報酬率（XIRR）與資產配置的計算（Story 017，`src/domain/xirr.ts`、`allocation.ts`）已完成，畫面（首頁年化報酬率、配置圓餅圖）還沒接
+  - 年化報酬率（XIRR）與資產配置的計算（Story 017，`src/domain/xirr.ts`、`allocation.ts`）已完成，畫面（首頁年化報酬率、配置圓餅圖）還沒接；首頁已留位置
   - 首頁總覽（Story 011）：首頁改成整體／核心／衛星總覽，沒有交易時引導「新增第一筆交易」；舊的試算畫面搬到 `/calculate`（「快速試算」），不再寫進記帳本。要不要拿掉快速試算、要不要改分頁導覽，待 PO 決定
 - **第三迭代候選**：報酬率圖、到價提醒、商店截圖與隱私權政策。
 

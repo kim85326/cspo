@@ -14,7 +14,7 @@ export type Bucket = "core" | "satellite";
 export type TradeSide = "buy" | "sell";
 
 /**
- * 交易幣別 [多幣別預留]（product-spec 3.8、第 4 章；docs/stories/029）。
+ * 交易幣別 [多幣別預留]（product-spec 3.8、第 4 章；docs/stories/025）。
  * Tech Day 期間一律 TWD；沒填的舊資料視為 TWD。
  */
 export type Currency = "TWD" | "USD";
@@ -171,5 +171,5 @@ export type Ledger = {
    * 定期定額規則（Story 024）。選填：舊資料沒有這個欄位，讀到時當成沒有規則，不用升 schemaVersion、不用搬移。
    */
   dcaRules?: DcaRule[];
-  // 多幣別欄位（market、currency、fxRate、withholdingTax）都在各筆紀錄上、都是選填，同樣不升 schemaVersion（Story 029）
+  // 多幣別欄位（market、currency、fxRate、withholdingTax）都在各筆紀錄上、都是選填，同樣不升 schemaVersion（Story 025）
 };

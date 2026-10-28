@@ -494,7 +494,7 @@ describe("證券類型與上櫃股票（對應 docs/stories/007）", () => {
   });
 });
 
-describe("走勢圖與買入點（對應 docs/stories/016）", () => {
+describe("走勢圖與買入點（對應 docs/stories/030）", () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
@@ -684,7 +684,7 @@ describe("走勢圖與買入點（對應 docs/stories/016）", () => {
     expect(await screen.findByText(CANDLE_EMPTY)).toBeTruthy();
   });
 
-  test("上櫃股票也有走勢圖（Story 019 的 candleSource）", async () => {
+  test("上櫃股票也有走勢圖（Story 021 的 candleSource）", async () => {
     await renderScreen();
     await typeStock("6488");
     await fillPriceAndShares("800", "1000");
@@ -739,7 +739,7 @@ describe("走勢圖與買入點（對應 docs/stories/016）", () => {
   });
 });
 
-describe("版本資訊（對應 docs/stories/018）", () => {
+describe("版本資訊（對應 docs/stories/032）", () => {
   test("最底部看得到版本，點開看得到詳細資訊與複製按鈕", async () => {
     await renderScreen();
     // Jest 跑的是 dev 模式，所以標示「開發版」；版本號由 jest-expo 的原生模組 mock 決定，不在這裡驗
@@ -753,7 +753,7 @@ describe("版本資訊（對應 docs/stories/018）", () => {
   });
 });
 
-describe("AI 解讀（對應 docs/stories/017）", () => {
+describe("AI 解讀（對應 docs/stories/031）", () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });

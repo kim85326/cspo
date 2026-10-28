@@ -85,7 +85,7 @@ async function conclusion() {
   return within(card);
 }
 
-describe("個股 vs ETF 對決 A（對應 docs/stories/027）", () => {
+describe("個股 vs ETF 對決 A（對應 docs/stories/018）", () => {
   test("兩邊都超過一年：並排顯示總報酬、報酬率，結論比年化報酬率", async () => {
     await renderVersus(longLedger(), { "2330": 130, "0050": 115 });
 

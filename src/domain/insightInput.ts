@@ -2,7 +2,7 @@ import { calculatePnl } from "./pnl";
 import type { Holding, Quote } from "./types";
 
 /**
- * 「AI 解讀」要送給後端的資料（Story 017）。格式由 backend/src/insightRequest.ts 驗證，兩邊要一起改。
+ * 「AI 解讀」要送給後端的資料（Story 031）。格式由 backend/src/insightRequest.ts 驗證，兩邊要一起改。
  *
  * 只有股票代號、名稱、股數、成本、現價、盈虧、報酬率與合計，**不含任何個人資料**
  * （沒有帳號、裝置、交易日期、券商、備註）。這是純函式，不碰畫面也不碰網路。

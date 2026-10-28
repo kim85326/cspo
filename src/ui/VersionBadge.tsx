@@ -13,7 +13,7 @@ type Props = {
 type CopyState = "idle" | "copied" | "failed";
 
 /**
- * 畫面最底部的版本資訊（Story 018）：一行小字，點一下展開完整資訊與「複製版本資訊」按鈕。
+ * 畫面最底部的版本資訊（Story 032）：一行小字，點一下展開完整資訊與「複製版本資訊」按鈕。
  * 文字整理在 src/domain/versionInfo.ts，原始值來自 src/data/appVersionSource.ts。
  * 自成一塊，首頁換成總覽頁時整個搬過去即可。
  */

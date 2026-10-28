@@ -33,7 +33,7 @@ export default function RootLayout() {
 
   if (!fontsLoaded && !fontError) return null;
 
-  // FeatureFlagsProvider：功能開關，啟動與回到前景時抓遠端（Story 026）；
+  // FeatureFlagsProvider：功能開關，啟動與回到前景時抓遠端（Story 033）；
   // ProStatusProvider：Pro 狀態全 app 共用（Story 020）；DisclaimerGate：首次開啟的免責聲明（Story 013）
   return (
     <FeatureFlagsProvider>

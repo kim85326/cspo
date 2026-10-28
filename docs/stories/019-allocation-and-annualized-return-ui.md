@@ -1,9 +1,9 @@
-# Story 028：配置圓餅圖與年化報酬率（畫面）
+# Story 019：配置圓餅圖與年化報酬率（畫面）
 
-> 對應實作指南 **T13／Story 019**（配置圓餅圖），以及 **T11 的畫面**（年化報酬率）。
-> PO 原本給的編號 019 已經被「歷史資料來源」用掉，所以改用 028。
+> 對應實作指南 **T13**（配置圓餅圖），以及 **T11 的畫面**（年化報酬率）。
+> 原本因為 019 被「歷史資料來源」用掉而暫用 028，2026-10-28 統一改回指南的 019（歷史資料來源改為 021，見 [docs/README.md](../README.md)「Story 編號對照」）。
 > 規格：[product-spec.md](../product-spec.md) **P2-07 配置圖**、**P2-04**、**P2-08**（年化報酬率是 Pro 功能）。
-> 計算在 [Story 025](025-xirr-and-allocation.md) 已經做好（`src/domain/allocation.ts`、`src/domain/xirr.ts`），這張只做畫面，沒有重寫計算。
+> 計算在 [Story 017](017-xirr-and-allocation.md) 已經做好（`src/domain/allocation.ts`、`src/domain/xirr.ts`），這張只做畫面，沒有重寫計算。
 
 **身為** 同時買 ETF 和個股的長期投資人
 **我想要** 在首頁看到錢怎麼分在核心／衛星、個股／ETF 與每檔持股，也看到整體、核心、衛星與每檔的年化報酬率
@@ -86,7 +86,7 @@ Scenario: 年化報酬率是 Pro 功能（P2-08）
 | 情境 | 單元測試 | 畫面測試 |
 |---|---|---|
 | 配置圓餅圖、切換三種分法、改核心／衛星 | — | `src/ui/AllocationCard.test.tsx` |
-| 比例加總 100%、不留縫 | `src/domain/allocation.test.ts`（Story 025）、`src/domain/allocationChart.test.ts` | — |
+| 比例加總 100%、不留縫 | `src/domain/allocation.test.ts`（Story 017）、`src/domain/allocationChart.test.ts` | — |
 | 只有一種類型 | `src/domain/allocationChart.test.ts` | `src/ui/AllocationCard.test.tsx` |
 | 持股太多合成「其他」 | `src/domain/allocationChart.test.ts` | — |
 | 缺少價格、載入中 | — | `src/ui/AllocationCard.test.tsx`、`src/ui/AnnualizedReturnCard.test.tsx` |

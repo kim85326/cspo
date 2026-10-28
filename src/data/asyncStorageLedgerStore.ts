@@ -140,7 +140,7 @@ function parseJson(raw: string): unknown {
  * JSON → Ledger。整份不像記帳本（不是物件、schemaVersion 不是 1、transactions 不是陣列）回 null；
  * 個別欄位型別不對的交易、股利、持股設定、定期定額規則略過；手續費設定缺的欄位用預設值。
  * 定期定額規則（Story 024）是後來加的選填欄位：舊資料沒有就不帶這個欄位，等於沒有規則，不用搬移。
- * 多幣別欄位（Story 029）也是選填：舊資料沒有就視為台股、TWD、匯率 1；值認不得的只拿掉那個欄位，不丟整筆。
+ * 多幣別欄位（Story 025）也是選填：舊資料沒有就視為台股、TWD、匯率 1；值認不得的只拿掉那個欄位，不丟整筆。
  */
 export function parseLedger(value: unknown): Ledger | null {
   if (!isRecord(value) || value.schemaVersion !== 1 || !Array.isArray(value.transactions)) return null;

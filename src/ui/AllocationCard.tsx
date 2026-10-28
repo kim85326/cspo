@@ -10,7 +10,7 @@ import { Segmented } from "./Segmented";
 import { cardSurface, cardTitle, colors, fonts, fontSize, space } from "./theme";
 
 /**
- * 配置圓餅圖（P2-07 配置圖、實作指南 T13，Story 028）。比例來自 src/domain/allocation.ts。
+ * 配置圓餅圖（P2-07 配置圖、實作指南 T13，Story 019）。比例來自 src/domain/allocation.ts。
  * 三種看法用分段切換：核心／衛星（預設）、個股／ETF、每檔持股。
  * 圖例一定附文字與百分比，不靠顏色單獨傳達；整張圖對螢幕閱讀器隱藏，改讀圖例。
  */

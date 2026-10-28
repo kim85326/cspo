@@ -102,9 +102,9 @@ app 的現價來自證交所 OpenAPI 的「每日收盤行情」，是前一個�
 | S11 | 核對完把建倉日期改成實際買的日期，按「匯入 N 筆交易」：回到首頁，持股明細看得到每一檔；點進去的交易是買入、手續費 0、備註「拍照匯入期初持股」 | | | 首頁的累計投入 = 每檔平均成本 × 股數加總 |
 | S12 | 長的庫存分兩張截圖：按「再加一張截圖」接在後面；兩張重疊的那檔標紅字，刪掉一列才能匯入。已經記過的股票有「記帳本裡已經有這檔…」提醒。核對到一半按「取消，不匯入」：記帳本沒有變 | | | |
 
-## 股價走勢圖與買入點（Story 016）
+## 股價走勢圖與買入點（Story 030）
 
-資料來自 FinMind，失敗時退回證交所／櫃買中心（Story 019），上市、上櫃、ETF 都有。對照網站：上市 https://www.twse.com.tw/zh/trading/historical/stock-day.html 、上櫃 https://www.tpex.org.tw/zh-tw/mainboard/trading/info/stock-pricing.html
+資料來自 FinMind，失敗時退回證交所／櫃買中心（Story 021），上市、上櫃、ETF 都有。對照網站：上市 https://www.twse.com.tw/zh/trading/historical/stock-day.html 、上櫃 https://www.tpex.org.tw/zh-tw/mainboard/trading/info/stock-pricing.html
 網頁版可以一起測（`npx expo start --web --port 8083`）。
 
 | # | 檢查項目 | iPhone | Android | 網頁版 | 備註 |
@@ -122,7 +122,7 @@ app 的現價來自證交所 OpenAPI 的「每日收盤行情」，是前一個�
 | K11 | 買入日期填明天、2026/02/30：欄位下方各自出現錯誤；填了日期按「計算」後重開 app，日期帶回欄位 | | | | |
 | K12 | 小螢幕手機上圖、右側價格、下方日期、期間按鈕都沒被截斷 | | | | |
 
-## AI 解讀（Story 017）
+## AI 解讀（Story 031）
 
 需要工程同學的電腦先設定好 `backend/.env`（`ANTHROPIC_API_KEY`、`INSIGHT_ACCESS_TOKEN`）並執行 `npm run backend:tunnel`（ngrok），app 端設好開關、存取碼與 ngrok 網址（Expo Go／網頁版用 `.env.local`，APK 用 EAS 環境變數＋OTA；見 [architecture.md](architecture.md) 第 7 節「AI 解讀後端：給別人連進來」）。
 解讀是 AI 寫的，**每次都要對照結果卡的數字核對**，並注意有沒有「投資建議」的語氣。

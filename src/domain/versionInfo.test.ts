@@ -64,7 +64,7 @@ const WEB_DEV: RawVersionSources = {
 const detail = (raw: RawVersionSources, label: string) =>
   describeVersion(raw).details.find((d) => d.label === label)?.value;
 
-describe("describeVersion（對應 docs/stories/018）", () => {
+describe("describeVersion（對應 docs/stories/032）", () => {
   test("APK 內建版本：顯示 app 版本與 build N，沒有 OTA", () => {
     const info = describeVersion(APK_EMBEDDED);
     expect(info.runtime).toBe("apk");

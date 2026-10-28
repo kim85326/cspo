@@ -6,7 +6,7 @@ import { FEATURE_NAMES, parseFlags, resolveFeatures, type Features } from "./fea
 
 const OFF: Features = { screenshotImport: false, aiInsight: false, proPlan: false };
 
-describe("parseFlags（對應 docs/stories/026）", () => {
+describe("parseFlags（對應 docs/stories/033）", () => {
   test("只留下認得的名稱、值是 true／false 的開關", () => {
     expect(
       parseFlags({ aiInsight: true, proPlan: false, screenshotImport: "true", unknownFlag: true, updatedAt: "2026-10-27" }),

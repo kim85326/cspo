@@ -22,7 +22,7 @@ type Sources = { candles: CandleSource; actions: CorporateActionSource };
 
 /**
  * 抓 K 線圖與「買在高點還是低點」要用的資料。
- * 來源是 src/data 的 candleSource（Story 019：FinMind 為主，失敗退回證交所／櫃買中心，有本機快取），
+ * 來源是 src/data 的 candleSource（Story 021：FinMind 為主，失敗退回證交所／櫃買中心，有本機快取），
  * 所以上市、上櫃、ETF 都有。symbol、buyDate、period 變了就重抓；retry 給「重試」按鈕用。
  *
  * 換期間時先留著上一次的圖（previous），新的資料到了再換，畫面不會閃成載入中。

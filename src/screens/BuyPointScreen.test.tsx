@@ -54,7 +54,7 @@ async function renderScreen(props: Partial<Parameters<typeof BuyPointScreen>[0]>
   return fake;
 }
 
-describe("BuyPointScreen 買在高點還是低點（對應 docs/stories/016、規格 P2-09）", () => {
+describe("BuyPointScreen 買在高點還是低點（對應 docs/stories/030、規格 P2-09）", () => {
   beforeEach(() => jest.clearAllMocks());
 
   test("預設比較買入日前 1 年：結論、刻度、區間圖與高檔／低檔色帶", async () => {

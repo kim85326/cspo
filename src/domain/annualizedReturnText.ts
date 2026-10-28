@@ -5,7 +5,7 @@ import type { AnnualizedReturn } from "./xirr";
 
 /**
  * 年化報酬率（P2-04）要顯示的文字。value 是那一欄的值；reason 是值為「—」或「持有未滿一年」時的原因，
- * 放在下面一行小字，讓使用者知道為什麼看不到數字。對應 docs/stories/028-allocation-and-annualized-return-ui.md。
+ * 放在下面一行小字，讓使用者知道為什麼看不到數字。對應 docs/stories/019-allocation-and-annualized-return-ui.md。
  */
 export type AnnualizedReturnText = {
   value: string;

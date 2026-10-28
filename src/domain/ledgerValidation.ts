@@ -72,7 +72,7 @@ export function validateLedger(ledger: Ledger): LedgerError | null {
 }
 
 /**
- * 同一檔證券的交易與股利只能有一種幣別（規格 3.8，Story 029）：持有成本、平均成本都是同一個幣別的股數相加，
+ * 同一檔證券的交易與股利只能有一種幣別（規格 3.8，Story 025）：持有成本、平均成本都是同一個幣別的股數相加，
  * 混用會讓「平均成本」失去意義。沒填幣別視為 TWD。
  */
 function validateSymbolCurrency(symbol: string, ledger: Pick<Ledger, "transactions" | "dividends">): LedgerError | null {
@@ -83,7 +83,7 @@ function validateSymbolCurrency(symbol: string, ledger: Pick<Ledger, "transactio
   return currencies.size > 1 ? invalid("currency", "同一檔證券的交易與股利只能使用一種幣別") : null;
 }
 
-/** 選填的多幣別欄位：有填就要是認得的幣別、大於 0 的匯率（Story 029） */
+/** 選填的多幣別欄位：有填就要是認得的幣別、大於 0 的匯率（Story 025） */
 function validateMultiCurrency(record: Pick<Transaction | Dividend, "currency" | "fxRate">): LedgerError | null {
   if (record.currency !== undefined && !CURRENCIES.includes(record.currency)) {
     return invalid("currency", "不支援的幣別");

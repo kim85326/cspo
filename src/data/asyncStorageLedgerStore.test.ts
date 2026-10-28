@@ -199,7 +199,7 @@ describe("舊版持股搬移（對應 docs/stories/008）", () => {
   });
 });
 
-describe("多幣別欄位（對應 docs/stories/029）", () => {
+describe("多幣別欄位（對應 docs/stories/025）", () => {
   test("舊資料沒有 market／currency／fxRate：照原樣讀回、不升 schemaVersion，計算時視為 TWD、1", async () => {
     await AsyncStorage.setItem(LEDGER_STORAGE_KEY, JSON.stringify(spec37Ledger()));
     const ledger = await newStore().load();

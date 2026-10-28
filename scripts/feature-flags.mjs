@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 遠端切換功能開關（Story 026）。改的是 GitHub 上 feature-flags 分支的 feature-flags.json，
+// 遠端切換功能開關（Story 033）。改的是 GitHub 上 feature-flags 分支的 feature-flags.json，
 // 已經裝好的 APK 不用重打、也不用發 OTA。用已經登入的 gh（gh auth status）寫入，不碰 iteration-1。
 //
 // 用法：

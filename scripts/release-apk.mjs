@@ -6,7 +6,7 @@
 //   例：npm run release -- 71d5a8c3-3e2c-4afa-a375-c3029d03f6e3 "APK 瘦身到 24 MB、加 OTA 更新"
 //
 // 版本名稱「build N」的 N 就是這個 APK 的 Android versionCode（eas.json preview profile 開了 autoIncrement，
-// 每打一次 +1），app 底部的版本資訊顯示的也是它（Story 018），所以下載頁和手機上看到的一定一致。
+// 每打一次 +1），app 底部的版本資訊顯示的也是它（Story 032），所以下載頁和手機上看到的一定一致。
 // GitHub tag 是 v<app 版本>-build<N>。build 1～3 是這個規則之前發的，versionCode 都是 1。
 // 每個 release 另外附一份固定檔名的 zhuanlema-latest.apk：下載頁的按鈕與 QR code 連到
 // releases/latest/download/zhuanlema-latest.apk，GitHub Pages 的頁面快取還沒過期也能下載到最新版。

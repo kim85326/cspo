@@ -9,7 +9,7 @@ function position(price: number | null, shares = 1000) {
   return computePosition("2330", txs, [], { type: "stock", today: TODAY, price });
 }
 
-describe("annualizedReturnText（P2-04 畫面文字，對應 docs/stories/028）", () => {
+describe("annualizedReturnText（P2-04 畫面文字，對應 docs/stories/019）", () => {
   test("有數字：+10.00%，上漲方向", () => {
     expect(annualizedReturnText({ kind: "rate", rate: 0.1 }, [position(110)])).toEqual({
       value: "+10.00%",

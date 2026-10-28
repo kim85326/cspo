@@ -1,10 +1,10 @@
-# Story 019：歷史收盤價、還原股價與除權息資料來源
+# Story 021：歷史收盤價、還原股價與除權息資料來源
 
 **身為** 之後要做對決 B、資產走勢、股利自動帶入、定期定額的工程師
 **我想要** 一組拿得到「任一檔、任一段期間」日 K 與除權息的資料來源，失敗會自動換來源，抓過的不再抓
 **以便** 那些畫面只管算與畫，不用各自處理 FinMind 額度、證交所擋 IP、分割與還原價
 
-> 編號 019：016 已被 K 線圖與 Google 登入撞號，017（AI 洞察）、018（版本標示）也已使用。
+> **對應實作指南 T15。** 原本暫用 019，2026-10-28 統一改回指南的 021（見 [docs/README.md](../README.md)「Story 編號對照」）。
 > 這張只做 `src/data` 與 `src/domain`，**沒有畫面**。研究與試打結果見 [docs/research/history-and-dividend-sources.md](../research/history-and-dividend-sources.md)。
 
 ## 驗收條件
@@ -98,7 +98,7 @@ const adjusted = await loadAdjustedCloses("0050", firstTradeDate, today, {
 
 ## 實作備忘
 
-- **沿用 Story 016 的 `CandleSource`**，沒有另做一套價格介面。FinMind 的 TaiwanStockPrice 本來就有開高低收，所以 `candleSource` 換成新的組合後，**K 線圖也跟著改用 FinMind，上櫃股票也有 K 線了**。
+- **沿用 Story 030 的 `CandleSource`**，沒有另做一套價格介面。FinMind 的 TaiwanStockPrice 本來就有開高低收，所以 `candleSource` 換成新的組合後，**K 線圖也跟著改用 FinMind，上櫃股票也有 K 線了**。
 - 組合（`src/data/index.ts`）：
 
   ```
@@ -106,7 +106,7 @@ const adjusted = await loadAdjustedCloses("0050", firstTradeDate, today, {
   corporateActionSource = 本機快取( 依序試[ FinMind, 官方(證交所 TWT49U / 櫃買 exDailyQ) ] )
   ```
 
-- 證交所與櫃買中心的「一個月一個請求」抽成 `monthlyCandleSource.ts`，`twseCandleSource` 與新的 `tpexCandleSource` 共用（行為與 Story 016 相同）。
+- 證交所與櫃買中心的「一個月一個請求」抽成 `monthlyCandleSource.ts`，`twseCandleSource` 與新的 `tpexCandleSource` 共用（行為與 Story 030 相同）。
 - 官方來源要知道上市或上櫃：用 `marketSource` 的股票清單查；查不到就先問證交所、沒資料再問櫃買中心。
 - 本機快取（`historyCache.ts`）：AsyncStorage key `cspo.candles.v1.<代號>`（依月份存）、`cspo.actions.v1.<代號>`（12 小時）。同一檔同時進來的請求排隊。JSON 壞掉當成沒快取。
 - 還原價算法、交易日判斷都在 `src/domain`，是純函式。除權息參考價 =（前收 − 現金）÷（1 + 每千股配股 ÷ 1000），官方來源有給前收與參考價時直接用。
@@ -116,7 +116,7 @@ const adjusted = await loadAdjustedCloses("0050", firstTradeDate, today, {
 ## 已知限制與後續
 
 - **官方備援沒有發放日、沒有分割、沒有預告**：FinMind 掛掉而且手機裡沒快取時，股利只會有除息日與金額；0050 這種跨分割的還原價會不對。FinMind 一恢復就會補齊（快取 12 小時後重抓）。
-- **K 線圖的錯誤文字**：Story 016 的「查不到這檔股票的 K 線資料（目前只支援上市股票）」現在上櫃也查得到了，括號那句該拿掉。屬於畫面，這張沒動；2026-10-27 已在 Story 016 第二版改掉。
+- **K 線圖的錯誤文字**：Story 030 的「查不到這檔股票的 K 線資料（目前只支援上市股票）」現在上櫃也查得到了，括號那句該拿掉。屬於畫面，這張沒動；2026-10-27 已在 Story 030 第二版改掉。
 - **持股在分割日要跟著乘 ratio**：資產走勢重建市值時，股數與價格要在同一個基準。規格書還沒寫這條，需要 PO 補（建議由計算引擎自動產生一筆調整紀錄）。
 - **授權**：FinMind 聲明「教育、非商業用途」；證交所／櫃買網站條款禁止未經同意的自動下載。Tech Day 沒問題，P2-08 收費前要處理（見研究文件）。
 - 這張沒有畫面，所以沒有 Maestro 流程，也沒有手機手動驗收項目。

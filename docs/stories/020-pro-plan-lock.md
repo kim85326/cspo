@@ -6,7 +6,7 @@
 
 > 對應 product-spec **P2-08**、實作指南 **T14**、Tech Day 範圍與優先順序第 4 項。
 > **只做畫面，不串金流**：按「升級 Pro」只顯示「Pro 方案即將推出」，不進入任何付款流程。
-> 由 `src/config/features.ts` 的 `proPlan` 開關控制，**預設關閉**（APK 一律關閉）。開法：`.env.local` 加 `EXPO_PUBLIC_FEATURE_PRO_PLAN=1`；APK 用 `node scripts/feature-flags.mjs set proPlan on` 遠端打開（Story 026）。
+> 由 `src/config/features.ts` 的 `proPlan` 開關控制，**預設關閉**（APK 一律關閉）。開法：`.env.local` 加 `EXPO_PUBLIC_FEATURE_PRO_PLAN=1`；APK 用 `node scripts/feature-flags.mjs set proPlan on` 遠端打開（Story 033）。
 
 ## 驗收條件
 

@@ -1,6 +1,6 @@
 /**
  * 功能開關（feature toggle）。開發中、還不能給測試同學用的功能放這裡，預設關閉。
- * 對應 docs/stories/026-remote-feature-flags.md。
+ * 對應 docs/stories/033-remote-feature-flags.md。
  *
  * 畫面不要直接 import 這裡的值，一律用 `useFeatures()`（src/hooks/useFeatures.tsx）：
  * 遠端設定更新時畫面才會跟著重新 render。
@@ -34,7 +34,7 @@ const buildEnv: Record<FeatureName, string | undefined> = {
   /** Story 005：從券商截圖匯入持股。APK 版連不到辨識服務，上線方式見 docs/research/screenshot-import.md */
   screenshotImport: process.env.EXPO_PUBLIC_FEATURE_SCREENSHOT_IMPORT,
   /**
-   * Story 017：算完盈虧後的「AI 解讀」按鈕。要搭配電腦上的 backend/（npm run backend），
+   * Story 031：算完盈虧後的「AI 解讀」按鈕。要搭配電腦上的 backend/（npm run backend），
    * 設定與連線方式見 docs/architecture.md 第 7 節「AI 解讀後端」。
    */
   aiInsight: process.env.EXPO_PUBLIC_FEATURE_AI_INSIGHT,

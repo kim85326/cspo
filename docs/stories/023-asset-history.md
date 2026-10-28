@@ -5,7 +5,7 @@
 **以便** 知道這段時間投進去的錢，現在變成多少、什麼時候漲跌
 
 規則來自 [product-spec.md](../product-spec.md) P2-07 走勢圖與 P2-08 方案表；實作指南 T17。
-計算用 Story 006 計算引擎的 `replaySymbol`（`computePosition` 用的同一個重播），收盤價來自 Story 019 的 `candleSource`（FinMind 為主、官方來源備援、本機快取）。名詞見 [glossary.md](../glossary.md)：「累計投入」是所有買入的成交金額加手續費，賣出不會減少。
+計算用 Story 006 計算引擎的 `replaySymbol`（`computePosition` 用的同一個重播），收盤價來自 Story 021 的 `candleSource`（FinMind 為主、官方來源備援、本機快取）。名詞見 [glossary.md](../glossary.md)：「累計投入」是所有買入的成交金額加手續費，賣出不會減少。
 
 ## 驗收條件
 

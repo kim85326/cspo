@@ -35,7 +35,7 @@ const NO_RECORDS: Record<Bucket, string> = { core: "還沒有 ETF 紀錄", satel
 /** 方向符號：意思已由 +／- 承載，對輔助工具隱藏 */
 
 /**
- * 個股 vs ETF 對決 A：我的核心 vs 我的衛星（P2-05 A，實作指南 T12）。對應 docs/stories/027-core-vs-satellite-duel.md。
+ * 個股 vs ETF 對決 A：我的核心 vs 我的衛星（P2-05 A，實作指南 T12）。對應 docs/stories/018-core-vs-satellite-duel.md。
  * 兩邊並排顯示總報酬、報酬率；年化報酬率是 Pro 功能（P2-08），proPlan 開關打開時用 ProGate 鎖住。
  * 上方一句白話結論只陳述事實（src/domain/duel.ts）。
  * 下方是對決 B「如果改買 0050」（Story 022，BenchmarkDuelCard），Pro 功能，proPlan 開關打開時用 ProGate 鎖住。從首頁「核心 vs 衛星，誰賺比較多？」進來，路由在 src/app/versus.tsx。

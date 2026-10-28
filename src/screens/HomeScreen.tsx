@@ -39,7 +39,7 @@ const ROUTES = {
   holdings: "/holdings",
   holding: (symbol: string) => ({ pathname: "/holdings/[symbol]", params: { symbol } }) as const,
   calculate: "/calculate",
-  /** 個股 vs ETF 對決 A（Story 027） */
+  /** 個股 vs ETF 對決 A（Story 018） */
   versus: "/versus",
   /** 資產走勢（Story 023） */
   history: "/history",
@@ -159,7 +159,7 @@ export default function HomeScreen({ repository = defaultRepository, priceSource
             onPress={() => router.push(ROUTES.versus)}
           />
 
-          {/* 年化報酬率（P2-04）與配置圓餅圖（P2-07），Story 028 */}
+          {/* 年化報酬率（P2-04）與配置圓餅圖（P2-07），Story 019 */}
           <PortfolioAnnualizedReturnCard
             ledger={ledger}
             holdings={overview.views}

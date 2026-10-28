@@ -10,7 +10,7 @@ beforeEach(async () => {
   await AsyncStorage.clear();
 });
 
-describe("fetchRemoteFlags（對應 docs/stories/026）", () => {
+describe("fetchRemoteFlags（對應 docs/stories/033）", () => {
   test("抓 GitHub 上的 JSON，略過手機端快取，只回認得的開關", async () => {
     const fetchImpl = fakeFetch('{"aiInsight":true,"proPlan":"yes","hack":true}');
     expect(await fetchRemoteFlags(fetchImpl)).toEqual({ aiInsight: true });

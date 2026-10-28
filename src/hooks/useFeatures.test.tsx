@@ -38,7 +38,7 @@ async function renderWith(fetchRemote: () => Promise<Partial<Features> | null>) 
   );
 }
 
-describe("FeatureFlagsProvider（對應 docs/stories/026）", () => {
+describe("FeatureFlagsProvider（對應 docs/stories/033）", () => {
   test("沒包 Provider：用打包預設（Jest 沒設環境變數，全部關閉）", async () => {
     await render(<Probe />);
     expect(shown()).toEqual({ screenshotImport: false, aiInsight: false, proPlan: false });

@@ -22,7 +22,7 @@ const APK_OTA: RawVersionSources = {
   otaMessage: "修正比較卡排序",
 };
 
-describe("VersionBadge（對應 docs/stories/018）", () => {
+describe("VersionBadge（對應 docs/stories/032）", () => {
   test("平常只顯示一行版本，點一下展開詳細資訊，再點收合", async () => {
     await render(<VersionBadge sources={APK_OTA} />);
     expect(screen.getByText(/v1\.0\.0 · build 4 · OTA 10\/27 16:05/)).toBeTruthy();

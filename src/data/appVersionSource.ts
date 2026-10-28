@@ -5,7 +5,7 @@ import { Platform } from "react-native";
 import type { RawVersionSources } from "@/domain/versionInfo";
 
 /**
- * 讀出版本資訊的原始值（Story 018），整理成文字交給 src/domain/versionInfo.ts。
+ * 讀出版本資訊的原始值（Story 032），整理成文字交給 src/domain/versionInfo.ts。
  *
  * - expo-application：安裝檔的版本名稱與 versionCode（= 下載頁的 build N）。網頁版回 null。
  * - expo-updates：內建版本還是 OTA、OTA 時間、update ID、runtime version、channel。

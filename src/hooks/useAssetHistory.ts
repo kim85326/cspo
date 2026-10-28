@@ -17,7 +17,7 @@ export type AssetClosesState =
  * 抓資產走勢要的每日收盤價（Story 023）。
  * - 只抓期間內有持股或有交易的代號（symbolsInRange），月份從期間前一個月到今天（historyMonths）。
  * - **一檔抓完再抓下一檔**，不同時打：FinMind 不帶 token 每個 IP 每小時 300 次，Tech Day 現場大家共用 Wi-Fi。
- *   candleSource 有本機快取（Story 019），抓過的月份不再打網路，換期間或重試只補缺的。
+ *   candleSource 有本機快取（Story 021），抓過的月份不再打網路，換期間或重試只補缺的。
  * - 任何一檔抓不到就整個算失敗：少一檔的市值會讓走勢看起來像大跌，不如請使用者重試。
  * - from 為 null（還沒有交易）時不抓，停在 idle。
  */

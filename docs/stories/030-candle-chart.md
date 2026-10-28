@@ -1,15 +1,15 @@
-# Story 016：股價走勢圖與買入點（含 P2-09 買在高點還是低點）
+# Story 030：股價走勢圖與買入點（含 P2-09 買在高點還是低點）
 
 **身為** 剛開始投資、看不太懂 K 線的人
 **我想要** 算完盈虧後，先看到一句白話告訴我「買在高點還是低點」，再看這檔股票的走勢、我的成本和買入點
 **以便** 檢討自己的進場時機，也知道現在離成本還有多遠
 
-> 編號 016：006–015 已保留給 MVP 實作指南的 T1–T10（見 [mvp-implementation-guide.md](../mvp-implementation-guide.md)）。
+> **規格外的功能**（K 線重新設計），P2-09 在規格書是「待定」、不在實作指南的任務表。原本是 016，跟指南給 Google 登入的 016 撞號，2026-10-28 改為 030（見 [docs/README.md](../README.md)「Story 編號對照」）。
 > 第一版（vincent）只有日 K、成本線、▲ 買入點。2026-10-27 第二版（本文件）為新手重新設計，並把規格書 **P2-09** 的買入點百分位一起做進來。
 
 ## 驗收條件
 
-資料來自 `src/data/index.ts` 的 `candleSource`（Story 019：FinMind 為主，失敗退回證交所／櫃買中心，有本機快取），上市、上櫃、ETF 都有。百分位要的還原股價用同一處的 `corporateActionSource`。自動化測試用固定的假資料。
+資料來自 `src/data/index.ts` 的 `candleSource`（Story 021：FinMind 為主，失敗退回證交所／櫃買中心，有本機快取），上市、上櫃、ETF 都有。百分位要的還原股價用同一處的 `corporateActionSource`。自動化測試用固定的假資料。
 
 ```gherkin
 Scenario: 算完單檔就看到走勢圖

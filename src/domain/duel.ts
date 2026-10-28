@@ -5,7 +5,7 @@ import { portfolioAnnualizedReturns, type AnnualizedReturn } from "./xirr";
 
 /**
  * 個股 vs ETF 對決 A：我的核心 vs 我的衛星（product-spec P2-05 A，實作指南 T12）。
- * 對應 docs/stories/027-core-vs-satellite-duel.md。
+ * 對應 docs/stories/018-core-vs-satellite-duel.md。
  * 結論只陳述事實，不給建議：不得出現「建議」「應該」「買進」「賣出」（單元測試會掃描）。
  */
 

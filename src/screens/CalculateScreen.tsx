@@ -46,8 +46,8 @@ const LOAD_ERROR_MESSAGE = "行情載入失敗，請檢查網路後重試";
  * 輸入存在快速試算自己的地方，不會寫進記帳本（見 data/quickCalcHoldingStore、docs/stories/011 決策紀錄 1）。
  * 對應 docs/stories/001-single-holding-pnl.md、002-stock-picker.md、003-compare-stocks.md、004-remember-holdings.md、
  * 005-import-from-screenshot.md（從截圖匯入：Story 015 起改成產生交易，入口搬到首頁空狀態與新增交易頁，這裡不再有）、
- * 016-candle-chart.md（單檔結果下方的日 K 線圖與買入點，見 ui/PriceHistoryCard）
- * 017-ai-insight.md（AI 解讀：ui/InsightCard 的 InsightSection，由 aiInsight 開關控制，預設關閉）
+ * 030-candle-chart.md（單檔結果下方的日 K 線圖與買入點，見 ui/PriceHistoryCard）
+ * 031-ai-insight.md（AI 解讀：ui/InsightCard 的 InsightSection，由 aiInsight 開關控制，預設關閉）
  * 現價來自 src/data 的 priceSource（app 裡是證交所收盤價，測試是假價）；載入失敗顯示「行情載入失敗」。
  * 路由入口在 src/app/calculate.tsx（Story 011 首頁總覽上線後，從首頁底部「快速試算」進來）。
  */
@@ -366,7 +366,7 @@ export default function CalculateScreen() {
         {outcome?.kind === "comparison" ? (
           <ComparisonCard comparison={outcome.comparison} />
         ) : null}
-        {/* Story 017：AI 解讀，開關預設關閉 */}
+        {/* Story 031：AI 解讀，開關預設關閉 */}
         {features.aiInsight && outcome ? (
           <InsightSection
             input={insightInputFromQuotes(outcome.kind === "single" ? [outcome] : outcome.comparison.rows)}

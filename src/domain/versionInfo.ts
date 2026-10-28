@@ -1,5 +1,5 @@
 /**
- * App 底部的版本資訊（Story 018）：把各來源的原始值整理成要顯示的文字。
+ * App 底部的版本資訊（Story 032）：把各來源的原始值整理成要顯示的文字。
  * 純函式，不碰 expo 模組；原始值由 src/data/appVersionSource.ts 讀出來。
  *
  * 版本號規則見 docs/architecture.md 第 7 節「版本號規則」：

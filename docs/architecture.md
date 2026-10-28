@@ -80,7 +80,7 @@ cspo/
 │   │   ├── marketSource.ts   上市 + 上櫃合成一個來源，一邊失敗另一邊照用（Story 007）
 │   │   ├── __fixtures__/     真實 API 回應（裁剪過），測試用
 │   │   └── index.ts          依環境決定用假來源還是真的（Jest 一律用假的；EXPO_PUBLIC_USE_FAKE_PRICES／EXPO_PUBLIC_USE_FAKE_RECOGNIZER=1 也可切）
-│   ├── config/features.ts    功能開關的名稱、打包預設、優先順序（Story 026）
+│   ├── config/features.ts    功能開關的名稱、打包預設、優先順序（Story 033）
 │   ├── hooks/                畫面共用的 React hook（usePersistedHoldings：啟動時讀回、計算後存；useScreenshotImport：選圖／拍照 → 辨識；useFeatures：功能開關，會跟著遠端更新）
 │   └── ui/                   可重用元件與設計 token（StockPicker、LabeledInput、HoldingForm、ImportSourceSheet、PnlCard、ComparisonCard、theme）
 ├── backend/                  本機 AI 後端（AI 解讀 /insight、截圖辨識 /recognize）；API key 只在 backend/.env（第 7 節）
@@ -175,7 +175,7 @@ appId: host.exp.Exponent
 - assertVisible: "+20,000"
 ```
 
-自動化跑的是 `fakePriceSource`（固定現價），所以結果可重現：`src/data/index.ts` 看到 Jest 的 `JEST_WORKER_ID` 就自動用假來源。真實行情（證交所）只有在手機或網頁上跑 app 時才接。歷史日 K 與除權息（`candleSource`、`corporateActionSource`，Story 019）也一樣：Jest 裡是 `fakeCandleSource`、`fakeCorporateActionSource`，不打網路。
+自動化跑的是 `fakePriceSource`（固定現價），所以結果可重現：`src/data/index.ts` 看到 Jest 的 `JEST_WORKER_ID` 就自動用假來源。真實行情（證交所）只有在手機或網頁上跑 app 時才接。歷史日 K 與除權息（`candleSource`、`corporateActionSource`，Story 021）也一樣：Jest 裡是 `fakeCandleSource`、`fakeCorporateActionSource`，不打網路。
 
 手動測試同學專注在自動化不好做的事：不同手機尺寸、輸入法、斷網、中文顯示、操作順不順手。
 
@@ -216,9 +216,9 @@ appId: host.exp.Exponent
 - **網頁版的行情**：證交所與櫃買中心都沒開 CORS，瀏覽器不能直接打，所以網頁版改打同源的 `/twse`、`/tpex`（`src/app/twse+api.ts`、`src/app/tpex+api.ts`，expo-router API route，`app.json` 的 `web.output` 已設為 `server`）。`npx expo start` 的 dev server 會直接提供這條路；若要把網頁版部署出去，需要能跑 server 的主機（例如 EAS Hosting），純靜態主機上行情會載入失敗。
 - **打包加速與 OTA 更新**：APK 打包時間分析、EAS Update 導入步驟與「何時要重打 APK」見 [build-speed.md](build-speed.md)。
 
-### AI 解讀後端：給別人連進來（Story 017）
+### AI 解讀後端：給別人連進來（Story 031）
 
-「AI 解讀」按鈕（[docs/stories/017-ai-insight.md](stories/017-ai-insight.md)）與「從截圖匯入」的辨識（[Story 005](stories/005-import-from-screenshot.md)，`POST /recognize`）背後是同一台跑在**工程同學電腦上**的小後端 `backend/`。Anthropic API key 只放在那台電腦的 `backend/.env`，app 裡沒有、git 裡也沒有。其他人的手機（不同網路、APK、Expo Go、網頁版）透過 **ngrok 的固定網址**連進來：
+「AI 解讀」按鈕（[docs/stories/031-ai-insight.md](stories/031-ai-insight.md)）與「從截圖匯入」的辨識（[Story 005](stories/005-import-from-screenshot.md)，`POST /recognize`）背後是同一台跑在**工程同學電腦上**的小後端 `backend/`。Anthropic API key 只放在那台電腦的 `backend/.env`，app 裡沒有、git 裡也沒有。其他人的手機（不同網路、APK、Expo Go、網頁版）透過 **ngrok 的固定網址**連進來：
 
 ```
 別人的手機 ──https──▶ https://xxxx.ngrok-free.app ──▶ ngrok（你的電腦）──▶ backend/（127.0.0.1:8787）──▶ Claude API
@@ -369,10 +369,10 @@ preview APK 從 **92,659,407 bytes（約 88 MB）縮到 25,116,066 bytes（約 2
 
 - `npm run ota` 會先自動比對 fingerprint，原生有變就拒絕發 OTA 並提示改打 APK；**注意 `package.json` 的 `scripts` 也算進 fingerprint**：新增或修改 npm script 會讓已安裝的 APK 收不到 OTA，一次性工具請用 `node scripts/xxx.mjs` 直接執行，不要加進 scripts（例：`node scripts/feature-flags.mjs`）；也會擋下 `.env.local` 裡開著的 `EXPO_PUBLIC_*=1`（假價、開發中的功能開關），避免發給所有人。
 - `npm run release` 會下載 EAS 的 APK、建立 GitHub Release（標為最新）、在 `docs/index.html` 的版本清單最上面加一筆，然後 commit + push。舊版本都會留在下載頁，新版有問題可以改裝舊版。
-- OTA 只對「裝了 build 3 以後」的 APK 有效，build 1、2 沒有 expo-updates，收不到更新。Story 018 加了 `expo-application`、`expo-clipboard` 兩個原生模組，合併後要先打一次 APK（build 4），之後的 OTA 只送得到 build 4 以後。
+- OTA 只對「裝了 build 3 以後」的 APK 有效，build 1、2 沒有 expo-updates，收不到更新。Story 032 加了 `expo-application`、`expo-clipboard` 兩個原生模組，合併後要先打一次 APK（build 4），之後的 OTA 只送得到 build 4 以後。
 - `eas.json` 的 preview profile 已開 `EAS_GRADLE_CACHE=1`；`package-lock.json` 沒變時第二次以後的打包會比較快。
 
-### 功能開關：不重打 APK、不發 OTA 就能切換（Story 026）
+### 功能開關：不重打 APK、不發 OTA 就能切換（Story 033）
 
 ```bash
 node scripts/feature-flags.mjs list                 # 看遠端目前的值
@@ -388,7 +388,7 @@ node scripts/feature-flags.mjs set aiInsight on --dry-run   # 只印出會寫什
 - 畫面用 `useFeatures()` 讀（`src/hooks/useFeatures.tsx`），遠端更新時會重新 render；新增開關要同時改 `src/config/features.ts` 與 `scripts/feature-flags.mjs` 的 `FEATURE_NAMES`（有測試比對）。
 - 這個機制本身是純 JS，沒有加原生套件，用 OTA 就能送到 build 5 以後的 APK。
 
-### 版本號規則（Story 018，2026-10-27 起）
+### 版本號規則（Story 032，2026-10-27 起）
 
 app 最底部（免責聲明下面）有一行版本資訊，點開可複製，測試同學回報 bug 時貼上。各部分的來源：
 

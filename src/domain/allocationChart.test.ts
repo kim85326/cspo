@@ -2,7 +2,7 @@ import { arcsOf, donutSegmentPath, groupHoldingSlices, isFullCircle, MAX_HOLDING
 
 const FULL = 2 * Math.PI;
 
-describe("arcsOf（配置圓餅圖的弧，對應 docs/stories/028）", () => {
+describe("arcsOf（配置圓餅圖的弧，對應 docs/stories/019）", () => {
   test("依序首尾相接，最後一段剛好到一整圈", () => {
     const arcs = arcsOf([30, 70]);
     expect(arcs[0]).toEqual({ startAngle: 0, endAngle: 0.3 * FULL });

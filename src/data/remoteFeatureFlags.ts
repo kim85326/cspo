@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { parseFlags, REMOTE_FLAGS_URL, type Features } from "@/config/features";
 
-/** 上次抓到的遠端開關（Story 026）。抓不到遠端時用這份。 */
+/** 上次抓到的遠端開關（Story 033）。抓不到遠端時用這份。 */
 export const FEATURE_FLAGS_KEY = "cspo.featureFlags.v1";
 
 /** 遠端太慢就放棄，用手機裡存的值；畫面不會等這個請求。 */
