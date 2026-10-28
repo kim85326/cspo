@@ -149,6 +149,12 @@ describe("首頁總覽（對應 docs/stories/011）", () => {
     expect(router.push).toHaveBeenLastCalledWith("/calculate");
   });
 
+  test("核心／衛星卡片下方的入口連到個股 vs ETF 對決（Story 027）", async () => {
+    await renderHome(createMemoryLedgerRepository(mixedLedger()), fakePrices({ "2330": spec37.price, "0050": 190 }));
+    await fireEvent.press(await screen.findByLabelText("核心 vs 衛星，誰賺比較多？"));
+    expect(router.push).toHaveBeenLastCalledWith("/versus");
+  });
+
   test("空記帳本也看得到快速試算入口", async () => {
     await renderHome(createMemoryLedgerRepository(emptyLedger()), fakePrices({}));
     await fireEvent.press(await screen.findByLabelText("快速試算"));

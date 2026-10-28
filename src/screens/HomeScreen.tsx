@@ -24,6 +24,8 @@ const ROUTES = {
   holdings: "/holdings",
   holding: (symbol: string) => ({ pathname: "/holdings/[symbol]", params: { symbol } }) as const,
   calculate: "/calculate",
+  /** 個股 vs ETF 對決 A（Story 027） */
+  versus: "/versus",
 } as const;
 
 /** 首頁最多列幾檔，其他的到「看全部持股」 */
@@ -91,6 +93,15 @@ export default function HomeScreen({ repository = defaultRepository, priceSource
             <BucketCard bucket="core" summary={overview.summary.core} pricesLoading={quotesLoading} />
             <BucketCard bucket="satellite" summary={overview.summary.satellite} pricesLoading={quotesLoading} />
           </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="核心 vs 衛星，誰賺比較多？"
+            testID="button-open-versus"
+            onPress={() => router.push(ROUTES.versus)}
+            style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.linkText}>核心 vs 衛星，誰賺比較多？ ›</Text>
+          </Pressable>
 
           {/* 之後的任務放這裡：配置圓餅圖（P2-07，Story 019）；年化報酬率（P2-04）加在上面三張卡裡 */}
 
