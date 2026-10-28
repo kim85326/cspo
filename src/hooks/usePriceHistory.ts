@@ -76,21 +76,24 @@ function dedupe(candles: Candle[]): Candle[] {
 /**
  * 載入失敗時給使用者看的話＋技術細節。
  * 2026-10 有同學在 iPhone 上只看到「K 線載入失敗」，查不出是斷網、FinMind 額度用完還是官方網站擋掉；
- * 現在把原因分成三類講白話，並把每個來源的錯誤訊息放在「技術細節」，回報時截圖就看得出來。
+ * 現在把原因分成三類講白話（subject 是開頭的「K 線」，資產走勢圖傳「走勢圖」），並把每個來源的錯誤訊息放在「技術細節」，回報時截圖就看得出來。
  */
-export function describeLoadError(error: unknown): { message: string; detail: string } {
+export function describeLoadError(
+  error: unknown,
+  subject = "K 線",
+): { message: string; detail: string } {
   const chain = errorChain(error);
   const text = chain.map((e) => e.message).join(" ← ");
-  let message = "K 線載入失敗：FinMind、證交所、櫃買中心都沒有回應，請稍後重試";
+  let message = `${subject}載入失敗：FinMind、證交所、櫃買中心都沒有回應，請稍後重試`;
   if (/HTTP 402|上限|limit/i.test(text)) {
-    message = "K 線載入失敗：免費資料源這個小時的查詢次數用完了，官方備援也沒回應，請過一陣子再試";
+    message = `${subject}載入失敗：免費資料源這個小時的查詢次數用完了，官方備援也沒回應，請過一陣子再試`;
   } else if (/週日|維護|maintenance/i.test(text)) {
-    message = "K 線載入失敗：資料源維護中（FinMind 週日 00:00–07:00），請稍後重試";
+    message = `${subject}載入失敗：資料源維護中（FinMind 週日 00:00–07:00），請稍後重試`;
   } else if (
     chain.some((e) => e.name === "TypeError") ||
     /Network request failed|Failed to fetch|fetch failed|NetworkError|Load failed/i.test(text)
   ) {
-    message = "K 線載入失敗：連不上資料來源，請檢查網路後重試";
+    message = `${subject}載入失敗：連不上資料來源，請檢查網路後重試`;
   }
   return { message, detail: text || String(error) };
 }

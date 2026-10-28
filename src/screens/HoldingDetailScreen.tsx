@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { LedgerRepository } from "@/data/ledgerRepository";
 import type { PriceSource } from "@/data/PriceSource";
 import { estimatedCashDividends, estimatedStockDividends } from "@/domain/autoDividends";
+import { localIsoDate } from "@/domain/buyDate";
 import {
   BUCKET_LABEL,
   formatAmount,
@@ -20,6 +21,7 @@ import type { Bucket } from "@/domain/ledgerTypes";
 import { defaultBucket } from "@/domain/portfolio";
 import { SECURITY_TYPE_LABEL, securityTypeOf } from "@/domain/security";
 import { useHoldings } from "@/hooks/useHoldings";
+import { HoldingAnnualizedReturnCard } from "@/ui/AnnualizedReturnCard";
 import { directionOf } from "@/ui/HoldingRow";
 import { PriceHistoryCard } from "@/ui/PriceHistoryCard";
 import { Segmented } from "@/ui/Segmented";
@@ -51,7 +53,7 @@ const ARROW = { up: "▲", down: "▼", flat: "" } as const;
  */
 export default function HoldingDetailScreen({ symbol, repository, prices, today }: Props) {
   const insets = useSafeAreaInsets();
-  const { ledger, loaded, holdings, repository: repo } = useHoldings({ repository, prices, today });
+  const { ledger, loaded, holdings, quotesStatus, repository: repo } = useHoldings({ repository, prices, today });
   const holding = holdings.find((h) => h.symbol === symbol);
   const history = useMemo(() => (ledger ? symbolHistory(ledger, symbol) : []), [ledger, symbol]);
   const [bucketError, setBucketError] = useState<string | null>(null);
@@ -141,6 +143,15 @@ export default function HoldingDetailScreen({ symbol, repository, prices, today 
         <Row label="累計投入" value={formatAmount(p.invested)} />
         {closed ? null : <Row label="持有天數" value={p.holdingDays === null ? "—" : `${p.holdingDays} 天`} />}
       </View>
+
+      {ledger ? (
+        <HoldingAnnualizedReturnCard
+          ledger={ledger}
+          position={p}
+          today={today ?? localIsoDate(new Date())}
+          pricesLoading={quotesStatus === "loading"}
+        />
+      ) : null}
 
       <View style={styles.card}>
         <Text style={styles.sectionTitle} accessibilityRole="header">

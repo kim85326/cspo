@@ -29,6 +29,7 @@ import {
   type TransactionFormValues,
 } from "@/domain/transactionForm";
 import type { StockInfo } from "@/domain/types";
+import { useFeatures } from "@/hooks/useFeatures";
 import { useLedger } from "@/hooks/useLedger";
 import { DateField } from "@/ui/DateField";
 import { LabeledInput } from "@/ui/LabeledInput";
@@ -42,6 +43,7 @@ import { colors, fonts, fontSize, radius, space, touchTarget } from "@/ui/theme"
  * - 手續費與證交稅依規格 3.2 即時帶入；使用者改過的欄位之後不再自動覆蓋，旁邊出現「重新計算」。
  * - 存檔與刪除都經過 ledgerRepository（從頭重播，賣超或連帶讓別筆賣超就拒絕，訊息說出是哪一筆）。
  * - 「儲存並繼續新增」留在表單，保留證券，其他欄位回到預設。
+ * - 新增模式最上面有「從券商截圖匯入」（Story 015，由功能開關 screenshotImport 控制），進 src/app/import.tsx。
  */
 
 const SIDE_LABEL: Record<TradeSide, string> = { buy: "買入", sell: "賣出" };
@@ -169,6 +171,7 @@ type BodyProps = {
 
 function FormBody({ title, ledger, repo, stocks, stocksLoading, now, original, initialSymbol }: BodyProps) {
   const insets = useSafeAreaInsets();
+  const features = useFeatures();
   const isEdit = original !== null;
   const settings = ledger.settings;
 
@@ -300,6 +303,18 @@ function FormBody({ title, ledger, repo, stocks, stocksLoading, now, original, i
         contentContainerStyle={[styles.content, { paddingBottom: space.xl + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
       >
+        {!isEdit && features.screenshotImport ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="從券商截圖匯入"
+            accessibilityHint="持股很多時，用券商 app 的庫存截圖一次記好每一檔"
+            testID="button-open-import"
+            onPress={() => router.push("/import")}
+            style={({ pressed }) => [styles.outlineButton, styles.importButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.outlineButtonText}>持股很多？從券商截圖匯入</Text>
+          </Pressable>
+        ) : null}
         <StockPicker
           stocks={stocks}
           query={query}
@@ -685,6 +700,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     marginBottom: space.sm,
   },
+  importButton: { marginBottom: space.md },
   outlineButtonText: { fontFamily: fonts.medium, color: colors.primary, fontSize: fontSize.md },
   pressed: { opacity: 0.85 },
   disabled: { opacity: 0.6 },

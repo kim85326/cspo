@@ -189,7 +189,8 @@ function reviewFlagsFor(item: MatchedHolding): ReviewFlags {
 /**
  * 把辨識結果套進持股欄位。
  * - 空白筆直接被覆蓋，使用者已填的筆保留在原位，剩下的辨識結果接在後面。
- * - 總數最多 MAX_COMPARE_HOLDINGS；放不下的丟掉並加 warning「截圖有 N 檔，只匯入前 5 檔」。
+ * - 總數最多 maxHoldings（預設 MAX_COMPARE_HOLDINGS，快速試算用）；放不下的丟掉並加 warning「截圖有 N 檔，只匯入前 5 檔」。
+ *   截圖匯入成交易（Story 015）傳自己的上限，見 importTransactions.ts。
  * - 對到的股票設 selected；對不到的把名稱放進 query，讓使用者自己從清單選。
  * - low confidence 或缺值的欄位標在 review，畫面顯示「請確認」。
  * nextId 由畫面提供（每呼叫一次給一個新 id）。
@@ -200,11 +201,12 @@ export function applyExtraction<T extends HoldingDraft>(
   stocks: StockInfo[],
   nextId: () => number,
   createDraft: (id: number) => T,
+  maxHoldings: number = MAX_COMPARE_HOLDINGS,
 ): ApplyExtractionResult<T> {
   const warnings = [...result.warnings];
   const matched = matchExtractedToStocks(result.holdings, stocks);
   const kept = forms.filter((f) => !isBlankDraft(f));
-  const capacity = Math.max(0, MAX_COMPARE_HOLDINGS - kept.length);
+  const capacity = Math.max(0, maxHoldings - kept.length);
   const toImport = matched.slice(0, capacity);
   if (matched.length > capacity) {
     warnings.push(`截圖有 ${matched.length} 檔，只匯入前 ${capacity} 檔`);

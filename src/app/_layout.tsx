@@ -49,6 +49,8 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="index" options={{ title: "賺了嗎", headerRight: () => <SettingsHeaderButton /> }} />
+          {/* 畫面載入前標題就先對，不閃出路由名稱 */}
+          <Stack.Screen name="history" options={{ title: "資產走勢" }} />
         </Stack>
         <DisclaimerGate />
       </ProStatusProvider>
