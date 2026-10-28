@@ -30,6 +30,8 @@ const ROUTES = {
   calculate: "/calculate",
   /** 個股 vs ETF 對決 A（Story 027） */
   versus: "/versus",
+  /** 資產走勢（Story 023） */
+  history: "/history",
 } as const;
 
 /** 首頁最多列幾檔，其他的到「看全部持股」 */
@@ -116,6 +118,17 @@ export default function HomeScreen({ repository = defaultRepository, priceSource
             pricesLoading={quotesLoading}
           />
           <AllocationCard holdings={overview.views} holdingSettings={ledger.holdingSettings} pricesLoading={quotesLoading} />
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="看資產走勢"
+            accessibilityHint="每天的總市值與累計投入走勢圖"
+            testID="button-asset-history"
+            onPress={() => router.push(ROUTES.history)}
+            style={({ pressed }) => [styles.historyLink, pressed && styles.pressed]}
+          >
+            <Text style={styles.linkText}>看資產走勢 ›</Text>
+          </Pressable>
 
           <PrimaryButton label="新增交易" testID="button-add-transaction" onPress={() => router.push(ROUTES.newTransaction)} />
 
@@ -441,6 +454,7 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   sectionTitle: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.mutedForeground },
   linkButton: { minHeight: touchTarget, justifyContent: "center" },
+  historyLink: { minHeight: touchTarget, justifyContent: "center", alignSelf: "flex-end" },
   linkText: { fontFamily: fonts.semibold, fontSize: fontSize.sm, color: colors.primary },
   primaryButton: {
     minHeight: touchTarget,
