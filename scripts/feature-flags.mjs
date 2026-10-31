@@ -15,7 +15,7 @@ const REPO = "kim85326/cspo";
 const BRANCH = "feature-flags";
 const FILE = "feature-flags.json";
 // 要和 src/config/features.ts 的 FEATURE_NAMES 一致（src/config/features.test.ts 會比對）
-const FEATURE_NAMES = ["screenshotImport", "aiInsight", "proPlan"];
+const FEATURE_NAMES = ["screenshotImport", "aiInsight", "proPlan", "notifications", "biometricLock", "haptics"];
 
 const USAGE = `用法：
   node scripts/feature-flags.mjs list

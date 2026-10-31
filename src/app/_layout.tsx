@@ -1,3 +1,5 @@
+// 收盤損益的背景工作要在模組載入時就 defineTask（系統在背景叫醒 app 時不會掛載畫面），所以放最上面（Story 034）
+import "@/native/closeSummaryTask";
 // 只從各字重的子路徑 import：從套件根目錄 import 會把 14 個字重（含斜體）全打進 APK。
 import { IBMPlexSans_400Regular } from "@expo-google-fonts/ibm-plex-sans/400Regular";
 import { IBMPlexSans_500Medium } from "@expo-google-fonts/ibm-plex-sans/500Medium";
@@ -9,12 +11,17 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { useAutoDividendSync } from "@/hooks/useAutoDividendSync";
 import { FeatureFlagsProvider } from "@/hooks/useFeatures";
+import { useNotificationScheduler } from "@/hooks/useNotificationScheduler";
+import { setForegroundNotificationHandler } from "@/native/notifications";
 import { ProStatusProvider } from "@/hooks/useProStatus";
+import { AppLockGate } from "@/ui/AppLockGate";
 import { DcaAutoRunner } from "@/ui/DcaAutoRunner";
 import { DisclaimerGate } from "@/ui/DisclaimerGate";
 import { colors, fonts, fontSize } from "@/ui/theme";
 
 SplashScreen.preventAutoHideAsync();
+// app 開著時收到收盤損益、提醒也要顯示（Story 034；網頁版什麼都不做）
+setForegroundNotificationHandler();
 
 export default function RootLayout() {
   // 股利自動帶入：App 開啟時跑一次，背景執行（Story 012）
@@ -70,7 +77,16 @@ export default function RootLayout() {
         {/* 定期定額：App 開啟時補產生到期的買入交易（Story 024） */}
         <DcaAutoRunner />
         <DisclaimerGate />
+        {/* 本地通知排程（Story 034）、打開 app 時要驗證（Story 035）；都由功能開關控制，預設關閉 */}
+        <NotificationScheduler />
+        <AppLockGate />
       </ProStatusProvider>
     </FeatureFlagsProvider>
   );
+}
+
+/** 排程要讀功能開關與 Pro 狀態，所以放在 Provider 裡面 */
+function NotificationScheduler() {
+  useNotificationScheduler();
+  return null;
 }

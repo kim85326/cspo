@@ -370,13 +370,14 @@ preview APK 從 **92,659,407 bytes（約 88 MB）縮到 25,116,066 bytes（約 2
 - `npm run ota` 會先自動比對 fingerprint，原生有變就拒絕發 OTA 並提示改打 APK；**注意 `package.json` 的 `scripts` 也算進 fingerprint**：新增或修改 npm script 會讓已安裝的 APK 收不到 OTA，一次性工具請用 `node scripts/xxx.mjs` 直接執行，不要加進 scripts（例：`node scripts/feature-flags.mjs`）；也會擋下 `.env.local` 裡開著的 `EXPO_PUBLIC_*=1`（假價、開發中的功能開關），避免發給所有人。
 - `npm run release` 會下載 EAS 的 APK、建立 GitHub Release（標為最新）、在 `docs/index.html` 的版本清單最上面加一筆，然後 commit + push。舊版本都會留在下載頁，新版有問題可以改裝舊版。
 - OTA 只對「裝了 build 3 以後」的 APK 有效，build 1、2 沒有 expo-updates，收不到更新。Story 032 加了 `expo-application`、`expo-clipboard` 兩個原生模組，合併後要先打一次 APK（build 4），之後的 OTA 只送得到 build 4 以後。
+- Story 034～036（通知、打開 app 時驗證、觸覺回饋）加了 `expo-notifications`、`expo-background-task`、`expo-task-manager`、`expo-local-authentication`、`expo-haptics` 與對應的 config plugin，合併後要先打 build 6，之後的 OTA 只送得到 build 6 以後。原生功能的程式放在 `src/native/`，每個檔都有 `.web.ts` 版本（網頁版什麼都不做）。
 - `eas.json` 的 preview profile 已開 `EAS_GRADLE_CACHE=1`；`package-lock.json` 沒變時第二次以後的打包會比較快。
 
 ### 功能開關：不重打 APK、不發 OTA 就能切換（Story 033）
 
 ```bash
 node scripts/feature-flags.mjs list                 # 看遠端目前的值
-node scripts/feature-flags.mjs set aiInsight on     # 或 off；名稱：screenshotImport、aiInsight、proPlan
+node scripts/feature-flags.mjs set aiInsight on     # 或 off；名稱：screenshotImport、aiInsight、proPlan、notifications、biometricLock、haptics
 node scripts/feature-flags.mjs set aiInsight on --dry-run   # 只印出會寫什麼
 ```
 

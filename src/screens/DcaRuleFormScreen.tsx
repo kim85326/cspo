@@ -36,6 +36,7 @@ import { toHalfWidthNumber } from "@/domain/transactionForm";
 import type { StockInfo } from "@/domain/types";
 import { useDcaPlan } from "@/hooks/useDcaPlan";
 import { useLedger } from "@/hooks/useLedger";
+import { useHaptics } from "@/ui/haptics";
 import { DateField } from "@/ui/DateField";
 import { LabeledInput } from "@/ui/LabeledInput";
 import { StockPicker } from "@/ui/StockPicker";
@@ -196,6 +197,7 @@ function FormBody({
   locked,
 }: BodyProps) {
   const insets = useSafeAreaInsets();
+  const haptics = useHaptics();
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<StockInfo | null>(() => (original ? stockFromSymbol(original.symbol) : null));
   const [form, setForm] = useState<DcaRuleFormValues>(() => (original ? formFromRule(original) : emptyForm(now())));
@@ -251,6 +253,7 @@ function FormBody({
       setFormError(result.error.message);
       return;
     }
+    haptics.success();
     // 存好就補產生已到期的期數；失敗（沒網路）也沒關係，下次開 App 會再補
     await runDcaCatchUp({ repository: repo, candleSource, unlimited, today: localIsoDate(now()) }).catch(() => {});
     setSaving(false);
@@ -267,6 +270,7 @@ function FormBody({
       setFormError(result.error.message);
       return;
     }
+    haptics.delete();
     leave();
   };
 

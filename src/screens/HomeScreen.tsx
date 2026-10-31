@@ -30,6 +30,7 @@ import {
   surfaceStyles,
 } from "@/ui/Surface";
 import { colors, fonts, fontSize, pnlColors, pnlColorsOnBrand, radius, space, type } from "@/ui/theme";
+import { useHaptics } from "@/ui/haptics";
 import { VersionBadge } from "@/ui/VersionBadge";
 
 /** 交易畫面是 Story 009，持股明細與單一持股頁是 Story 010，從截圖匯入是 Story 015 */
@@ -74,6 +75,7 @@ export default function HomeScreen({ repository = defaultRepository, priceSource
   } = useQuotes(symbols, priceSource);
 
   const features = useFeatures();
+  const haptics = useHaptics();
   const today = localIsoDate(new Date());
   const overview = useMemo(() => {
     if (!ledger) return null;
@@ -87,7 +89,15 @@ export default function HomeScreen({ repository = defaultRepository, priceSource
       style={surfaceStyles.screen}
       contentContainerStyle={[surfaceStyles.screenContent, styles.content]}
       refreshControl={
-        isEmpty || !ledger ? undefined : <RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />
+        isEmpty || !ledger ? undefined : (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              haptics.refresh();
+              void refresh();
+            }}
+          />
+        )
       }
     >
       {!overview || !ledger ? (

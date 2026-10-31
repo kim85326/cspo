@@ -22,6 +22,7 @@ import {
 import type { StockInfo } from "@/domain/types";
 import { useFeatures } from "@/hooks/useFeatures";
 import { useLedger } from "@/hooks/useLedger";
+import { useHaptics } from "@/ui/haptics";
 import { buyPointHref } from "@/ui/buyPointLink";
 import { Button } from "@/ui/Button";
 import { DateField } from "@/ui/DateField";
@@ -182,6 +183,7 @@ function FormBody({ title, ledger, repo, stocks, stocksLoading, now, original, i
   const insets = useSafeAreaInsets();
   const features = useFeatures();
   const isEdit = original !== null;
+  const haptics = useHaptics();
   const settings = ledger.settings;
 
   const [query, setQuery] = useState("");
@@ -260,6 +262,7 @@ function FormBody({ title, ledger, repo, stocks, stocksLoading, now, original, i
       showSaveError(result.error, original?.id);
       return;
     }
+    haptics.success();
     if (continueAdding) {
       setForm(emptyForm(now()));
       setSavedMessage(`已儲存：${SIDE_LABEL[v.side]} ${stock.name} ${formatShares(v.shares)} 股，可以繼續輸入下一筆`);
@@ -301,6 +304,7 @@ function FormBody({ title, ledger, repo, stocks, stocksLoading, now, original, i
       setFormError(result.error.message);
       return;
     }
+    haptics.delete();
     leave();
   };
 

@@ -1,6 +1,7 @@
 import { router, Tabs } from "expo-router";
 import { StyleSheet, View, type ColorValue } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useHaptics } from "@/ui/haptics";
 import { Icon, type IconName } from "@/ui/Icon";
 import { colors, fonts, fontSize, iconSize, space } from "@/ui/theme";
 
@@ -14,8 +15,11 @@ const TAB_BAR_HEIGHT = 64;
 export default function TabsLayout() {
   // 圖示 24 + 文字 + 上下留白；底部再加安全區（Home 指示條）。預設高度在網頁版會切到文字
   const insets = useSafeAreaInsets();
+  const haptics = useHaptics();
   return (
     <Tabs
+      // 切換分頁（含按「新增」）時輕微震一下（Story 036，功能開關 haptics）
+      screenListeners={{ tabPress: () => haptics.selection() }}
       screenOptions={{
         headerTitleAlign: "center",
         headerShadowVisible: false,

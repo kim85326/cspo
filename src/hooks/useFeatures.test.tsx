@@ -5,6 +5,16 @@ import type { Features } from "@/config/features";
 import { FEATURE_FLAGS_KEY } from "@/data/remoteFeatureFlags";
 import { FeatureFlagsProvider, useFeatures } from "./useFeatures";
 
+/** Jest 沒設環境變數：每個開關都是關的 */
+const ALL_OFF: Features = {
+  screenshotImport: false,
+  aiInsight: false,
+  proPlan: false,
+  notifications: false,
+  biometricLock: false,
+  haptics: false,
+};
+
 function Probe() {
   const features = useFeatures();
   return <Text testID="flags">{JSON.stringify(features)}</Text>;
@@ -41,7 +51,7 @@ async function renderWith(fetchRemote: () => Promise<Partial<Features> | null>) 
 describe("FeatureFlagsProvider（對應 docs/stories/033）", () => {
   test("沒包 Provider：用打包預設（Jest 沒設環境變數，全部關閉）", async () => {
     await render(<Probe />);
-    expect(shown()).toEqual({ screenshotImport: false, aiInsight: false, proPlan: false });
+    expect(shown()).toEqual(ALL_OFF);
   });
 
   test("網路還沒回來時先用預設值畫面，不卡住；抓到後重新 render 並存起來", async () => {
@@ -69,7 +79,7 @@ describe("FeatureFlagsProvider（對應 docs/stories/033）", () => {
     });
     await renderWith(fetchRemote);
     await waitFor(() => expect(fetchRemote).toHaveBeenCalled());
-    expect(shown()).toEqual({ screenshotImport: false, aiInsight: false, proPlan: false });
+    expect(shown()).toEqual(ALL_OFF);
   });
 
   test("回到前景時再抓一次，畫面跟著更新；進背景不抓", async () => {
@@ -84,7 +94,7 @@ describe("FeatureFlagsProvider（對應 docs/stories/033）", () => {
     expect(fetchRemote).toHaveBeenCalledTimes(1);
 
     await act(async () => appStateListeners.forEach((listener) => listener("active")));
-    await waitFor(() => expect(shown()).toEqual({ screenshotImport: false, aiInsight: false, proPlan: true }));
+    await waitFor(() => expect(shown()).toEqual({ ...ALL_OFF, proPlan: true }));
     expect(fetchRemote).toHaveBeenCalledTimes(2);
   });
 });

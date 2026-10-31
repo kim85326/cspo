@@ -12,6 +12,7 @@ import type { DcaRule, Ledger } from "@/domain/ledgerTypes";
 import type { StockInfo } from "@/domain/types";
 import { useDcaPlan } from "@/hooks/useDcaPlan";
 import { useLedger } from "@/hooks/useLedger";
+import { useHaptics } from "@/ui/haptics";
 import { Button } from "@/ui/Button";
 import { Icon } from "@/ui/Icon";
 import { Card, EmptyState, Notice, SkeletonCard, surfaceStyles } from "@/ui/Surface";
@@ -116,6 +117,7 @@ type CardProps = {
 
 function RuleCard({ rule, ledger, name, locked, onToggle }: CardProps) {
   const generated = dcaTransactionsOf(ledger, rule.id);
+  const haptics = useHaptics();
   const title = name ? `${rule.symbol} ${name}` : rule.symbol;
   const schedule = `每月 ${rule.dayOfMonth} 日 · ${rule.amount.toLocaleString("zh-TW")} 元`;
   const status = locked ? "Free 方案未啟用" : rule.enabled ? "啟用中" : "已暫停";
@@ -145,7 +147,10 @@ function RuleCard({ rule, ledger, name, locked, onToggle }: CardProps) {
             testID={`switch-dca-${rule.id}`}
             value={rule.enabled}
             disabled={locked}
-            onValueChange={onToggle}
+            onValueChange={(enabled) => {
+              haptics.toggle();
+              onToggle(enabled);
+            }}
             trackColor={{ true: colors.secondary, false: colors.border }}
             thumbColor={colors.card}
           />

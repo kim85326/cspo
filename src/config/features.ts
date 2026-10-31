@@ -18,7 +18,14 @@
  */
 
 /** 認得的開關名稱。新增開關時，scripts/feature-flags.mjs 的 FEATURE_NAMES 也要加（有測試比對）。 */
-export const FEATURE_NAMES = ["screenshotImport", "aiInsight", "proPlan"] as const;
+export const FEATURE_NAMES = [
+  "screenshotImport",
+  "aiInsight",
+  "proPlan",
+  "notifications",
+  "biometricLock",
+  "haptics",
+] as const;
 
 export type FeatureName = (typeof FEATURE_NAMES)[number];
 export type Features = Record<FeatureName, boolean>;
@@ -40,6 +47,12 @@ const buildEnv: Record<FeatureName, string | undefined> = {
   aiInsight: process.env.EXPO_PUBLIC_FEATURE_AI_INSIGHT,
   /** Story 020：Free／Pro 鎖定畫面（只做畫面，不串金流）。關閉時設定頁沒有 Pro 區塊，/pro 直接導回首頁。 */
   proPlan: process.env.EXPO_PUBLIC_FEATURE_PRO_PLAN,
+  /** Story 034：收盤損益、除息日、定期定額扣款的本地通知。關閉時設定頁沒有「通知」區塊，也不排任何通知 */
+  notifications: process.env.EXPO_PUBLIC_FEATURE_NOTIFICATIONS,
+  /** Story 035：打開 app 時用指紋／臉部／裝置密碼解鎖。關閉時設定頁沒有開關，也不會要求驗證 */
+  biometricLock: process.env.EXPO_PUBLIC_FEATURE_BIOMETRIC_LOCK,
+  /** Story 036：存檔、刪除、切換分頁、下拉重新整理、開關切換時的輕微震動 */
+  haptics: process.env.EXPO_PUBLIC_FEATURE_HAPTICS,
 };
 
 function fromEnv(read: (name: FeatureName) => boolean | undefined): Partial<Features> {

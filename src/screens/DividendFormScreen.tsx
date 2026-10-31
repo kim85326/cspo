@@ -23,6 +23,7 @@ import { securityTypeOf } from "@/domain/security";
 import { toHalfWidthNumber } from "@/domain/transactionForm";
 import type { StockInfo } from "@/domain/types";
 import { useLedger } from "@/hooks/useLedger";
+import { useHaptics } from "@/ui/haptics";
 import { DateField } from "@/ui/DateField";
 import { LabeledInput } from "@/ui/LabeledInput";
 import { Segmented } from "@/ui/Segmented";
@@ -165,6 +166,7 @@ type BodyProps = {
 
 function FormBody({ title, ledger, repo, stocks, stocksLoading, now, original, initialSymbol }: BodyProps) {
   const insets = useSafeAreaInsets();
+  const haptics = useHaptics();
   const isAuto = original?.source === "auto";
 
   const [query, setQuery] = useState("");
@@ -227,6 +229,7 @@ function FormBody({ title, ledger, repo, stocks, stocksLoading, now, original, i
       showSaveError(result.error);
       return;
     }
+    haptics.success();
     leave();
   };
 
@@ -239,6 +242,7 @@ function FormBody({ title, ledger, repo, stocks, stocksLoading, now, original, i
       setFormError(result.error.message);
       return;
     }
+    haptics.success();
     leave();
   };
 
@@ -252,6 +256,7 @@ function FormBody({ title, ledger, repo, stocks, stocksLoading, now, original, i
       setFormError(result.error.message);
       return;
     }
+    haptics.delete();
     leave();
   };
 

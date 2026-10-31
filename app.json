@@ -47,7 +47,22 @@
           }
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-background-task",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#1E3A8A",
+          "enableRemoteNotifications": false
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "打開 app 時用 Face ID 確認是你本人，保護你的記帳資料。"
+        }
+      ]
     ],
     "scheme": "stockpnl",
     "experiments": {

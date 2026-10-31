@@ -4,7 +4,14 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { FEATURE_NAMES, parseFlags, resolveFeatures, type Features } from "./features";
 
-const OFF: Features = { screenshotImport: false, aiInsight: false, proPlan: false };
+const OFF: Features = {
+  screenshotImport: false,
+  aiInsight: false,
+  proPlan: false,
+  notifications: false,
+  biometricLock: false,
+  haptics: false,
+};
 
 describe("parseFlags（對應 docs/stories/033）", () => {
   test("只留下認得的名稱、值是 true／false 的開關", () => {

@@ -29,6 +29,7 @@ import type { StockInfo } from "@/domain/types";
 import { useFeatures } from "@/hooks/useFeatures";
 import { useLedger } from "@/hooks/useLedger";
 import { useScreenshotImport } from "@/hooks/useScreenshotImport";
+import { useHaptics } from "@/ui/haptics";
 import { DateField } from "@/ui/DateField";
 import { REVIEW_BADGE } from "@/ui/HoldingForm";
 import { ImportSourceSheet } from "@/ui/ImportSourceSheet";
@@ -60,6 +61,7 @@ export default function ImportScreen({
   now = () => new Date(),
 }: Props) {
   const insets = useSafeAreaInsets();
+  const haptics = useHaptics();
   const features = useFeatures();
   const { ledger, repository: repo } = useLedger(repository);
   const [stocks, setStocks] = useState<StockInfo[]>([]);
@@ -143,6 +145,7 @@ export default function ImportScreen({
       setSaveError(result.error.message);
       return;
     }
+    haptics.success();
     router.dismissTo("/");
   };
 
